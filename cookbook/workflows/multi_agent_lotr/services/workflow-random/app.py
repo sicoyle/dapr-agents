@@ -1,4 +1,4 @@
-from floki import RandomWorkflowService
+from dapr_agents import RandomWorkflowService
 from dotenv import load_dotenv
 import asyncio
 import logging

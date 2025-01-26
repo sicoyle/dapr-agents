@@ -1,4 +1,4 @@
-from floki import LLMWorkflowService
+from dapr_agents import LLMWorkflowService
 from dotenv import load_dotenv
 import asyncio
 import logging

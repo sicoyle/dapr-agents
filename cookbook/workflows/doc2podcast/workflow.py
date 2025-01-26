@@ -1,13 +1,13 @@
-from floki.document.reader.pdf.pypdf import PyPDFReader
-from floki.types import DaprWorkflowContext
-from floki import WorkflowApp
+from dapr_agents.document.reader.pdf.pypdf import PyPDFReader
+from dapr_agents.types import DaprWorkflowContext
+from dapr_agents import WorkflowApp
 from urllib.parse import urlparse, unquote
 from dotenv import load_dotenv
 from typing import Dict, Any, List
 from pydantic import BaseModel
 from pathlib import Path
-from floki import OpenAIAudioClient
-from floki.types.llm import AudioSpeechRequest
+from dapr_agents import OpenAIAudioClient
+from dapr_agents.types.llm import AudioSpeechRequest
 from pydub import AudioSegment
 import io
 import requests

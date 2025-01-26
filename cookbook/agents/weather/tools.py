@@ -1,5 +1,5 @@
 from typing import Optional
-from floki import AgentTool
+from dapr_agents import AgentTool
 from datetime import datetime
 import requests
 import time
