@@ -1,6 +1,6 @@
-# Why Floki
+# Why Dapr Agents
 
-Floki is an open-source framework for building and orchestrating LLM-based autonomous agents, designed to simplify the complexity of creating scalable agentic workflows and microservices. Inspired by the growing need for frameworks that integrate seamlessly with distributed systems, Floki enables developers to focus on designing intelligent agents without getting bogged down by infrastructure concerns.
+Dapr Agents is an open-source framework for building and orchestrating LLM-based autonomous agents, designed to simplify the complexity of creating scalable agentic workflows and microservices. Inspired by the growing need for frameworks that integrate seamlessly with distributed systems, Dapr Agents enables developers to focus on designing intelligent agents without getting bogged down by infrastructure concerns.
 
 ## The Problem
 
@@ -8,18 +8,12 @@ Many agentic frameworks today attempt to redefine how microservices are built an
 
 Rather than building on existing solutions that are proven to handle these challenges at scale, many frameworks require developers to adopt entirely new paradigms or recreate foundational infrastructure. This added complexity often diverts focus from the primary goal: designing and implementing intelligent, effective agents.
 
-## Floki's Approach
+## Dapr Agents's Approach
 
-Floki takes a distinct approach by building on [Dapr](https://dapr.io/), a portable and event-driven runtime optimized for distributed systems. Dapr offers built-in APIs and patterns such as state management, Pub/Sub messaging, service invocation, and virtual actors—that eliminate the need to recreate foundational components from scratch. By integrating seamlessly with Dapr, Floki empowers developers to focus on the intelligence and behavior of LLM-powered agents while leveraging a proven framework for scalability and reliability.
+Dapr Agents takes a distinct approach by building on [Dapr](https://dapr.io/), a portable and event-driven runtime optimized for distributed systems. Dapr offers built-in APIs and patterns such as state management, Pub/Sub messaging, service invocation, and virtual actors—that eliminate the need to recreate foundational components from scratch. By integrating seamlessly with Dapr, Dapr Agents empowers developers to focus on the intelligence and behavior of LLM-powered agents while leveraging a proven framework for scalability and reliability.
 
-Rather than reinventing microservices, Floki enables developers to design, test, and deploy agents that seamlessly integrate as collaborative services within larger systems. Whether experimenting with a single agent or orchestrating workflows involving multiple agents, Floki simplifies the exploration and implementation of scalable agentic workflows.
+Rather than reinventing microservices, Dapr Agents enables developers to design, test, and deploy agents that seamlessly integrate as collaborative services within larger systems. Whether experimenting with a single agent or orchestrating workflows involving multiple agents, Dapr Agents simplifies the exploration and implementation of scalable agentic workflows.
 
 ## Conclusion
 
-Floki provides a unified framework for designing, deploying, and orchestrating LLM-powered agents. By leveraging Dapr’s runtime and modular components, Floki allows developers to focus on building intelligent systems without worrying about the complexities of distributed infrastructure. Whether you're creating standalone agents or orchestrating multi-agent workflows, Floki empowers you to explore the future of intelligent, scalable, and collaborative systems.
-
-## Why the Name Floki?
-
-The name `Dapr Agents` is inspired by both history and fiction. Historically, [Floki Vilgerðarson](https://en.wikipedia.org/wiki/Hrafna-Fl%C3%B3ki_Vilger%C3%B0arson) is known in Norse sagas as the first Norseman to journey to Iceland, embodying a spirit of discovery. In the [Vikings series](https://en.wikipedia.org/wiki/Vikings_(2013_TV_series)), Floki is portrayed as a skilled boat builder, creating vessels that allowed his people to explore and achieve their goals.
-
-In the same way, this framework equips developers with the tools to build, prototype, and deploy their own agents or fleets of agents, enabling them to experiment and explore the potential of LLM-based workflows.
+Dapr Agents provides a unified framework for designing, deploying, and orchestrating LLM-powered agents. By leveraging Dapr’s runtime and modular components, Dapr Agents allows developers to focus on building intelligent systems without worrying about the complexities of distributed infrastructure. Whether you're creating standalone agents or orchestrating multi-agent workflows, Dapr Agents empowers you to explore the future of intelligent, scalable, and collaborative systems.

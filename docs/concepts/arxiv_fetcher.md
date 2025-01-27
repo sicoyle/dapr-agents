@@ -16,7 +16,7 @@ The Arxiv Fetcher simplifies the process of accessing research papers, offering 
 ### Step 1: Install Required Modules
 
 !!! info
-    The Arxiv Fetcher relies on a [lightweight Python wrapper](https://github.com/lukasschwab/arxiv.py) for the arXiv API, which is not included in the Floki core module. This design choice helps maintain modularity and avoids adding unnecessary dependencies for users who may not require this functionality. To use the Arxiv Fetcher, ensure you install the [library](https://pypi.org/project/arxiv/) separately.
+    The Arxiv Fetcher relies on a [lightweight Python wrapper](https://github.com/lukasschwab/arxiv.py) for the arXiv API, which is not included in the Dapr Agents core module. This design choice helps maintain modularity and avoids adding unnecessary dependencies for users who may not require this functionality. To use the Arxiv Fetcher, ensure you install the [library](https://pypi.org/project/arxiv/) separately.
 
 ```python
 pip install arxiv

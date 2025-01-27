@@ -5,7 +5,7 @@
 
 In `Dapr Agents`, LLM-based Task Workflows allow developers to design step-by-step workflows where LLMs provide reasoning and decision-making at defined stages. These workflows are deterministic and structured, enabling the execution of tasks in a specific order, often defined by Python functions. This approach does not rely on event-driven systems or pub/sub messaging but focuses on defining and orchestrating tasks with the help of LLM reasoning when necessary. Ideal for scenarios that require a predefined flow of tasks enhanced by language model insights.
 
-Now that we have a better understanding of `Dapr` and `Dapr Agents` workflows, let’s explore how to use Dapr activities or Floki tasks to call LLM Inference APIs, such as [OpenAI Tex Generation endpoint](https://platform.openai.com/docs/guides/text-generation), with models like `gpt-4o`.
+Now that we have a better understanding of `Dapr` and `Dapr Agents` workflows, let’s explore how to use Dapr activities or Dapr Agents tasks to call LLM Inference APIs, such as [OpenAI Tex Generation endpoint](https://platform.openai.com/docs/guides/text-generation), with models like `gpt-4o`.
 
 ## Dapr Workflows & LLM Inference APIs
 
@@ -100,7 +100,7 @@ dapr run --app-id originalllmwf --dapr-grpc-port 50001 --resources-path componen
 
 ![](../../img/workflows_originial_llm_request.png)
 
-## Floki LLM-based Tasks
+## Dapr Agents LLM-based Tasks
 
 Now, let’s get to the exciting part! `Tasks` in `Dapr Agents` build on the concept of `activities` and bring additional flexibility. Using Python function signatures, you can define tasks with ease. The `task decorator` allows you to provide a `description` parameter, which acts as a prompt for the default LLM inference client in `Dapr Agents` (`OpenAIChatClient` by default).
 

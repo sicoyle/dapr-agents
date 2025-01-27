@@ -8,11 +8,11 @@ Agents in `Dapr Agents` are autonomous systems powered by Large Language Models 
 
 ### 1. LLM Integration
 
-Floki provides a unified interface to connect with LLM inference APIs, starting with [OpenAI models](https://platform.openai.com/docs/models). This abstraction allows developers to seamlessly integrate their agents with cutting-edge language models for reasoning and decision-making.
+Dapr Agents provides a unified interface to connect with LLM inference APIs, starting with [OpenAI models](https://platform.openai.com/docs/models). This abstraction allows developers to seamlessly integrate their agents with cutting-edge language models for reasoning and decision-making.
 
 ### 2. Structured Outputs
 
-Agents in Floki leverage structured output capabilities, such as [OpenAI’s Function Calling](https://platform.openai.com/docs/guides/function-calling), to generate predictable and reliable results. These outputs follow [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12/release-notes.html) and [OpenAPI Specification v3.1.0](https://github.com/OAI/OpenAPI-Specification) standards, enabling easy interoperability and tool integration.
+Agents in Dapr Agents leverage structured output capabilities, such as [OpenAI’s Function Calling](https://platform.openai.com/docs/guides/function-calling), to generate predictable and reliable results. These outputs follow [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12/release-notes.html) and [OpenAPI Specification v3.1.0](https://github.com/OAI/OpenAPI-Specification) standards, enabling easy interoperability and tool integration.
 
 ### 3. Tool Selection
 
@@ -20,11 +20,11 @@ Agents dynamically select the appropriate tool for a given task, using LLMs to a
 
 ### 4. Memory
 
-Agents retain context across interactions, enhancing their ability to provide coherent and adaptive responses. Memory options range from simple in-memory lists for managing chat history to vector databases for semantic search and retrieval. Floki also integrates with [Dapr state stores](https://docs.dapr.io/developing-applications/building-blocks/state-management/howto-get-save-state/), enabling scalable and persistent memory for advanced use cases.
+Agents retain context across interactions, enhancing their ability to provide coherent and adaptive responses. Memory options range from simple in-memory lists for managing chat history to vector databases for semantic search and retrieval. Dapr Agents also integrates with [Dapr state stores](https://docs.dapr.io/developing-applications/building-blocks/state-management/howto-get-save-state/), enabling scalable and persistent memory for advanced use cases.
 
 ### 5. Prompt Flexibility
 
-Floki supports flexible prompt templates to shape agent behavior and reasoning. Users can define placeholders within prompts, enabling dynamic input of context for inference calls. By leveraging prompt formatting with [Jinja templates](https://jinja.palletsprojects.com/en/stable/templates/), users can include loops, conditions, and variables, providing precise control over the structure and content of prompts. This flexibility ensures that LLM responses are tailored to the task at hand, offering modularity and adaptability for diverse use cases.
+Dapr Agents supports flexible prompt templates to shape agent behavior and reasoning. Users can define placeholders within prompts, enabling dynamic input of context for inference calls. By leveraging prompt formatting with [Jinja templates](https://jinja.palletsprojects.com/en/stable/templates/), users can include loops, conditions, and variables, providing precise control over the structure and content of prompts. This flexibility ensures that LLM responses are tailored to the task at hand, offering modularity and adaptability for diverse use cases.
 
 ### 6. Agent Services
 
@@ -36,11 +36,11 @@ Agents collaborate through [Pub/Sub messaging](https://docs.dapr.io/developing-a
 
 ### 8. Workflow Orchestration
 
-Floki supports both deterministic and event-driven workflows to manage multi-agent systems via [Dapr Workflows](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-overview/). Deterministic workflows provide clear, repeatable processes, while event-driven workflows allow for dynamic, adaptive collaboration between agents in centralized or decentralized architectures.
+Dapr Agents supports both deterministic and event-driven workflows to manage multi-agent systems via [Dapr Workflows](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-overview/). Deterministic workflows provide clear, repeatable processes, while event-driven workflows allow for dynamic, adaptive collaboration between agents in centralized or decentralized architectures.
 
 ## Agent Patterns
 
-In Floki, Agent Patterns define the built-in loops that allow agents to dynamically handle tasks. These patterns enable agents to iteratively reason, act, and adapt, making them flexible and capable problem-solvers. By embedding these patterns, Floki ensures agents can independently complete tasks without requiring external orchestration.
+In Dapr Agents, Agent Patterns define the built-in loops that allow agents to dynamically handle tasks. These patterns enable agents to iteratively reason, act, and adapt, making them flexible and capable problem-solvers. By embedding these patterns, Dapr Agents ensures agents can independently complete tasks without requiring external orchestration.
 
 ### Tool Calling
 
@@ -85,7 +85,7 @@ ReAct empowers agents to navigate complex, real-world environments efficiently, 
 
 ## Workflows for Collaboration
 
-While patterns empower individual agents, workflows enable the coordination of multiple agents to achieve shared goals. In Floki, workflows serve as a higher-level framework for organizing how agents collaborate and distribute tasks.
+While patterns empower individual agents, workflows enable the coordination of multiple agents to achieve shared goals. In Dapr Agents, workflows serve as a higher-level framework for organizing how agents collaborate and distribute tasks.
 
 Workflows can orchestrate agents, each equipped with their own built-in patterns, to handle different parts of a larger process. For example, one agent might gather data using tools, another might analyze the results, and a third might generate a report. The workflow manages the communication and sequencing between these agents, ensuring smooth collaboration.
 
