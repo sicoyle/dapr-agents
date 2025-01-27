@@ -48,12 +48,4 @@ Dapr provides Dapr Agents with a unified programming model that simplifies the d
 
     [:octicons-arrow-right-24: Concepts](concepts/agents.md)
 
--   :material-scale-balance:{ .lg .middle } __Open Source, MIT__
-
-    ---
-
-    Dapr Agents is licensed under MIT and available on [GitHub]
-
-    [:octicons-arrow-right-24: License](https://github.com/dapr-sandbox/dapr-agents/blob/main/LICENSE)
-
 </div>
