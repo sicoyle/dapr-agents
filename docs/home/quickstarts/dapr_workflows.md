@@ -1,9 +1,9 @@
-# Dapr & Floki Workflows
+# Dapr Agents and Workflows
 
 !!! info
     This quickstart requires `Dapr CLI` and `Docker`. You must have your [local Dapr environment set up](../installation.md).
 
-[Dapr workflows](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-overview/) provide a solid framework for managing long-running processes and interactions across distributed systems using the Dapr Python SDK. Floki builds on this by introducing tasks, which simplify defining and managing workflows while adding features like tool integrations and LLM-powered reasoning. This approach allows you to start with basic Dapr workflows and expand to more advanced capabilities, such as LLM-driven tasks or multi-agent coordination, as your needs grow.
+[Dapr workflows](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-overview/) provide a solid framework for managing long-running processes and interactions across distributed systems using the Dapr Python SDK. Dapr Agents builds on this by introducing tasks, which simplify defining and managing workflows while adding features like tool integrations and LLM-powered reasoning. This approach allows you to start with basic Dapr workflows and expand to more advanced capabilities, such as LLM-driven tasks or multi-agent coordination, as your needs grow.
 
 ## Default Dapr Workflows
 
@@ -100,7 +100,7 @@ dapr run --app-id originalwf --dapr-grpc-port 50001 --resources-path components/
 ![](../../img/workflows_original_activity.png)
 
 
-## Dapr Workflow -> Floki Workflows
+## Dapr Workflow -> Dapr Agents Workflows
 
 With `Dapr Agents`, the goal was to simplify workflows while adding flexibility and powerful integrations. I wanted to create a way to track the workflow state, including input, output, and status, while also streamlining monitoring. To achieve this, I built additional `workflow` and `activity` wrappers. The workflow wrapper stays mostly the same as Dapr's original, but the activity wrapper has been extended into a `task wrapper`. This change allows tasks to integrate seamlessly with LLM-based prompts and other advanced capabilities.
 

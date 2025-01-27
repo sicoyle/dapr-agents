@@ -88,7 +88,7 @@ Key Considerations:
 
 ## The Agentic Workflow Service
 
-The Agentic Workflow Service in Floki extends workflows to orchestrate communication among agents. It allows you to send messages to agents to trigger their participation and monitors a shared message bus to listen for all messages being passed. This enables dynamic collaboration and task distribution among agents.
+The Agentic Workflow Service in Dapr Agents extends workflows to orchestrate communication among agents. It allows you to send messages to agents to trigger their participation and monitors a shared message bus to listen for all messages being passed. This enables dynamic collaboration and task distribution among agents.
 
 Types of Agentic Workflows:
 
@@ -132,7 +132,7 @@ Unlike `Agents as Services`, the `Agentic Workflow Service` does not require an 
 
 * **Max Iterations**: Defines the maximum number of iterations the workflow will perform, ensuring controlled task execution and preventing infinite loops.
 * **Workflow State Store Name**: Specifies the state store used to persist the workflow’s state, allowing for reliable recovery and tracking of workflow progress.
-* **LLM Inference Client**: Although an individual agent is not required, the LLM-based Agentic Workflow Service depends on an LLM Inference Client. By default, it uses the [OpenAIChatClient()](https://github.com/dapr-sandbox/dapr-agents/blob/main/src/dapr-agents/llm/openai/chat.py) from the Floki library.
+* **LLM Inference Client**: Although an individual agent is not required, the LLM-based Agentic Workflow Service depends on an LLM Inference Client. By default, it uses the [OpenAIChatClient()](https://github.com/dapr-sandbox/dapr-agents/blob/main/src/dapr-agents/llm/openai/chat.py) from the Dapr Agents library.
 
 These differences reflect the distinct purpose of the Agentic Workflow Service, which acts as a centralized orchestrator rather than an individual agent service. The inclusion of the LLM Inference Client in the LLM-based workflows allows the orchestrator to leverage natural language processing for intelligent task routing and decision-making.
 

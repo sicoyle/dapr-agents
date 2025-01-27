@@ -1,6 +1,6 @@
 # Installation
 
-## Install Floki
+## Install Dapr Agents
 
 !!! info
     make sure you have Python already installed. `Python >=3.9`
@@ -60,7 +60,7 @@ docker ps
 
 ## Enable Redis Insights
 
-Dapr uses [Redis](https://docs.dapr.io/reference/components-reference/supported-state-stores/setup-redis/) by default for state management and pub/sub messaging, which are fundamental to Floki's agentic workflows. These capabilities enable the following:
+Dapr uses [Redis](https://docs.dapr.io/reference/components-reference/supported-state-stores/setup-redis/) by default for state management and pub/sub messaging, which are fundamental to Dapr Agents's agentic workflows. These capabilities enable the following:
 
 * Viewing Pub/Sub Messages: Monitor and inspect messages exchanged between agents in event-driven workflows.
 * Inspecting State Information: Access and analyze shared state data among agents.
