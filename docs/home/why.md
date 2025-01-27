@@ -20,6 +20,6 @@ Floki provides a unified framework for designing, deploying, and orchestrating L
 
 ## Why the Name Floki?
 
-The name `Floki` is inspired by both history and fiction. Historically, [Floki Vilgerðarson](https://en.wikipedia.org/wiki/Hrafna-Fl%C3%B3ki_Vilger%C3%B0arson) is known in Norse sagas as the first Norseman to journey to Iceland, embodying a spirit of discovery. In the [Vikings series](https://en.wikipedia.org/wiki/Vikings_(2013_TV_series)), Floki is portrayed as a skilled boat builder, creating vessels that allowed his people to explore and achieve their goals.
+The name `Dapr Agents` is inspired by both history and fiction. Historically, [Floki Vilgerðarson](https://en.wikipedia.org/wiki/Hrafna-Fl%C3%B3ki_Vilger%C3%B0arson) is known in Norse sagas as the first Norseman to journey to Iceland, embodying a spirit of discovery. In the [Vikings series](https://en.wikipedia.org/wiki/Vikings_(2013_TV_series)), Floki is portrayed as a skilled boat builder, creating vessels that allowed his people to explore and achieve their goals.
 
 In the same way, this framework equips developers with the tools to build, prototype, and deploy their own agents or fleets of agents, enabling them to experiment and explore the potential of LLM-based workflows.

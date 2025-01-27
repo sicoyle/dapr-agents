@@ -2,8 +2,7 @@
 
 [![pypi](https://img.shields.io/pypi/v/floki-ai.svg)](https://pypi.python.org/pypi/floki-ai)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/floki-ai)](https://pypi.org/project/floki-ai/)
-[![GitHub Repo stars](https://img.shields.io/github/stars/Cyb3rWard0g/floki)](https://github.com/Cyb3rWard0g/floki)
-[![license](https://img.shields.io/github/license/Cyb3rWard0g/floki.svg)](https://github.com/Cyb3rWard0g/floki/blob/main/LICENSE)
+[![GitHub Repo stars](https://img.shields.io/github/stars/dapr-sandbox/dapr-agents)](https://github.com/dapr-sandbox/dapr-agents)
 
 ![](docs/logo-workflows.png)
 
@@ -11,7 +10,7 @@
 
 Dapr Agents is an open-source framework for researchers and developers to experiment with LLM-based autonomous agents. It provides tools to create, orchestrate, and manage agents while seamlessly connecting to LLM inference APIs. Built on [Dapr](https://docs.dapr.io/), Dapr Agents leverages a unified programming model that simplifies microservices and supports both deterministic workflows and event-driven interactions. Using Dapr’s Virtual Actor pattern, Dapr Agents enables agents to function as independent, self-contained units that process messages sequentially, eliminating concurrency concerns while seamlessly integrating into larger workflows. It also facilitates agent collaboration through Dapr’s Pub/Sub integration, where agents communicate via a shared message bus, simplifying the design of workflows where tasks are distributed efficiently, and agents work together to achieve shared goals. By bringing together these features, Dapr Agents provides a powerful way to explore agentic workflows and the components that enable multi-agent systems to collaborate and scale, all powered by Dapr.
 
-## Documentation (WIP 🚧): https://cyb3rward0g.github.io/floki/
+## Documentation (WIP 🚧): https://github.com/dapr-sandbox/dapr-agents
 
 ## Why Dapr 🎩?
 

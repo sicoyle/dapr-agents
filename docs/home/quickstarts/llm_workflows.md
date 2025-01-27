@@ -3,9 +3,9 @@
 !!! info
     This quickstart requires `Dapr CLI` and `Docker`. You must have your [local Dapr environment set up](../installation.md).
 
-In `Floki`, LLM-based Task Workflows allow developers to design step-by-step workflows where LLMs provide reasoning and decision-making at defined stages. These workflows are deterministic and structured, enabling the execution of tasks in a specific order, often defined by Python functions. This approach does not rely on event-driven systems or pub/sub messaging but focuses on defining and orchestrating tasks with the help of LLM reasoning when necessary. Ideal for scenarios that require a predefined flow of tasks enhanced by language model insights.
+In `Dapr Agents`, LLM-based Task Workflows allow developers to design step-by-step workflows where LLMs provide reasoning and decision-making at defined stages. These workflows are deterministic and structured, enabling the execution of tasks in a specific order, often defined by Python functions. This approach does not rely on event-driven systems or pub/sub messaging but focuses on defining and orchestrating tasks with the help of LLM reasoning when necessary. Ideal for scenarios that require a predefined flow of tasks enhanced by language model insights.
 
-Now that we have a better understanding of `Dapr` and `Floki` workflows, let’s explore how to use Dapr activities or Floki tasks to call LLM Inference APIs, such as [OpenAI Tex Generation endpoint](https://platform.openai.com/docs/guides/text-generation), with models like `gpt-4o`.
+Now that we have a better understanding of `Dapr` and `Dapr Agents` workflows, let’s explore how to use Dapr activities or Floki tasks to call LLM Inference APIs, such as [OpenAI Tex Generation endpoint](https://platform.openai.com/docs/guides/text-generation), with models like `gpt-4o`.
 
 ## Dapr Workflows & LLM Inference APIs
 
@@ -102,13 +102,13 @@ dapr run --app-id originalllmwf --dapr-grpc-port 50001 --resources-path componen
 
 ## Floki LLM-based Tasks
 
-Now, let’s get to the exciting part! `Tasks` in `Floki` build on the concept of `activities` and bring additional flexibility. Using Python function signatures, you can define tasks with ease. The `task decorator` allows you to provide a `description` parameter, which acts as a prompt for the default LLM inference client in `Floki` (`OpenAIChatClient` by default).
+Now, let’s get to the exciting part! `Tasks` in `Dapr Agents` build on the concept of `activities` and bring additional flexibility. Using Python function signatures, you can define tasks with ease. The `task decorator` allows you to provide a `description` parameter, which acts as a prompt for the default LLM inference client in `Dapr Agents` (`OpenAIChatClient` by default).
 
 You can also use function arguments to pass variables to the prompt, letting you dynamically format the prompt before it’s sent to the text generation endpoint. This makes it simple to implement workflows that follow the [Dapr Task chaining pattern](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-patterns/#task-chaining), just like in the earlier example, but with even more flexibility.
 
 ```python
-from floki import WorkflowApp
-from floki.types import DaprWorkflowContext
+from dapr_agents import WorkflowApp
+from dapr_agents.types import DaprWorkflowContext
 from dotenv import load_dotenv
 
 # Load environment variables

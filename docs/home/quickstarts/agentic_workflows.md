@@ -3,14 +3,14 @@
 !!! info
     This quickstart requires `Dapr CLI` and `Docker`. You must have your [local Dapr environment set up](../installation.md).
 
-Event-Driven Agentic Workflows in `Floki` take advantage of an event-driven system using pub/sub messaging and a shared message bus. Agents operate as autonomous entities that respond to events dynamically, enabling real-time interactions and collaboration. These workflows are highly adaptable, allowing agents to communicate, share tasks, and reason through events triggered by their environment. This approach is best suited for decentralized systems requiring dynamic agent collaboration across distributed applications.
+Event-Driven Agentic Workflows in `Dapr Agents` take advantage of an event-driven system using pub/sub messaging and a shared message bus. Agents operate as autonomous entities that respond to events dynamically, enabling real-time interactions and collaboration. These workflows are highly adaptable, allowing agents to communicate, share tasks, and reason through events triggered by their environment. This approach is best suited for decentralized systems requiring dynamic agent collaboration across distributed applications.
 
 !!! tip
-    We will demonstrate this concept using the [Multi-Agent Workflow Guide](https://github.com/Cyb3rWard0g/floki/tree/main/cookbook/workflows/multi_agent_lotr) from our Cookbook, which outlines a step-by-step guide to implementing a basic agentic workflow.
+    We will demonstrate this concept using the [Multi-Agent Workflow Guide](https://github.com/dapr-sandbox/dapr-agents/tree/main/cookbook/workflows/multi_agent_lotr) from our Cookbook, which outlines a step-by-step guide to implementing a basic agentic workflow.
 
 ## Agents as Services
 
-In `Floki`, agents can be exposed as services, making them reusable, modular, and easy to integrate into event-driven workflows. Each agent runs as a microservice, wrapped in a [Dapr-enabled FastAPI server](https://docs.dapr.io/developing-applications/sdks/python/python-sdk-extensions/python-fastapi/). This design allows agents to operate independently while communicating through [Dapr’s pub/sub](https://docs.dapr.io/developing-applications/building-blocks/pubsub/pubsub-overview/) messaging and interacting with state stores or other services.
+In `Dapr Agents`, agents can be exposed as services, making them reusable, modular, and easy to integrate into event-driven workflows. Each agent runs as a microservice, wrapped in a [Dapr-enabled FastAPI server](https://docs.dapr.io/developing-applications/sdks/python/python-sdk-extensions/python-fastapi/). This design allows agents to operate independently while communicating through [Dapr’s pub/sub](https://docs.dapr.io/developing-applications/building-blocks/pubsub/pubsub-overview/) messaging and interacting with state stores or other services.
 
 The way to structure such a project is straightforward. We organize our services into a directory that contains individual folders for each agent, along with a components/ directory for Dapr configurations. Each agent service includes its own app.py file, where the FastAPI server and the agent logic are defined.
 
@@ -42,7 +42,7 @@ services/                  # Directory for agent services
 Create the `app.py` script and provide the following information.
 
 ```python
-from floki import Agent, AgentService
+from dapr_agents import Agent, AgentService
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -99,7 +99,7 @@ Types of Agentic Workflows:
 Next, we’ll define a `RoundRobin Agentic Workflow Service` to demonstrate how this concept can be implemented.
 
 ```python
-from floki import RoundRobinWorkflowService
+from dapr_agents import RoundRobinWorkflowService
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -132,7 +132,7 @@ Unlike `Agents as Services`, the `Agentic Workflow Service` does not require an 
 
 * **Max Iterations**: Defines the maximum number of iterations the workflow will perform, ensuring controlled task execution and preventing infinite loops.
 * **Workflow State Store Name**: Specifies the state store used to persist the workflow’s state, allowing for reliable recovery and tracking of workflow progress.
-* **LLM Inference Client**: Although an individual agent is not required, the LLM-based Agentic Workflow Service depends on an LLM Inference Client. By default, it uses the [OpenAIChatClient()](https://github.com/Cyb3rWard0g/floki/blob/main/src/floki/llm/openai/chat.py) from the Floki library.
+* **LLM Inference Client**: Although an individual agent is not required, the LLM-based Agentic Workflow Service depends on an LLM Inference Client. By default, it uses the [OpenAIChatClient()](https://github.com/dapr-sandbox/dapr-agents/blob/main/src/dapr-agents/llm/openai/chat.py) from the Floki library.
 
 These differences reflect the distinct purpose of the Agentic Workflow Service, which acts as a centralized orchestrator rather than an individual agent service. The inclusion of the LLM Inference Client in the LLM-based workflows allows the orchestrator to leverage natural language processing for intelligent task routing and decision-making.
 
@@ -274,7 +274,7 @@ In this example:
 
 ## Customizing the Workflow
 
-The default setup uses the [workflow-roundrobin service](https://github.com/Cyb3rWard0g/floki/blob/main/cookbook/workflows/multi_agent_lotr/services/workflow-roundrobin/app.py), which processes agent tasks in a `round-robin` order. However, you can easily switch to a different workflow type by updating the `dapr.yaml` file.
+The default setup uses the [workflow-roundrobin service](https://github.com/dapr-sandbox/dapr-agents/blob/main/cookbook/workflows/multi_agent_lotr/services/workflow-roundrobin/app.py), which processes agent tasks in a `round-robin` order. However, you can easily switch to a different workflow type by updating the `dapr.yaml` file.
 
 ### Available Workflow Options
 

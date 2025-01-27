@@ -1,9 +1,9 @@
 # LLM Inference Client
 
-In `Floki`, the LLM Inference Client is responsible for interacting with language models. It serves as the interface through which the agent communicates with the LLM, generating responses based on the input provided.
+In `Dapr Agents`, the LLM Inference Client is responsible for interacting with language models. It serves as the interface through which the agent communicates with the LLM, generating responses based on the input provided.
 
 !!! info
-    By default, `Floki` uses the `OpenAIChatClient` to interact with the OpenAI Chat endpoint. By default, the `OpenAIChatClient` uses the `gpt-4o` model
+    By default, `Dapr Agents` uses the `OpenAIChatClient` to interact with the OpenAI Chat endpoint. By default, the `OpenAIChatClient` uses the `gpt-4o` model
 
 ## Set Environment Variables
 
@@ -26,7 +26,7 @@ load_dotenv()  # take environment variables from .env.
 By default, you can easily initialize the `OpenAIChatClient` without additional configuration. It uses the `OpenAI API` key from your environment variables.
 
 ```python
-from floki import OpenAIChatClient
+from dapr_agents import OpenAIChatClient
 
 llm = OpenAIChatClient()
 
@@ -44,7 +44,7 @@ ChatCompletion(choices=[Choice(finish_reason='stop', index=0, message=MessageCon
 Onge again, initialize `OpenAIChatClient`.
 
 ```python
-from floki import OpenAIChatClient
+from dapr_agents import OpenAIChatClient
 
 llmClient = OpenAIChatClient()
 ```
@@ -63,7 +63,7 @@ class dog(BaseModel):
 Finally, you can pass the response model to the LLM Client call.
 
 ```python
-from floki.types import UserMessage
+from dapr_agents.types import UserMessage
 
 response = llmClient.generate(
     messages=[UserMessage("One famous dog in history.")],

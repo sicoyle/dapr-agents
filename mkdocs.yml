@@ -7,7 +7,7 @@ strict: false
 
 # Repository
 repo_name: Cyb3rWard0g/floki
-repo_url: https://github.com/Cyb3rWard0g/floki
+repo_url: https://github.com/dapr-sandbox/dapr-agents
 edit_uri: edit/main/docs/
 
 # Copyright
@@ -113,7 +113,7 @@ extra:
             Thanks for your feedback!
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/Cyb3rWard0g/floki
+      link: https://github.com/dapr-sandbox/dapr-agents
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/floki-ai/
     - icon: fontawesome/brands/x-twitter

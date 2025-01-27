@@ -1,6 +1,6 @@
 # Text Splitter
 
-The Text Splitter module is a foundational tool in `Floki` designed to preprocess documents for use in [Retrieval-Augmented Generation (RAG)](https://en.wikipedia.org/wiki/Retrieval-augmented_generation) workflows and other `in-context learning` applications. Its primary purpose is to break large documents into smaller, meaningful chunks that can be embedded, indexed, and efficiently retrieved based on user queries.
+The Text Splitter module is a foundational tool in `Dapr Agents` designed to preprocess documents for use in [Retrieval-Augmented Generation (RAG)](https://en.wikipedia.org/wiki/Retrieval-augmented_generation) workflows and other `in-context learning` applications. Its primary purpose is to break large documents into smaller, meaningful chunks that can be embedded, indexed, and efficiently retrieved based on user queries.
 
 By focusing on manageable chunk sizes and preserving contextual integrity through overlaps, the Text Splitter ensures documents are processed in a way that supports downstream tasks like question answering, summarization, and document retrieval.
 
@@ -26,7 +26,7 @@ The Text Splitter supports multiple strategies to handle different types of docu
 Example:
 
 ```python
-from floki.document.splitter.text import TextSplitter
+from dapr_agents.document.splitter.text import TextSplitter
 
 # Character-based splitter (default)
 splitter = TextSplitter(chunk_size=1024, chunk_overlap=200)
@@ -41,7 +41,7 @@ splitter = TextSplitter(chunk_size=1024, chunk_overlap=200)
 
 ```python
 import tiktoken
-from floki.document.splitter.text import TextSplitter
+from dapr_agents.document.splitter.text import TextSplitter
 
 enc = tiktoken.get_encoding("cl100k_base")
 
@@ -101,7 +101,7 @@ pip install pypdf
 Then, initialize the reader to load the PDF file.
 
 ```python
-from floki.document.reader.pdf.pypdf import PyPDFReader
+from dapr_agents.document.reader.pdf.pypdf import PyPDFReader
 
 reader = PyPDFReader()
 documents = reader.load(local_pdf_path)

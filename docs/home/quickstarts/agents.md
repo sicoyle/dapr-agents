@@ -1,9 +1,9 @@
 # LLM-based AI Agents
 
-In the `Floki` framework, agents are autonomous systems powered by large language models (LLMs) that serve as their reasoning engine. These agents use the LLM’s parametric knowledge to process information, reason in natural language, and interact dynamically with their environment by leveraging tools. Tools allow the agents to perform real-world tasks, gather new information, and adapt their reasoning based on feedback.
+In the `Dapr Agents` framework, agents are autonomous systems powered by large language models (LLMs) that serve as their reasoning engine. These agents use the LLM’s parametric knowledge to process information, reason in natural language, and interact dynamically with their environment by leveraging tools. Tools allow the agents to perform real-world tasks, gather new information, and adapt their reasoning based on feedback.
 
 !!! info
-    By default, `Floki` sets the agentic pattern for the `Agent` class to `toolcalling` mode, enabling AI agents to interact dynamically with external tools using [OpenAI's Function Calling](https://platform.openai.com/docs/guides/function-calling?ref=blog.openthreatresearch.com).
+    By default, `Dapr Agents` sets the agentic pattern for the `Agent` class to `toolcalling` mode, enabling AI agents to interact dynamically with external tools using [OpenAI's Function Calling](https://platform.openai.com/docs/guides/function-calling?ref=blog.openthreatresearch.com).
 
 `Tool Calling` empowers agents to identify the right tools for a task, format the necessary arguments, and execute the tools independently. The results are then passed back to the LLM for further processing, enabling seamless and adaptive agent workflows.
 
@@ -25,12 +25,12 @@ load_dotenv()  # take environment variables from .env.
 
 ## Create a Basic Agent
 
-In `Floki`, tools bridge basic Python functions and `OpenAI's Function Calling` format, enabling seamless interaction between agents and external tasks. You can use `Pydantic` models to define the schema for tool arguments, ensuring structured input and validation.
+In `Dapr Agents`, tools bridge basic Python functions and `OpenAI's Function Calling` format, enabling seamless interaction between agents and external tasks. You can use `Pydantic` models to define the schema for tool arguments, ensuring structured input and validation.
 
 By annotating functions with `@tool` and specifying the argument schema, you transform them into `Agent tools` that can be invoke dynamically during workflows. This approach makes your tools compatible with LLM-driven decision-making and execution.
 
 ```python
-from floki import tool
+from dapr_agents import tool
 from pydantic import BaseModel, Field
 
 class GetWeatherSchema(BaseModel):
@@ -57,7 +57,7 @@ tools = [get_weather,jump]
 Next, create your Agent by specifying key attributes such as `name`, `role`, `goal`, and `instructions`, while assigning the `tools` defined earlier. This setup equips your agent with a clear purpose and the ability to interact dynamically with its environment.
 
 ```python
-from floki import Agent
+from dapr_agents import Agent
 
 AIAgent = Agent(
     name = "Stevie",

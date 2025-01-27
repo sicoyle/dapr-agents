@@ -1,6 +1,6 @@
 # Arxiv Fetcher
 
-The Arxiv Fetcher module in `Floki` provides a powerful interface to interact with the [arXiv API](https://info.arxiv.org/help/api/index.html). It is designed to help users programmatically search for, retrieve, and download scientific papers from arXiv. With advanced querying capabilities, metadata extraction, and support for downloading PDF files, the Arxiv Fetcher is ideal for researchers, developers, and teams working with academic literature.
+The Arxiv Fetcher module in `Dapr Agents` provides a powerful interface to interact with the [arXiv API](https://info.arxiv.org/help/api/index.html). It is designed to help users programmatically search for, retrieve, and download scientific papers from arXiv. With advanced querying capabilities, metadata extraction, and support for downloading PDF files, the Arxiv Fetcher is ideal for researchers, developers, and teams working with academic literature.
 
 ## Why Use the Arxiv Fetcher?
 
@@ -27,7 +27,7 @@ pip install arxiv
 Set up the `ArxivFetcher` to begin interacting with the arXiv API.
 
 ```python
-from floki.document import ArxivFetcher
+from dapr_agents.document import ArxivFetcher
 
 # Initialize the fetcher
 fetcher = ArxivFetcher()
@@ -130,11 +130,11 @@ for paper in download_results:
 
 ### Step 5: Extract and Process PDF Content
 
-Use `PyPDFReader` from `Floki` to extract content from downloaded PDFs. Each page is treated as a separate Document object with metadata.
+Use `PyPDFReader` from `Dapr Agents` to extract content from downloaded PDFs. Each page is treated as a separate Document object with metadata.
 
 ```python
 from pathlib import Path
-from floki.document import PyPDFReader
+from dapr_agents.document import PyPDFReader
 
 reader = PyPDFReader()
 docs_read = []

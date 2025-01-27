@@ -102,14 +102,14 @@ dapr run --app-id originalwf --dapr-grpc-port 50001 --resources-path components/
 
 ## Dapr Workflow -> Floki Workflows
 
-With `Floki`, the goal was to simplify workflows while adding flexibility and powerful integrations. I wanted to create a way to track the workflow state, including input, output, and status, while also streamlining monitoring. To achieve this, I built additional `workflow` and `activity` wrappers. The workflow wrapper stays mostly the same as Dapr's original, but the activity wrapper has been extended into a `task wrapper`. This change allows tasks to integrate seamlessly with LLM-based prompts and other advanced capabilities.
+With `Dapr Agents`, the goal was to simplify workflows while adding flexibility and powerful integrations. I wanted to create a way to track the workflow state, including input, output, and status, while also streamlining monitoring. To achieve this, I built additional `workflow` and `activity` wrappers. The workflow wrapper stays mostly the same as Dapr's original, but the activity wrapper has been extended into a `task wrapper`. This change allows tasks to integrate seamlessly with LLM-based prompts and other advanced capabilities.
 
 !!! info
     The same example as before can be written in the following way. While the difference might not be immediately noticeable, this is a straightforward example of task chaining using Python functions. Create a file named `wf_taskchain_floki_activity.py`.
 
 ```python
-from floki import WorkflowApp
-from floki.types import DaprWorkflowContext
+from dapr_agents import WorkflowApp
+from dapr_agents.types import DaprWorkflowContext
 
 wfapp = WorkflowApp()
 
@@ -168,4 +168,4 @@ If we inspect the `Workflow State` in the state store, you would see something l
 }
 ```
 
-`Floki` processes the workflow execution and even extracts the final output.
+`Dapr Agents` processes the workflow execution and even extracts the final output.
