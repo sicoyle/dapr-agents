@@ -143,7 +143,7 @@ if __name__ == '__main__':
 Run the workflow with the following command:
 
 ```bash
-dapr run --app-id flokillmmwf --dapr-grpc-port 50001 --resources-path components/ -- python3 wf_taskchain_openai_floki_llm_request.py
+dapr run --app-id flokillmmwf --dapr-grpc-port 50001 --resources-path components/ -- python3 wf_taskchain_openai_dapr_llm_request.py
 ```
 
-![](../../img/workflows_floki_llm_request.png)
+![](../../img/workflows_dapr_llm_request.png)
