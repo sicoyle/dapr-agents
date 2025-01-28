@@ -105,7 +105,7 @@ dapr run --app-id originalwf --dapr-grpc-port 50001 --resources-path components/
 With `Dapr Agents`, the goal was to simplify workflows while adding flexibility and powerful integrations. I wanted to create a way to track the workflow state, including input, output, and status, while also streamlining monitoring. To achieve this, I built additional `workflow` and `activity` wrappers. The workflow wrapper stays mostly the same as Dapr's original, but the activity wrapper has been extended into a `task wrapper`. This change allows tasks to integrate seamlessly with LLM-based prompts and other advanced capabilities.
 
 !!! info
-    The same example as before can be written in the following way. While the difference might not be immediately noticeable, this is a straightforward example of task chaining using Python functions. Create a file named `wf_taskchain_floki_activity.py`.
+    The same example as before can be written in the following way. While the difference might not be immediately noticeable, this is a straightforward example of task chaining using Python functions. Create a file named `wf_taskchain_dapr_activity.py`.
 
 ```python
 from dapr_agents import WorkflowApp
@@ -146,10 +146,10 @@ if __name__ == '__main__':
 Now, you can run that workflow with the same command with the `Dapr CLI`:
 
 ```bash
-dapr run --app-id flokiwf --dapr-grpc-port 50001 --resources-path components/ -- python3 wf_taskchain_floki_activity.py
+dapr run --app-id agentwf --dapr-grpc-port 50001 --resources-path components/ -- python3 wf_taskchain_dapr_activity.py
 ```
 
-![](../../img/workflows_floki_activity.png)
+![](../../img/workflows_dapr_activity.png)
 
 If we inspect the `Workflow State` in the state store, you would see something like this:
 
