@@ -8,7 +8,7 @@
 ### As a Python package using Pip
 
 ```bash
-pip install floki-ai
+pip install dapr-agents
 ```
 
 ### Remotely from GitHub
@@ -22,7 +22,7 @@ pip install git+https://github.com/dapr-sandbox/dapr-agents.git
 ```bash
 git clone https://github.com/dapr-sandbox/dapr-agents
 
-cd floki
+cd dapr-agents
 
 poetry install
 ```
