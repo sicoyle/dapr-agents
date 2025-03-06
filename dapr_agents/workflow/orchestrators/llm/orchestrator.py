@@ -37,7 +37,7 @@ class LLMOrchestrator(OrchestratorServiceBase):
         super().model_post_init(__context)
 
     @workflow(name="LLMWorkflow")
-    def llm_workflow(self, ctx: DaprWorkflowContext, input: TriggerAction):
+    def main_workflow(self, ctx: DaprWorkflowContext, input: TriggerAction):
         """
         Executes an LLM-driven agentic workflow where the next agent is dynamically selected 
         based on task progress. The workflow iterates through execution cycles, updating state, 
