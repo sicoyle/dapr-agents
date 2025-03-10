@@ -61,7 +61,13 @@ services/                  # Directory for agent services
 │   └── app.py           # FastAPI app for elf
 └── workflow-random/      # Workflow orchestrator
     └── app.py           # Workflow service
-dapr.yaml                # Multi-App Run Template
+└── workflow-roundrobin/  # Roundrobin orchestrator
+    └── app.py           # Workflow service    
+└── workflow-llm/         # LLM orchestrator
+    └── app.py           # Workflow service        
+dapr-random.yaml         # Multi-App Run Template using the random orchestrator
+dapr-roundrobin.yaml     # Multi-App Run Template using the roundrobin orchestrator
+dapr-llm.yaml            # Multi-App Run Template using the LLM orchestrator
 ```
 
 ## Examples
@@ -72,45 +78,47 @@ Each agent is implemented as a separate service. Here's an example for the Hobbi
 
 ```python
 # services/hobbit/app.py
-from dapr_agents import Agent, AgentActorService
+from dapr_agents import Agent, AgentActorService, AssistantAgent
 from dotenv import load_dotenv
 import asyncio
 import logging
 
+
 async def main():
     try:
-        # Define Agent
-        hobbit_agent = Agent(
-            role="Hobbit",
-            name="Frodo",
-            goal="Take the ring to Mordor",
-            instructions=["Speak like Frodo"]
-        )
-        
-        # Expose Agent as a Service
-        hobbit_service = AgentActorService(
-            agent=hobbit_agent,
-            message_bus_name="messagepubsub",
-            agents_state_store_name="agentstatestore",
-            port=8001,
-            daprGrpcPort=50001
-        )
+        hobbit_service = AssistantAgent(name="Frodo", role="Hobbit",
+                                      goal="Carry the One Ring to Mount Doom, resisting its corruptive power while navigating danger and uncertainty.",
+                                      instructions=[
+                                          "Speak like Frodo, with humility, determination, and a growing sense of resolve.",
+                                          "Endure hardships and temptations, staying true to the mission even when faced with doubt.",
+                                          "Seek guidance and trust allies, but bear the ultimate burden alone when necessary.",
+                                          "Move carefully through enemy-infested lands, avoiding unnecessary risks.",
+                                          "Respond concisely, accurately, and relevantly, ensuring clarity and strict alignment with the task."],
+                                      message_bus_name="messagepubsub",
+                                      state_store_name="workflowstatestore",
+                                      state_key="workflow_state",
+                                      agents_registry_store_name="agentstatestore",
+                                      agents_registry_key="agents_registry", service_port=8001,
+                                      daprGrpcPort=50001)
 
         await hobbit_service.start()
     except Exception as e:
         print(f"Error starting service: {e}")
 
+
 if __name__ == "__main__":
     load_dotenv()
+
     logging.basicConfig(level=logging.INFO)
+
     asyncio.run(main())
 ```
 
 Similar implementations exist for the Wizard (Gandalf) and Elf (Legolas) agents.
 
-### Workflow Orchestrator Implementation
+### Workflow Orchestrator Implementations
 
-The workflow orchestrator manages the interaction between agents. Currently Dapr Agents support three workflow types: RoundRobin, Random, and LLM-based. Here's an example for the Random workflow orchestrator:
+The workflow orchestrators manage the interaction between agents. Currently, Dapr Agents support three workflow types: RoundRobin, Random, and LLM-based. Here's an example for the Random workflow orchestrator (you can find examples for RoundRobin and LLM-based orchestrators in the project):
 
 ```python
 # services/workflow-random/app.py
@@ -122,7 +130,7 @@ import logging
 async def main():
     try:
         random_workflow_service = RandomOrchestrator(
-            name="Orchestrator",
+            name="RandomOrchestrator",
             message_bus_name="messagepubsub",
             state_store_name="agenticworkflowstate",
             state_key="workflow_state",
@@ -146,8 +154,9 @@ if __name__ == "__main__":
 
 ### Running the Multi-Agent System
 
-The project includes a `dapr.yaml` configuration for running all services and an additional Client application for interacting with the agents:
+The project includes three dapr multi-app run configuration files (`dapr-random.yaml`, `dapr-roundrobin.yaml` and `dapr-llm.yaml` ) for running all services and an additional Client application for interacting with the agents:
 
+Example: `dapr-random.yaml`
 ```yaml
 version: 1
 common:
@@ -199,18 +208,61 @@ expected_stdout_lines:
   - "assistant:"
   - "user:"
   - "assistant:"
+  - "workflow completed with status 'ORCHESTRATION_STATUS_COMPLETED' workflowName 'RandomWorkflow'"
 timeout_seconds: 20
 output_match_mode: substring
 background: false
+sleep: 5
 -->
 ```bash
-dapr run -f . 
+dapr run -f dapr-random.yaml 
 ```
 <!-- END_STEP -->
 
 You will see the agents engaging in a conversation about getting to Mordor, with different agents contributing based on their character.
 
+You can also run the RoundRobin and LLM-based orchestrators using `dapr-roundrobin.yaml` and `dapr-llm.yaml` respectively:
 
+<!-- STEP
+name: Run text completion example
+match_order: none
+expected_stdout_lines:
+  - "Workflow started successfully!"
+  - "user:"
+  - "How to get to Mordor? We all need to help!"
+  - "assistant:"
+  - "user:"
+  - "assistant:"
+  - "workflow completed with status 'ORCHESTRATION_STATUS_COMPLETED' workflowName 'RoundRobinWorkflow'"
+timeout_seconds: 20
+output_match_mode: substring
+background: false
+sleep: 5
+-->
+```bash
+dapr run -f dapr-roundrobin.yaml 
+```
+<!-- END_STEP -->
+
+<!-- STEP
+name: Run text completion example
+match_order: none
+expected_stdout_lines:
+  - "Workflow started successfully!"
+  - "user:"
+  - "How to get to Mordor? We all need to help!"
+  - "assistant:"
+  - "user:"
+  - "assistant:"
+  - "workflow completed with status 'ORCHESTRATION_STATUS_COMPLETED' workflowName 'LLMWorkflow'"
+timeout_seconds: 20
+output_match_mode: substring
+background: false
+-->
+```bash
+dapr run -f dapr-llm.yaml 
+```
+<!-- END_STEP -->
 **Expected output:** The agents will engage in a conversation about getting to Mordor, with different agents contributing based on their character.
 
 ## Key Concepts

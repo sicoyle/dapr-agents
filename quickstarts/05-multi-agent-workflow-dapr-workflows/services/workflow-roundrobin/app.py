@@ -1,4 +1,4 @@
-from dapr_agents import RandomOrchestrator
+from dapr_agents import RoundRobinOrchestrator
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -6,8 +6,8 @@ import logging
 
 async def main():
     try:
-        workflow_service = RandomOrchestrator(
-            name="Orchestrator",
+        workflow_service = RoundRobinOrchestrator(
+            name="RoundRobinOrchestrator",
             message_bus_name="messagepubsub",
             state_store_name="workflowstatestore",
             state_key="workflow_state",

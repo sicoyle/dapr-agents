@@ -1,4 +1,4 @@
-# LLM Call with Dapr Agents
+# OpenAI LLM calls with Dapr Agents
 
 This quickstart demonstrates how to use Dapr Agents' LLM capabilities to interact with language models and generate both free-form text and structured data. You'll learn how to make basic calls to LLMs and how to extract structured information in a type-safe manner.
 
@@ -29,98 +29,33 @@ pip install -r requirements.txt
 Create a `.env` file in the project root:
 
 ```env
-OPENAI_API_KEY=your_api_key_here
+ELEVENLABS_API_KEY=your_api_key_here
 ```
 
-Replace `your_api_key_here` with your actual OpenAI API key.
+Replace `your_api_key_here` with your actual Elevenlabs API key.
 
 ## Examples
 
-### 1. Text Completion
+### Audio
+You can use the OpenAIAudioClient in `dapr-agents` for basic tasks with the OpenAI Audio API. We will explore:
 
-Run the basic text completion example:
+- Generating speech from text and saving it as an MP3 file.
+- Transcribing audio to text.
+- Translating audio content to English.
 
-<!-- STEP
-name: Run text completion example
-expected_stdout_lines:
-  - "Response:"
-timeout_seconds: 30
-output_match_mode: substring
--->
-```bash
-python text_completion.py
-```
-<!-- END_STEP -->
+**1. Run the text to speech example:**
 
-The script demonstrates basic usage of Dapr Agents' OpenAIChatClient for text generation:
-
-```python
-from dapr_agents import OpenAIChatClient
-from dotenv import load_dotenv
-
-# Load environment variables from .env
-load_dotenv()
-
-# Initialize the chat client and call
-llm = OpenAIChatClient()
-response = llm.generate("Name a famous dog!")
-
-if len(response.get_content()) > 0:
-    print("Response: ", response.get_content())
-```
-
-**Expected output:** The LLM will respond with the name of a famous dog (e.g., "Lassie", "Hachiko", etc.).
-
-### 2. Structured Output
-
-Run the structured output example:
 
 <!-- STEP
-name: Run text completion example
+name: Run audio generation example
 expected_stdout_lines:
-  - '"name":'
-  - '"breed":'
-  - '"reason":'
-timeout_seconds: 30
-output_match_mode: substring
+  - "Audio saved to output_speech.mp3"
+  - "File output_speech.mp3 has been deleted."
 -->
 ```bash
-python structured_completion.py
+python text_to_speech.py
 ```
 <!-- END_STEP -->
-
-This example shows how to use Pydantic models to get structured data from LLMs:
-
-```python
-import json
-
-from dapr_agents import OpenAIChatClient
-from dapr_agents.types import UserMessage
-from pydantic import BaseModel
-from dotenv import load_dotenv
-
-# Load environment variables from .env
-load_dotenv()
-
-# Define our data model
-class Dog(BaseModel):
-    name: str
-    breed: str
-    reason: str
-
-# Initialize the chat client
-llm = OpenAIChatClient()
-
-# Get structured response
-response = llm.generate(
-    messages=[UserMessage("One famous dog in history.")],
-    response_format=Dog
-)
-
-print(json.dumps(response.model_dump(), indent=2))
-```
-
-**Expected output:** A structured Dog object with name, breed, and reason fields (e.g., `Dog(name='Hachiko', breed='Akita', reason='Known for his remarkable loyalty...')`)
 
 ## Key Concepts
 
