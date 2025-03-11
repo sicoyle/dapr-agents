@@ -131,13 +131,7 @@ nav:
     - Why Dapr Agents: home/why.md
     - Core Principles: home/principles.md
     - Installation: home/installation.md
-    - Quickstarts:
-      - Quickstarts: home/quickstarts/index.md
-      - LLM Inference Client: home/quickstarts/llm.md
-      - AI Agents: home/quickstarts/agents.md
-      - Dapr Workflows: home/quickstarts/dapr_workflows.md
-      - LLM-based Task Workflows: home/quickstarts/llm_workflows.md
-      - Multi-Agent Workflows: home/quickstarts/agentic_workflows.md
+    - Quickstarts: home/quickstarts/index.md
   - Core Concepts:
     - Agents: concepts/agents.md
     - Messaging: concepts/messaging.md
