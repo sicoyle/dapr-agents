@@ -12,10 +12,8 @@ async def main():
             state_key="workflow_state",
             agents_registry_store_name="agentsregistrystore",
             agents_registry_key="agents_registry",
-            service_port=8009,
-            daprGrpcPort=50009,
             max_iterations=25
-        )
+        ).as_service(port=8004)
 
         await agentic_orchestrator.start()
     except Exception as e:

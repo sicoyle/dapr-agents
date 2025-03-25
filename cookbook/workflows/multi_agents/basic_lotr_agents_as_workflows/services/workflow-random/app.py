@@ -12,10 +12,8 @@ async def main():
             state_key="workflow_state",
             agents_registry_store_name="agentsregistrystore",
             agents_registry_key="agents_registry",
-            service_port=8009,
-            daprGrpcPort=50009,
             max_iterations=3
-        )
+        ).as_service(port=8004)
 
         await random_workflow_service.start()
     except Exception as e:

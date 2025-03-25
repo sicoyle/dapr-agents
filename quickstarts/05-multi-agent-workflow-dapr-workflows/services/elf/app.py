@@ -20,7 +20,6 @@ async def main():
             state_key="workflow_state",
             agents_registry_store_name="agentstatestore",
             agents_registry_key="agents_registry",
-            service_port=8003,
         )
 
         await elf_service.start()
