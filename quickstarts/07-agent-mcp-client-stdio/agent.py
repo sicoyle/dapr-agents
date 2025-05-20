@@ -8,8 +8,8 @@ from dapr_agents.tool.mcp import MCPClient
 
 load_dotenv()
 
-async def main():
 
+async def main():
     # Create the MCP client
     client = MCPClient()
 
@@ -17,13 +17,13 @@ async def main():
     await client.connect_stdio(
         server_name="local",
         command=sys.executable,  # Use the current Python interpreter
-        args=["tools.py"]  # Run tools.py directly
+        args=["tools.py"],  # Run tools.py directly
     )
-    
+
     # Get available tools from the MCP instance
     tools = client.get_all_tools()
     print("🔧 Available tools:", [t.name for t in tools])
-    
+
     # Create the Weather Agent using MCP tools
     weather_agent = Agent(
         name="Stevie",
@@ -43,6 +43,7 @@ async def main():
 
     # Clean up resources
     await client.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
