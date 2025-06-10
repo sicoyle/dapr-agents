@@ -1,0 +1,13 @@
+# Added in case there are issues with the LLM service due to token limits and rate limitting.
+apiVersion: dapr.io/v1alpha1
+   kind: Configuration
+   metadata:
+     name: retry-policy
+   spec:
+     resiliency:
+       policies:
+         retries:
+           defaultRetry:
+             policy: constant
+             duration: 2s
+             maxRetries: 5
