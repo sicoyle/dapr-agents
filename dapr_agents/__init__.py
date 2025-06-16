@@ -1,6 +1,5 @@
 from dapr_agents.agent import (
     Agent,
-    AgentActor,
     ReActAgent,
     ToolCallAgent,
     OpenAPIReActAgent,
