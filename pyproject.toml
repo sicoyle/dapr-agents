@@ -14,20 +14,21 @@ authors = [
     {name = "Dapr Authors", email = "dapr@dapr.io"}
 ]
 dependencies = [
-    "dapr",
-    "pydantic",
+    "dapr>=1.15.0",
+    "pydantic>=2.11.3,<3.0.0",
     "jinja2>=3.1.0",
     "pyyaml>=6.0",
-    "requests",
-    "openapi-pydantic",
-    "rich",
-    "openai",
-    "azure-identity",
-    "huggingface_hub>=0.30.2",
+    "requests>=2.31.0",
+    "openapi-pydantic>=0.3.0",
+    "rich==13.9.4",
+    "openai==1.75.0",
+    "azure-identity==1.21.0",
+    "huggingface_hub==0.30.2",
     "colorama>=0.4.6",
     "regex>=2023.0.0",
     "fastapi>=0.110.0",
     "uvicorn>=0.27.0",
+    "aiohttp>=3.9.0",
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
