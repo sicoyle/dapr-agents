@@ -36,6 +36,7 @@ class AgentBase(BaseModel, ABC):
         default="Help humans",
         description="The agent's main objective (e.g., 'Provide Weather information').",
     )
+    # TODO: add a background/backstory field that would be useful for the agent to know about it's context/background for it's role.
     instructions: Optional[List[str]] = Field(
         default=None, description="Instructions guiding the agent's tasks."
     )
@@ -50,10 +51,12 @@ class AgentBase(BaseModel, ABC):
     prompt_template: Optional[PromptTemplateBase] = Field(
         default=None, description="The prompt template for the agent."
     )
+    # TODO: we need to add RBAC to tools to define what users and/or agents can use what tool(s).
     tools: List[Union[AgentTool, Callable]] = Field(
         default_factory=list,
         description="Tools available for the agent to assist with tasks.",
     )
+    # TODO: add a forceFinalAnswer field in case maxIterations is near/reached. Or do we have a conclusion baked in by default? Do we want this to derive a conclusion by default?
     max_iterations: int = Field(
         default=10, description="Max iterations for conversation cycles."
     )
@@ -61,6 +64,9 @@ class AgentBase(BaseModel, ABC):
         default_factory=ConversationListMemory,
         description="Handles conversation history and context storage.",
     )
+    # TODO: we should have a system_template, prompt_template, and response_template, or better separation here.
+    # If we have something like a customer service agent, we want diff templates for different types of interactions.
+    # In future, we could also have a way to dynamically change the template based on the context of the interaction.
     template_format: Literal["f-string", "jinja2"] = Field(
         default="jinja2",
         description="The format used for rendering the prompt template.",

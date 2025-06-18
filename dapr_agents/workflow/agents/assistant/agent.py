@@ -56,6 +56,7 @@ class AssistantAgent(AgentWorkflowBase):
         self.state = AssistantWorkflowState()
 
         # Name of main Workflow
+        # TODO: can this be configurable or dynamic? Would that make sense?
         self._workflow_name = "ToolCallingWorkflow"
 
         # Define Tool Selection Strategy
@@ -175,6 +176,7 @@ class AssistantAgent(AgentWorkflowBase):
                 ] += "\n\nThe workflow was terminated because it reached the maximum iteration limit. The task may not be fully complete."
 
             else:
+                # TODO: make this one word how we have max_iterations_reached for ex.
                 verdict = "model hit a natural stop point."
 
             # Step 8: Broadcasting Response to all agents if available
