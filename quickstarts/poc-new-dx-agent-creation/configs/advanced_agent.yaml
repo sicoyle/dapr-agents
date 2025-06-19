@@ -1,0 +1,7 @@
+master_config: "agents_config.yaml"
+llm_config: "openai"
+agent_config: "advanced"
+
+# Agent-specific overrides
+agent:
+  max_iterations: 25

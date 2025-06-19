@@ -243,8 +243,16 @@ class Agent:
                 "auth_header": kwargs.get("auth_header", {}),
             })
         
+        # Check if Dapr is required and available for durable to ensure we provide graceful errs in case someone just runs python <filename>.py and it gives bad output.
+        if self.agent_type == 'assistant':
+            if not self._is_dapr_available():
+                self._raise_dapr_required_error()
+        
         self.agent = self._create_agent(config, kwargs, role, name, goal, instructions, tools, llm, memory)
         self._validate_environment()
+        
+        # Store config file path for as_service method
+        self._config_file = config_file
         
         # Set up graceful shutdown
         self._shutdown_event = asyncio.Event()
@@ -323,12 +331,12 @@ class Agent:
                             reasoning: bool = False, openapi_spec_path: Optional[str] = None) -> str:
         """Automatic agent type selection based on configuration"""
         # Priority order for agent selection
-        if config.get('agent', {}).get('state_store_name'):
-            return 'assistant'  # AssistantAgent (durable state)
-        elif config.get('agent', {}).get('openapi_spec_path') or openapi_spec_path:
+        if config.get('agent', {}).get('openapi_spec_path') or openapi_spec_path:
             return 'openapireact'  # OpenAPIReActAgent
         elif config.get('agent', {}).get('reasoning') or reasoning:
             return 'react'  # ReActAgent
+        elif config.get('dapr', {}).get('state_store_name'):
+            return 'assistant'  # AssistantAgent (durable state)
         elif pattern:
             # Fallback to pattern for backward compatibility
             pattern_lower = pattern.lower()
@@ -374,7 +382,8 @@ class Agent:
         agent_params.update(kwargs)
         
         if self.agent_type == 'assistant':
-            return AssistantAgent(**agent_params)
+            assistant_agent = AssistantAgent(**agent_params)
+            return assistant_agent
         elif self.agent_type == 'openapireact':
             return OpenAPIReActAgent(**agent_params)
         elif self.agent_type == 'react':
@@ -416,7 +425,93 @@ class Agent:
         except Exception as e:
             print(f"Error during agent execution: {e}")
             raise
-    
+
+    async def start(self):
+        """Start the agent service (for AssistantAgents) or run the agent (for others)"""
+        print(f"Starting agent of type: {self.agent_type}")
+        print(f"Underlying agent class: {type(self.agent).__name__}")
+        
+        if self.agent_type == 'assistant':
+            # For AssistantAgents, delegate to the underlying agent's start method
+            print("Starting AssistantAgent service...")
+            if hasattr(self.agent, 'start'):
+                print("Calling underlying agent.start()...")
+                await self.agent.start()
+            else:
+                print(f"Underlying agent {type(self.agent).__name__} does not have start method")
+                raise AttributeError("AssistantAgent does not have start method")
+        else:
+            # For other agents, this might not make sense
+            raise AttributeError(
+                f"start() method is only available for AssistantAgent (durable agents). "
+                f"Current agent type: {self.agent_type}. "
+                f"Use run() method for other agent types."
+            )
+
     def __getattr__(self, name):
         """Delegate attribute access to the underlying agent"""
         return getattr(self.agent, name)
+
+    def as_service(self, port: Optional[int] = None):
+        """
+        Enable service mode for the agent, reading port from config if not provided.
+        Only available for AssistantAgent (durable agents).
+        
+        Args:
+            port: Optional port override. If not provided, reads from config.
+            
+        Raises:
+            AttributeError: If the agent type does not support service mode.
+        """
+        # Only AssistantAgents support service mode
+        if self.agent_type != 'assistant':
+            raise AttributeError(
+                f"Service mode is only available for AssistantAgent (durable agents). "
+                f"Current agent type: {self.agent_type}. "
+                f"To use service mode, ensure your config has 'state_store_name' in the dapr section."
+            )
+        
+        # If no port provided, try to get it from config
+        if port is None:
+            config_loader = AgentConfig()
+            config = config_loader.load_yaml_config(getattr(self, '_config_file', None))
+            port = config.get('dapr', {}).get('service_port', 8001)
+        
+        # Delegate to the underlying agent's as_service method
+        if hasattr(self.agent, 'as_service'):
+            self.agent.as_service(port=port)
+            return self  # Return the wrapper, not the underlying agent
+        else:
+            raise AttributeError(f"AssistantAgent does not have as_service method")
+
+    def _is_dapr_available(self) -> bool:
+        """
+        Check if Dapr is available by attempting to connect to the Dapr sidecar.
+        
+        Returns:
+            bool: True if Dapr is available, False otherwise
+        """
+        try:
+            import requests
+            # Try to connect to Dapr's metadata endpoint with a short timeout
+            response = requests.get("http://localhost:3500/v1.0/metadata", timeout=1)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+    def _raise_dapr_required_error(self):
+        """
+        Raise a helpful error message when Dapr is required but not available.
+        """
+        error_msg = """🚫 Dapr Required for Durable Agent
+
+This agent requires Dapr to be running because it uses stateful, durable workflows.
+
+To run this agent, you need to:
+
+1. Install Dapr CLI: https://docs.dapr.io/getting-started/install-dapr-cli/
+2. Initialize Dapr: dapr init
+3. Run with Dapr: dapr run --app-id your-app-id --app-port 8001 --resources-path components/ -- python your_script.py
+
+For more information, see the README.md in the quickstart directory."""
+        raise RuntimeError(error_msg)
