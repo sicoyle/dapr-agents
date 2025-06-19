@@ -1,0 +1,48 @@
+# LLM Provider configurations
+llm:
+  openai:
+    provider: "openai"
+    model: "gpt-4"
+    api_key: "${OPENAI_API_KEY}"
+    temperature: 0.7
+    max_tokens: 4000
+  
+  anthropic:
+    provider: "anthropic"
+    model: "claude-3-sonnet"
+    api_key: "${ANTHROPIC_API_KEY}"
+    temperature: 0.7
+    max_tokens: 4000
+
+# Dapr infrastructure configurations
+# TODO(@Sicoyle): look more here if i can just put component name and that's it?
+dapr:
+  message_bus_name: "messagepubsub"
+  state_store_name: "workflowstatestore"
+  state_key: "workflow_state"
+  agents_registry_store_name: "workflowstatestore"
+  agents_registry_key: "agents_registry"
+  service_port: 8001
+  grpc_port: 50001
+
+# Agent behavior configurations
+agent:
+  simple:
+    max_iterations: 5
+    tool_choice: "auto"
+    reasoning: false
+  
+  reasoning:
+    max_iterations: 10
+    tool_choice: "auto"
+    reasoning: true # should this be here or not? could be this is llm reasoning for reasoning model with thinking or planning things????
+  
+  durable:
+    max_iterations: 10
+    tool_choice: "auto"
+    reasoning: false
+  
+  advanced:
+    max_iterations: 20
+    tool_choice: "required"
+    reasoning: true

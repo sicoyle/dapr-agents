@@ -1,0 +1,4 @@
+master_config: "agents_config.yaml"
+llm_config: "openai"
+dapr_config: "dapr"
+agent_config: "simple" 
