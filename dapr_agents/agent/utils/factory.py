@@ -15,6 +15,7 @@ from dapr_agents.agent.base import AgentBase
 from dapr_agents.llm import LLMClientBase
 from dapr_agents.memory import MemoryBase
 from dapr_agents.tool import AgentTool
+from dapr_agents.storage import ChromaVectorStore
 
 T = TypeVar("T", ToolCallAgent, ReActAgent, OpenAPIReActAgent, AssistantAgent)
 
@@ -196,20 +197,54 @@ class Agent:
         
         config = self._load_configuration(config_file, kwargs)
         
-        # Lazy initialization for LLM and memory
-        llm = llm or OpenAIChatClient()
-        memory = memory or ConversationListMemory()
+        # Lazy initialization for LLM and memory with error handling
+        try:
+            llm = llm or OpenAIChatClient()
+        except Exception as e:
+            if "api_key" in str(e).lower() or "openai_api_key" in str(e).lower():
+                raise ValueError(
+                    "OpenAI API key is required. Please set the OPENAI_API_KEY environment variable:\n"
+                    "export OPENAI_API_KEY='your-api-key-here'\n"
+                    "Or pass it directly to the Agent constructor."
+                ) from e
+            else:
+                raise ValueError(f"Failed to initialize LLM client: {e}") from e
+        
+        try:
+            memory = memory or ConversationListMemory()
+        except Exception as e:
+            raise ValueError(f"Failed to initialize memory: {e}") from e
 
         self.agent_type = self._determine_agent_type(config, pattern, reasoning, openapi_spec_path)
         
         # Handle OpenAPI-specific kwargs
         if self.agent_type == "openapireact":
+            # Only create spec_parser if we have an openapi_spec_path
+            if openapi_spec_path and not kwargs.get("spec_parser"):
+                try:
+                    spec_parser = OpenAPISpecParser.from_file(openapi_spec_path)
+                    kwargs["spec_parser"] = spec_parser
+                except Exception as e:
+                    warnings.warn(f"Failed to load OpenAPI spec from {openapi_spec_path}: {e}")
+            
+            # Add required vector store for OpenAPI agents
+            # TODO(@Sicoyle): should this be supported for all agent types or just this one??
+            if not kwargs.get("api_vector_store"):
+                try:
+                    kwargs["api_vector_store"] = ChromaVectorStore()
+                except ImportError as e:
+                    raise ImportError(
+                        f"OpenAPIReActAgent requires additional dependencies. "
+                        f"Install them with: pip install sentence-transformers chromadb\n"
+                        f"Original error: {e}"
+                    ) from e
+            
             kwargs.update({
-                    "spec_parser": kwargs.get("spec_parser", OpenAPISpecParser()),
-                    "auth_header": kwargs.get("auth_header", {}),
+                "auth_header": kwargs.get("auth_header", {}),
             })
         
         self.agent = self._create_agent(config, kwargs, role, name, goal, instructions, tools, llm, memory)
+        self._validate_environment()
         
         # Set up graceful shutdown
         self._shutdown_event = asyncio.Event()
@@ -228,6 +263,17 @@ class Agent:
         """Handle interrupt signals gracefully"""
         print(f"\nReceived signal {signum}. Shutting down gracefully...")
         self._shutdown_event.set()
+    
+    def _validate_environment(self):
+        """Validate that the environment is properly set up"""
+        # Check for OpenAI API key only if using OpenAI client
+        if hasattr(self, 'agent') and hasattr(self.agent, 'llm') and self.agent.llm:
+            llm_class_name = self.agent.llm.__class__.__name__
+            if 'OpenAI' in llm_class_name and not os.getenv("OPENAI_API_KEY"):
+                print("⚠️  Warning: OPENAI_API_KEY environment variable is not set.")
+                print("   This is required for OpenAI LLM interactions.")
+                print("   Set it with: export OPENAI_API_KEY='your-api-key-here'")
+                print()
     
     def _load_configuration(self, config_file: Optional[str], params: Dict[str, Any]) -> Dict[str, Any]:
         """Load configuration from file or params"""
