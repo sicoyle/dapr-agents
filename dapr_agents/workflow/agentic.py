@@ -92,9 +92,6 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
     config_file: Optional[str] = Field(
         default=None, description="Path to YAML configuration file."
     )
-    config: Optional[Dict[str, Any]] = Field(
-        default=None, description="Loaded configuration data."
-    )
 
     # Private internal attributes (not schema/validated)
     _state_store_client: Optional[DaprStateStore] = PrivateAttr(default=None)
@@ -109,10 +106,10 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
     _topic_handlers: Dict[
         Tuple[str, str], Dict[Type[BaseModel], Callable]
     ] = PrivateAttr(default_factory=dict)
+    _config: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
     def model_post_init(self, __context: Any) -> None:
         """Initializes the workflow service, messaging, and metadata storage."""
-        # Check if Dapr is available before initializing Dapr-dependent components
         if not self._is_dapr_available():
             self._raise_dapr_required_error()
 
@@ -131,19 +128,6 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
 
         super().model_post_init(__context)
 
-    def _load_config_from_yaml(self):
-        """Load configuration from YAML file and store it for potential use"""
-        try:
-            config_loader = Config()
-            config = config_loader.load_yaml_config(self.config_file)
-            self._config = config
-            logger.info(f"Configuration loaded from {self.config_file}")
-            
-        except Exception as e:
-            logger.warning(f"Failed to load configuration from {self.config_file}: {e}")
-            self._config = {}
-            # Continue with default values
-
     @classmethod
     def from_config(cls, config_file: str, **kwargs):
         """
@@ -157,42 +141,36 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         Returns:
             AgenticWorkflow: Configured workflow instance
         """
-        # Load configuration from YAML file
         config_loader = Config()
-        config = config_loader.load_yaml_config(config_file)
-        
-        # Extract required fields from config, using existing Field defaults
+        config = config_loader.load_config_with_global(config_file)
+        defaults = config_loader.load_defaults()
         workflow_params = {}
+        dapr_config = config_loader.get_dapr_config(config)
+        default_dapr = defaults.get('dapr', {})
+        workflow_params.update({
+            'message_bus_name': dapr_config.get('message_bus_name', default_dapr.get('message_bus_name')),
+            'state_store_name': dapr_config.get('state_store_name', default_dapr.get('state_store_name')),
+            'state_key': dapr_config.get('state_key', default_dapr.get('state_key')),
+            'agents_registry_store_name': dapr_config.get('agents_registry_store_name', default_dapr.get('agents_registry_store_name')),
+            'agents_registry_key': dapr_config.get('agents_registry_key', default_dapr.get('agents_registry_key')),
+        })
         
-        # Get Dapr configuration
-        if 'dapr' in config:
-            dapr_config = config['dapr']
-            workflow_params.update({
-                'message_bus_name': dapr_config.get('message_bus_name', 'messagepubsub'),
-                'state_store_name': dapr_config.get('state_store_name', 'workflowstatestore'),
-                'state_key': dapr_config.get('state_key', 'workflow_state'),
-                'agents_registry_store_name': dapr_config.get('agents_registry_store_name', 'workflowstatestore'),
-                'agents_registry_key': dapr_config.get('agents_registry_key', 'agents_registry'),
-            })
-        
-        # Get workflow configuration
-        if 'workflow' in config:
-            workflow_config = config['workflow']
-            workflow_params.update({
-                'max_iterations': workflow_config.get('max_iterations', 20),
-                'save_state_locally': workflow_config.get('save_state_locally', True),
-                'local_state_path': workflow_config.get('local_state_path'),
-            })
+        workflow_config = config_loader.get_workflow_config(config)
+        default_workflow = defaults.get('workflow', {})
+        workflow_params.update({
+            'max_iterations': workflow_config.get('max_iterations', default_workflow.get('max_iterations')),
+            'save_state_locally': workflow_config.get('save_state_locally', default_workflow.get('save_state_locally')),
+            'local_state_path': workflow_config.get('local_state_path', default_workflow.get('local_state_path')),
+        })
         
         # Apply any direct field overrides from kwargs
-        # These will override the YAML config values
+        # These will override the config values
         for key, value in kwargs.items():
             if hasattr(cls, key):
                 workflow_params[key] = value
             else:
                 logger.warning(f"Unknown parameter '{key}' will be ignored")
         
-        # Add config_file to params
         workflow_params['config_file'] = config_file
         
         return cls(**workflow_params)
@@ -208,6 +186,14 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         if self._http_server:
             return self._http_server.app
         raise RuntimeError("FastAPI server not initialized. Call `as_service()` first.")
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        """
+        Returns the loaded configuration data.
+        Loads configuration from file if not already loaded.
+        """
+        return self._load_config_if_needed()
 
     def register_routes(self):
         """
@@ -225,6 +211,18 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
                     path, method, methods=[method_type], **extra_kwargs
                 )
 
+    def _load_config_if_needed(self) -> Dict[str, Any]:
+        """Load configuration from file if config_file is provided and config is not loaded"""
+        if self.config_file and not self._config:
+            try:
+                config_loader = Config()
+                self._config = config_loader.load_config_with_global(self.config_file)
+                logger.info(f"Configuration loaded from {self.config_file}")
+            except Exception as e:
+                logger.warning(f"Failed to load configuration from {self.config_file}: {e}")
+                self._config = {}
+        return self._config or {}
+
     def as_service(self, port: Optional[int] = None, host: str = "0.0.0.0"):
         """
         Enables FastAPI-based service mode for the agent by initializing a FastAPI server instance.
@@ -239,16 +237,14 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         """
         from dapr_agents.service.fastapi import FastAPIServerBase
 
-        # Get port from config if not provided
-        if port is None and self.config:
-            if 'dapr' in self.config and 'service_port' in self.config['dapr']:
-                port = self.config['dapr']['service_port']
-            else:
+        if port is None:
+            config = self._load_config_if_needed()
+            dapr_config = config.get('dapr', {})
+            port = dapr_config.get('service_port')
+            
+            if port is None:
                 logger.error("No port found in config")
-                if self.config and 'dapr' in self.config:
                 raise ValueError("Port must be provided either as a parameter or in the config file")
-        elif port is None:
-            raise ValueError("Port must be provided either as a parameter or in the config file")
 
         self._http_server = FastAPIServerBase(
             service_name=self.name,

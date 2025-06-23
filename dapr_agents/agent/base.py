@@ -126,13 +126,8 @@ class AgentBase(BaseModel, ABC):
             # Assign the prompt template to the LLM client
             self.llm.prompt_template = self.prompt_template
 
-        # Pre-fill Agent Attributes if needed
         self.prefill_agent_attributes()
-
-         # Now validate the prompt template after it's fully set up
         self._validate_prompt_template()
-
-        # Complete post-initialization
         super().model_post_init(__context)
 
     def _validate_prompt_template(self) -> None:
@@ -154,7 +149,6 @@ class AgentBase(BaseModel, ABC):
         if self.instructions:
             input_variables.append("instructions")
         
-        # Update the template's input variables
         self.prompt_template.input_variables = list(set(self.prompt_template.input_variables + input_variables))
 
         # Collect attributes set by user
