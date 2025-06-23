@@ -14,6 +14,7 @@ class AgentStatus(str, Enum):
     COMPLETE = "complete"  # The agent has completed all assigned tasks
     ERROR = "error"  # The agent encountered an error and needs attention
 
+
 class AgentTaskStatus(str, Enum):
     """Enumeration of possible task statuses for standardizing task tracking."""
 

@@ -50,7 +50,11 @@ class ReActAgent(AgentBase):
         name_format = "{name}" if self.template_format == "f-string" else "{{name}}"
         role_format = "{role}" if self.template_format == "f-string" else "{{role}}"
         goal_format = "{goal}" if self.template_format == "f-string" else "{{goal}}"
-        instructions_format = "{instructions}" if self.template_format == "f-string" else "{{instructions}}"
+        instructions_format = (
+            "{instructions}"
+            if self.template_format == "f-string"
+            else "{{instructions}}"
+        )
 
         # Append name if provided
         if self.name:

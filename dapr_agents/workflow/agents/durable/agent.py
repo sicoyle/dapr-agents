@@ -58,33 +58,53 @@ class DurableAgent(AgentWorkflowBase):
             try:
                 config_loader = Config()
                 config = config_loader.load_config_with_global(config_file)
-                
+
                 # Get Dapr configuration and update values
-                if 'dapr' in config:
-                    dapr_config = config['dapr']
-                    values.update({
-                        'message_bus_name': dapr_config.get('message_bus_name', 'messagepubsub'),
-                        'state_store_name': dapr_config.get('state_store_name', 'workflowstatestore'),
-                        'state_key': dapr_config.get('state_key', 'workflow_state'),
-                        'agents_registry_store_name': dapr_config.get('agents_registry_store_name', 'workflowstatestore'),
-                        'agents_registry_key': dapr_config.get('agents_registry_key', 'agents_registry'),
-                    })
+                if "dapr" in config:
+                    dapr_config = config["dapr"]
+                    values.update(
+                        {
+                            "message_bus_name": dapr_config.get(
+                                "message_bus_name", "messagepubsub"
+                            ),
+                            "state_store_name": dapr_config.get(
+                                "state_store_name", "workflowstatestore"
+                            ),
+                            "state_key": dapr_config.get("state_key", "workflow_state"),
+                            "agents_registry_store_name": dapr_config.get(
+                                "agents_registry_store_name", "workflowstatestore"
+                            ),
+                            "agents_registry_key": dapr_config.get(
+                                "agents_registry_key", "agents_registry"
+                            ),
+                        }
+                    )
                     print(f"Updated values with Dapr config: {list(values.keys())}")
-                    logger.info(f"Updated values with Dapr config: {list(values.keys())}")
+                    logger.info(
+                        f"Updated values with Dapr config: {list(values.keys())}"
+                    )
                 else:
                     logger.warning("No 'dapr' section found in config")
-                
+
                 # Store the full config directly
-                values['config'] = config
+                values["config"] = config
             except Exception as e:
-                raise ValueError(f"Failed to load configuration from {config_file}: {e}") from e
+                raise ValueError(
+                    f"Failed to load configuration from {config_file}: {e}"
+                ) from e
         else:
             print("No config_file provided in values")
-            required_fields = ['message_bus_name', 'state_store_name', 'agents_registry_store_name']
+            required_fields = [
+                "message_bus_name",
+                "state_store_name",
+                "agents_registry_store_name",
+            ]
             missing = [f for f in required_fields if f not in values]
             if missing:
-                raise ValueError(f"When no config_file is provided, these fields must be specified: {', '.join(missing)}")
-        
+                raise ValueError(
+                    f"When no config_file is provided, these fields must be specified: {', '.join(missing)}"
+                )
+
         return values
 
     def model_post_init(self, __context: Any) -> None:

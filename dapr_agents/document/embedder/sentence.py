@@ -144,7 +144,7 @@ class SentenceTransformerEmbedder(EmbedderBase):
     def name(self) -> str:
         """
         Return the name of the embedder for ChromaDB compatibility.
-        
+
         Returns:
             str: The name of the embedder model.
         """

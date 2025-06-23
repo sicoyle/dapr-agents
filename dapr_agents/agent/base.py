@@ -148,8 +148,10 @@ class AgentBase(BaseModel, ABC):
             input_variables.append("goal")
         if self.instructions:
             input_variables.append("instructions")
-        
-        self.prompt_template.input_variables = list(set(self.prompt_template.input_variables + input_variables))
+
+        self.prompt_template.input_variables = list(
+            set(self.prompt_template.input_variables + input_variables)
+        )
 
         # Collect attributes set by user
         set_attributes = {

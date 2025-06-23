@@ -133,11 +133,11 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         """
         Create an AgenticWorkflow instance from a configuration file.
         Parameters passed as kwargs will override values from the config file.
-        
+
         Args:
             config_file: Path to the YAML configuration file
             **kwargs: Additional parameters to override configuration
-            
+
         Returns:
             AgenticWorkflow: Configured workflow instance
         """
@@ -146,23 +146,44 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         defaults = config_loader.load_defaults()
         workflow_params = {}
         dapr_config = config_loader.get_dapr_config(config)
-        default_dapr = defaults.get('dapr', {})
-        workflow_params.update({
-            'message_bus_name': dapr_config.get('message_bus_name', default_dapr.get('message_bus_name')),
-            'state_store_name': dapr_config.get('state_store_name', default_dapr.get('state_store_name')),
-            'state_key': dapr_config.get('state_key', default_dapr.get('state_key')),
-            'agents_registry_store_name': dapr_config.get('agents_registry_store_name', default_dapr.get('agents_registry_store_name')),
-            'agents_registry_key': dapr_config.get('agents_registry_key', default_dapr.get('agents_registry_key')),
-        })
-        
+        default_dapr = defaults.get("dapr", {})
+        workflow_params.update(
+            {
+                "message_bus_name": dapr_config.get(
+                    "message_bus_name", default_dapr.get("message_bus_name")
+                ),
+                "state_store_name": dapr_config.get(
+                    "state_store_name", default_dapr.get("state_store_name")
+                ),
+                "state_key": dapr_config.get(
+                    "state_key", default_dapr.get("state_key")
+                ),
+                "agents_registry_store_name": dapr_config.get(
+                    "agents_registry_store_name",
+                    default_dapr.get("agents_registry_store_name"),
+                ),
+                "agents_registry_key": dapr_config.get(
+                    "agents_registry_key", default_dapr.get("agents_registry_key")
+                ),
+            }
+        )
+
         workflow_config = config_loader.get_workflow_config(config)
-        default_workflow = defaults.get('workflow', {})
-        workflow_params.update({
-            'max_iterations': workflow_config.get('max_iterations', default_workflow.get('max_iterations')),
-            'save_state_locally': workflow_config.get('save_state_locally', default_workflow.get('save_state_locally')),
-            'local_state_path': workflow_config.get('local_state_path', default_workflow.get('local_state_path')),
-        })
-        
+        default_workflow = defaults.get("workflow", {})
+        workflow_params.update(
+            {
+                "max_iterations": workflow_config.get(
+                    "max_iterations", default_workflow.get("max_iterations")
+                ),
+                "save_state_locally": workflow_config.get(
+                    "save_state_locally", default_workflow.get("save_state_locally")
+                ),
+                "local_state_path": workflow_config.get(
+                    "local_state_path", default_workflow.get("local_state_path")
+                ),
+            }
+        )
+
         # Apply any direct field overrides from kwargs
         # These will override the config values
         for key, value in kwargs.items():
@@ -170,9 +191,9 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
                 workflow_params[key] = value
             else:
                 logger.warning(f"Unknown parameter '{key}' will be ignored")
-        
-        workflow_params['config_file'] = config_file
-        
+
+        workflow_params["config_file"] = config_file
+
         return cls(**workflow_params)
 
     @property
@@ -219,7 +240,9 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
                 self._config = config_loader.load_config_with_global(self.config_file)
                 logger.info(f"Configuration loaded from {self.config_file}")
             except Exception as e:
-                logger.warning(f"Failed to load configuration from {self.config_file}: {e}")
+                logger.warning(
+                    f"Failed to load configuration from {self.config_file}: {e}"
+                )
                 self._config = {}
         return self._config or {}
 
@@ -227,11 +250,11 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         """
         Enables FastAPI-based service mode for the agent by initializing a FastAPI server instance.
         Must be called before `start()` if you want to expose HTTP endpoints.
-        
+
         Args:
             port: Optional port number. If not provided, must be available in config.
             host: Host address to bind to. Defaults to "0.0.0.0".
-            
+
         Raises:
             ValueError: If port is not provided and not available in config.
         """
@@ -239,12 +262,14 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
 
         if port is None:
             config = self._load_config_if_needed()
-            dapr_config = config.get('dapr', {})
-            port = dapr_config.get('service_port')
-            
+            dapr_config = config.get("dapr", {})
+            port = dapr_config.get("service_port")
+
             if port is None:
                 logger.error("No port found in config")
-                raise ValueError("Port must be provided either as a parameter or in the config file")
+                raise ValueError(
+                    "Port must be provided either as a parameter or in the config file"
+                )
 
         self._http_server = FastAPIServerBase(
             service_name=self.name,
@@ -889,67 +914,77 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         """
         Check if Dapr is available by attempting to connect to the Dapr sidecar.
         This provides better DX for users who don't have dapr running to see a nice error message.
-        
+
         Returns:
             bool: True if Dapr is available, False otherwise
         """
         try:
             import requests
             import os
-            
+
             # Check if we have a config file loaded and try to get the port from there
             try:
                 config = self.config
                 if config:
-                    dapr_config = config.get('dapr', {})
-                    config_port = dapr_config.get('http_port') or dapr_config.get('service_port')
+                    dapr_config = config.get("dapr", {})
+                    config_port = dapr_config.get("http_port") or dapr_config.get(
+                        "service_port"
+                    )
                     if config_port:
                         try:
-                            response = requests.get(f"http://localhost:{config_port}/v1.0/metadata", timeout=2)
+                            response = requests.get(
+                                f"http://localhost:{config_port}/v1.0/metadata",
+                                timeout=2,
+                            )
                             if response.status_code == 200:
                                 return True
                         except Exception:
                             pass
             except Exception:
                 pass
-            
+
             # Dapr automatically sets these environment variables when running with dapr run
-            dapr_http_port = os.environ.get('DAPR_HTTP_PORT')
-            dapr_grpc_port = os.environ.get('DAPR_GRPC_PORT')
-            
+            dapr_http_port = os.environ.get("DAPR_HTTP_PORT")
+            dapr_grpc_port = os.environ.get("DAPR_GRPC_PORT")
+
             # Check HTTP port if available
             if dapr_http_port:
                 try:
-                    response = requests.get(f"http://localhost:{dapr_http_port}/v1.0/metadata", timeout=2)
+                    response = requests.get(
+                        f"http://localhost:{dapr_http_port}/v1.0/metadata", timeout=2
+                    )
                     if response.status_code == 200:
                         return True
                 except Exception:
                     pass
-            
+
             # Check gRPC port if available (this is what the Dapr client uses by default)
             if dapr_grpc_port:
                 try:
                     import socket
+
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.settimeout(2)
-                    result = sock.connect_ex(('localhost', int(dapr_grpc_port)))
+                    result = sock.connect_ex(("localhost", int(dapr_grpc_port)))
                     sock.close()
                     if result == 0:
                         return True
                 except Exception:
                     pass
-            
+
             # Fallback to common ports
-            possible_ports = ['3500', '3501', '3502']
-            
+            possible_ports = ["3500", "3501", "3502"]
+
             for port in possible_ports:
                 try:
-                    response = requests.get(f"http://localhost:{port}/v1.0/metadata", timeout=2)
+                    response = requests.get(
+                        f"http://localhost:{port}/v1.0/metadata", timeout=2
+                    )
                     if response.status_code == 200:
                         return True
                 except Exception:
                     continue
-                    
+
             return False
         except Exception:
             return False

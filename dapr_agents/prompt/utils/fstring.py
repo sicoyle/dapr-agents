@@ -28,5 +28,5 @@ def extract_fstring_variables(template: str) -> List[str]:
     """
     # Find all occurrences of {variable_name} in the template
     # This will match {name}, {role}, etc. even when they're part of sentences
-    matches = re.findall(r'\{([^{}]+)\}', template)
+    matches = re.findall(r"\{([^{}]+)\}", template)
     return matches
