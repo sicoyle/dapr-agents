@@ -7,101 +7,17 @@ from typing import Optional, List, Union, Type, TypeVar, Dict, Any
 from pathlib import Path
 
 from dapr_agents.agent.patterns import ReActAgent, ToolCallAgent, OpenAPIReActAgent
-from dapr_agents.workflow.agents import AssistantAgent
+from dapr_agents.workflow.agents import DurableAgent
 from dapr_agents.tool.utils.openapi import OpenAPISpecParser
 from dapr_agents.memory import ConversationListMemory
 from dapr_agents.llm import OpenAIChatClient
-from dapr_agents.agent.base import AgentBase
 from dapr_agents.llm import LLMClientBase
 from dapr_agents.memory import MemoryBase
 from dapr_agents.tool import AgentTool
 from dapr_agents.storage import ChromaVectorStore
+from dapr_agents.config import Config
 
-T = TypeVar("T", ToolCallAgent, ReActAgent, OpenAPIReActAgent, AssistantAgent)
-
-class AgentConfig:
-    """Configuration management for agents."""
-    
-    def __init__(self):
-        self.config = {}
-    
-    def load_defaults(self):
-        """Load the defaults"""
-        return {
-            'llm': {
-                'provider': 'openai',
-                'model': 'gpt-4',
-                'temperature': 0.7,
-                'max_tokens': 4000
-            },
-            # TODO: in future or in this PoC should I just point to a component name and then have dapr pick up on all of these dapr specific details? Seems redundant to have to specify all of these details here too.
-            # Maybe dapr metadata endpoint could give me this stuff instead too for service side of thigns?
-            'dapr': {
-                'message_bus_name': 'messagepubsub',
-                'state_store_name': None,
-                'state_key': 'workflow_state',
-                'agents_registry_store_name': 'workflowstatestore',
-                'agents_registry_key': 'agents_registry',
-                'service_port': 8001,
-                'grpc_port': 50001
-            },
-            'agent': {
-                'max_iterations': 10,
-                # Thoughts on field below? 
-                'tool_choice': 'auto',
-                'reasoning': False,
-            }
-        }
-    
-    def load_yaml_config(self, file_path: str) -> Dict[str, Any]:
-        """Load configuration from YAML file with support for shared configs"""
-        with open(file_path, 'r') as f:
-            config = yaml.safe_load(f)
-        
-        # Load master configuration if referenced
-        if 'master_config' in config:
-            # Resolve relative path to master config
-            config_dir = os.path.dirname(os.path.abspath(file_path))
-            master_config_path = os.path.join(config_dir, config['master_config'])
-            master_config = self.load_master_config(master_config_path)
-            config = self.merge_configs(master_config, config)
-        
-        return config
-    
-    def load_master_config(self, config_path: str) -> Dict[str, Any]:
-        """Load master configuration file"""
-        with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
-    
-    def merge_configs(self, master_config: Dict[str, Any], agent_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Merge master config with agent-specific config"""
-        merged = {}
-        
-        # Merge LLM config
-        if 'llm_config' in agent_config:
-            llm_key = agent_config['llm_config']
-            if llm_key in master_config.get('llm', {}):
-                merged['llm'] = master_config['llm'][llm_key]
-        
-        if 'dapr_config' in agent_config:
-            merged['dapr'] = master_config.get('dapr', {})
-        else:
-            # If no dapr_config specified, use the flat dapr config
-            merged['dapr'] = master_config.get('dapr', {})
-        
-        # Merge agent config
-        if 'agent_config' in agent_config:
-            agent_key = agent_config['agent_config']
-            if agent_key in master_config.get('agent', {}):
-                merged['agent'] = master_config['agent'][agent_key]
-        
-        # Apply agent-specific overrides
-        if 'agent' in agent_config:
-            if 'agent' not in merged:
-                merged['agent'] = {}
-            merged['agent'].update(agent_config['agent'])
-        
-        return merged
+T = TypeVar("T", ToolCallAgent, ReActAgent, OpenAPIReActAgent, DurableAgent)
 
 class AgentFactory:
     """
@@ -112,7 +28,6 @@ class AgentFactory:
         "react": ReActAgent,
         "toolcalling": ToolCallAgent,
         "openapireact": OpenAPIReActAgent,
-        "assistant": AssistantAgent,
     }
 
     @staticmethod
@@ -138,8 +53,9 @@ class AgentFactory:
 
 class Agent:
     """
-    Enhanced and unified Agent class with common interface and external configuration support.
+    Agent class with common interface and external configuration support.
     This is a wrapper that automatically selects the appropriate agent type.
+    Agents created can be a ToolCallAgent, ReActAgent, or OpenAPIReActAgent based on the parameters passed in.
     """
 
     def __init__(
@@ -155,6 +71,7 @@ class Agent:
         reasoning: bool = False,
         openapi_spec_path: Optional[str] = None,
         config_file: Optional[str] = None,
+        # TODO(@Sicoyle): add api_vector_store and am i missing anything else?
         **kwargs
     ):
         """
@@ -178,8 +95,8 @@ class Agent:
         if pattern is not None:
             warnings.warn(
                 "The 'pattern' parameter is deprecated and will be removed in a future version. "
-                "Use 'reasoning=True' for ReActAgent, 'openapi_spec_path' for OpenAPIReActAgent, "
-                "or 'state_store_name' for AssistantAgent instead. Default is ToolCallAgent.",
+                "Use 'reasoning=True' for ReActAgent, and 'openapi_spec_path' for OpenAPIReActAgent. "
+                "Default is ToolCallAgent.",
                 DeprecationWarning,
                 stacklevel=2
             )
@@ -215,10 +132,14 @@ class Agent:
         except Exception as e:
             raise ValueError(f"Failed to initialize memory: {e}") from e
 
-        self.agent_type = self._determine_agent_type(config, pattern, reasoning, openapi_spec_path)
+        # Determine agent type
+        agent_type = self._determine_agent_type(config, pattern, reasoning, openapi_spec_path)
+        
+        # Set the agent type as a private attribute
+        self._agent_type = agent_type
         
         # Handle OpenAPI-specific kwargs
-        if self.agent_type == "openapireact":
+        if self._agent_type == "openapireact":
             # Only create spec_parser if we have an openapi_spec_path
             if openapi_spec_path and not kwargs.get("spec_parser"):
                 try:
@@ -227,7 +148,7 @@ class Agent:
                 except Exception as e:
                     warnings.warn(f"Failed to load OpenAPI spec from {openapi_spec_path}: {e}")
             
-            # Add required vector store for OpenAPI agents
+            # Add required vector store for OpenAPI agents?
             # TODO(@Sicoyle): should this be supported for all agent types or just this one??
             if not kwargs.get("api_vector_store"):
                 try:
@@ -242,17 +163,11 @@ class Agent:
             kwargs.update({
                 "auth_header": kwargs.get("auth_header", {}),
             })
-        
-        # Check if Dapr is required and available for durable to ensure we provide graceful errs in case someone just runs python <filename>.py and it gives bad output.
-        if self.agent_type == 'assistant':
-            if not self._is_dapr_available():
-                self._raise_dapr_required_error()
-        
+
+         # Store config file path for as_service method
+        self._config_file = config_file
         self.agent = self._create_agent(config, kwargs, role, name, goal, instructions, tools, llm, memory)
         self._validate_environment()
-        
-        # Store config file path for as_service method
-        self._config_file = config_file
         
         # Set up graceful shutdown
         self._shutdown_event = asyncio.Event()
@@ -293,13 +208,14 @@ class Agent:
                 config_file = os.path.abspath(config_file)
             config.update(self._load_yaml_config(config_file))
         
-        config.update(params)  # Params override file
+        # Params override file config (instantiation parameters take precedence)
+        config.update(params)
         return config
     
     def _load_default_config(self) -> Dict[str, Any]:
         """Load sensible defaults"""
         return {
-            # TODO(Sicoyle): rm this bc should just be llm component
+            # TODO(Sicoyle): rm this bc should just be llm component eventually
             'llm': {
                 'provider': 'openai',
                 'model': 'gpt-4',
@@ -324,8 +240,8 @@ class Agent:
     
     def _load_yaml_config(self, file_path: str) -> Dict[str, Any]:
         """Load configuration from YAML file with support for shared configs"""
-        config_loader = AgentConfig()
-        return config_loader.load_yaml_config(file_path)
+        config_loader = Config()
+        return config_loader.load_config_with_global(file_path)
     
     def _determine_agent_type(self, config: Dict[str, Any], pattern: Optional[str] = None, 
                             reasoning: bool = False, openapi_spec_path: Optional[str] = None) -> str:
@@ -335,12 +251,10 @@ class Agent:
             return 'openapireact'  # OpenAPIReActAgent
         elif config.get('agent', {}).get('reasoning') or reasoning:
             return 'react'  # ReActAgent
-        elif config.get('dapr', {}).get('state_store_name'):
-            return 'assistant'  # AssistantAgent (durable state)
         elif pattern:
             # Fallback to pattern for backward compatibility
             pattern_lower = pattern.lower()
-            if pattern_lower in ['react', 'toolcalling', 'openapireact', 'assistant']:
+            if pattern_lower in ['react', 'toolcalling', 'openapireact']:
                 return pattern_lower
         else:
             return 'toolcall'  # ToolCallAgent (default)
@@ -363,30 +277,13 @@ class Agent:
         # Add agent-specific configuration
         if 'agent' in config:
             agent_params.update(config['agent'])
-        
-        # Add Dapr configuration for AssistantAgent (required parameters)
-        if self.agent_type == 'assistant':
-            if 'dapr' in config:
-                agent_params.update(config['dapr'])
-            else:
-                # Provide defaults for required Dapr parameters
-                agent_params.update({
-                    'message_bus_name': 'messagepubsub',
-                    'state_store_name': 'workflowstatestore',
-                    'state_key': 'workflow_state',
-                    'agents_registry_store_name': 'workflowstatestore',
-                    'agents_registry_key': 'agents_registry',
-                })
-        
-        # Add any additional kwargs
+
+        # Add any additional kwargs (excluding factory-specific ones)
         agent_params.update(kwargs)
         
-        if self.agent_type == 'assistant':
-            assistant_agent = AssistantAgent(**agent_params)
-            return assistant_agent
-        elif self.agent_type == 'openapireact':
+        if self._agent_type == 'openapireact':
             return OpenAPIReActAgent(**agent_params)
-        elif self.agent_type == 'react':
+        elif self._agent_type == 'react':
             return ReActAgent(**agent_params)
         else:
             return ToolCallAgent(**agent_params)
@@ -426,92 +323,9 @@ class Agent:
             print(f"Error during agent execution: {e}")
             raise
 
-    async def start(self):
-        """Start the agent service (for AssistantAgents) or run the agent (for others)"""
-        print(f"Starting agent of type: {self.agent_type}")
-        print(f"Underlying agent class: {type(self.agent).__name__}")
-        
-        if self.agent_type == 'assistant':
-            # For AssistantAgents, delegate to the underlying agent's start method
-            print("Starting AssistantAgent service...")
-            if hasattr(self.agent, 'start'):
-                print("Calling underlying agent.start()...")
-                await self.agent.start()
-            else:
-                print(f"Underlying agent {type(self.agent).__name__} does not have start method")
-                raise AttributeError("AssistantAgent does not have start method")
-        else:
-            # For other agents, this might not make sense
-            raise AttributeError(
-                f"start() method is only available for AssistantAgent (durable agents). "
-                f"Current agent type: {self.agent_type}. "
-                f"Use run() method for other agent types."
-            )
-
     def __getattr__(self, name):
         """Delegate attribute access to the underlying agent"""
         return getattr(self.agent, name)
-
-    def as_service(self, port: Optional[int] = None):
-        """
-        Enable service mode for the agent, reading port from config if not provided.
-        Only available for AssistantAgent (durable agents).
-        
-        Args:
-            port: Optional port override. If not provided, reads from config.
-            
-        Raises:
-            AttributeError: If the agent type does not support service mode.
-        """
-        # Only AssistantAgents support service mode
-        if self.agent_type != 'assistant':
-            raise AttributeError(
-                f"Service mode is only available for AssistantAgent (durable agents). "
-                f"Current agent type: {self.agent_type}. "
-                f"To use service mode, ensure your config has 'state_store_name' in the dapr section."
-            )
-        
-        # If no port provided, try to get it from config
-        if port is None:
-            config_loader = AgentConfig()
-            config = config_loader.load_yaml_config(getattr(self, '_config_file', None))
-            port = config.get('dapr', {}).get('service_port', 8001)
-        
-        # Delegate to the underlying agent's as_service method
-        if hasattr(self.agent, 'as_service'):
-            self.agent.as_service(port=port)
-            return self  # Return the wrapper, not the underlying agent
-        else:
-            raise AttributeError(f"AssistantAgent does not have as_service method")
-
-    def _is_dapr_available(self) -> bool:
-        """
-        Check if Dapr is available by attempting to connect to the Dapr sidecar.
-        
-        Returns:
-            bool: True if Dapr is available, False otherwise
-        """
-        try:
-            import requests
-            # Try to connect to Dapr's metadata endpoint with a short timeout
-            response = requests.get("http://localhost:3500/v1.0/metadata", timeout=1)
-            return response.status_code == 200
-        except Exception:
-            return False
-
-    def _raise_dapr_required_error(self):
-        """
-        Raise a helpful error message when Dapr is required but not available.
-        """
-        error_msg = """🚫 Dapr Required for Durable Agent
-
-This agent requires Dapr to be running because it uses stateful, durable workflows.
-
-To run this agent, you need to:
-
-1. Install Dapr CLI: https://docs.dapr.io/getting-started/install-dapr-cli/
-2. Initialize Dapr: dapr init
-3. Run with Dapr: dapr run --app-id your-app-id --app-port 8001 --resources-path components/ -- python your_script.py
-
-For more information, see the README.md in the quickstart directory."""
-        raise RuntimeError(error_msg)
+    
+    # TODO(@Sicoyle): add as_service method
+    # TODO(@Sicoyle): add start method

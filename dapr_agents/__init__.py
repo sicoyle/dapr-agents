@@ -20,6 +20,6 @@ from dapr_agents.workflow import (
     LLMOrchestrator,
     RandomOrchestrator,
     RoundRobinOrchestrator,
-    AssistantAgent,
 )
+from dapr_agents.workflow.agents.durable import DurableAgent
 from dapr_agents.executors import LocalCodeExecutor, DockerCodeExecutor

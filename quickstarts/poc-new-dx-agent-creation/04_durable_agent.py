@@ -1,4 +1,4 @@
-from dapr_agents import Agent
+from dapr_agents import DurableAgent
 from dapr_agents.tool import tool
 
 @tool
@@ -17,9 +17,9 @@ def get_previous_analysis() -> str:
     return "Previous analysis: Data processed with 95% accuracy"
 
 async def main():
-    # Create the durable agent using unified Agent factory
+    # Create the durable agent using config file
     print("Creating agent...")
-    agent = Agent(
+    agent = DurableAgent(
         name="DataProcessor",
         role="Data Analysis Assistant",
         goal="Process data and maintain state across interactions",
@@ -30,22 +30,18 @@ async def main():
         ],
         tools=[process_data, store_results, get_previous_analysis],
         config_file="configs/data_agent.yaml"
-    ).as_service()
+    )
     
-    print(f"Agent created successfully. Type: {agent.agent_type}")
-    print(f"Underlying agent: {type(agent.agent).__name__}")
+    agent = agent.as_service()
     
-    # For AssistantAgent, we need to start it as a service
-    # The agent will be available via HTTP endpoints
+    print(f"Agent created successfully. Type: {type(agent).__name__}")
     print("Starting durable agent as a service...")
     print("The agent is now running and ready to receive requests.")
     print("You can interact with it via HTTP endpoints or other Dapr services.")
     print("Press Ctrl+C to stop the service.")
     
     # Start the agent service
-    print("About to call agent.start()...")
     await agent.start()
-    print("agent.start() completed (this shouldn't happen for a service)")
 
 if __name__ == "__main__":
     import asyncio

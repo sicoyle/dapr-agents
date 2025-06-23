@@ -1,12 +1,7 @@
-master_config: "agents_config.yaml"
-llm_config: "openai"
-dapr_config: "dapr"
-agent_config: "durable"
+global_config: "agents_config.yaml"
+agent_config: "data_processor"
 
-# Dapr-specific overrides
+# Only override what's specific to this agent
 dapr:
-  state_store_name: "workflowstatestore"  # This triggers AssistantAgent selection
-
-# Agent-specific overrides
-agent:
-  state_key: "data_processor_state" 
+  state_key: "data_processor_state"
+  service_port: 8001

@@ -87,7 +87,7 @@ Instead of wrapping an agent inside an actor, [Dapr Workflows](https://docs.dapr
 **Example: An Agent as a Dapr Workflow**
 
 ```python
-from dapr_agents import AssistantAgent
+from dapr_agents import DurableAgent
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -95,7 +95,7 @@ import logging
 async def main():
     try:
         # Define Agent
-        wizard_service = AssistantAgent(
+        wizard_service = DurableAgent(
             name="Gandalf",
             role="Wizard",
             goal="Guide the Fellowship with wisdom and strategy, using magic and insight to ensure the downfall of Sauron.",
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-Here, `Gandalf` is an `AssistantAgent` implemented as a workflow, meaning it executes structured reasoning, plans actions, and integrates tools within a managed workflow execution loop.
+Here, `Gandalf` is an `DurableAgent` implemented as a workflow, meaning it executes structured reasoning, plans actions, and integrates tools within a managed workflow execution loop.
 
 ### 3. How We Use Dapr Workflows for Orchestration
 While Dapr Workflows build on Dapr Actors, they provide an abstraction for orchestrating multiple agents and interactions. In dapr agents, the orchestrator itself is a Dapr Workflow, which:

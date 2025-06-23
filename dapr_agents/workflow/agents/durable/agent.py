@@ -1,23 +1,25 @@
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from dapr.ext.workflow import DaprWorkflowContext
 
+from dapr_agents.config import Config
 from dapr_agents.types import (
     AgentError,
     ChatCompletion,
     ToolMessage,
 )
-from dapr_agents.workflow.agents.assistant.schemas import (
+from dapr_agents.workflow.agents.durable.schemas import (
     AgentTaskResponse,
     BroadcastMessage,
     TriggerAction,
 )
-from dapr_agents.workflow.agents.assistant.state import (
+from dapr_agents.workflow.agents.durable.state import (
     AssistantWorkflowEntry,
     AssistantWorkflowMessage,
     AssistantWorkflowState,
@@ -30,12 +32,12 @@ from dapr_agents.workflow.messaging.decorator import message_router
 logger = logging.getLogger(__name__)
 
 
-class AssistantAgent(AgentWorkflowBase):
+class DurableAgent(AgentWorkflowBase):
     """
     A conversational AI agent that responds to user messages, engages in discussions,
     and dynamically utilizes external tools when needed.
 
-    The AssistantAgent follows an agentic workflow, iterating on responses based on
+    The DurableAgent follows an agentic workflow, iterating on responses based on
     contextual understanding, reasoning, and tool-assisted execution. It ensures
     meaningful interactions by selecting the right tools, generating relevant responses,
     and refining outputs through iterative feedback loops.
@@ -49,8 +51,67 @@ class AssistantAgent(AgentWorkflowBase):
         description="Strategy for selecting tools ('auto', 'required', 'none'). Defaults to 'auto' if tools are provided.",
     )
 
+    @model_validator(mode="before")
+    def load_config_before_validation(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        """Load configuration from YAML file before validation"""
+        print(f"DurableAgent model validator called with values: {list(values.keys())}")
+        logger = logging.getLogger(__name__)
+        logger.info(f"DurableAgent model validator called with values: {list(values.keys())}")
+        
+        if config_file := values.get("config_file"):
+            try:
+                print(f"Loading config from: {config_file}")
+                logger.info(f"Loading config from: {config_file}")
+                
+                config_loader = Config()
+                config = config_loader.load_config_with_global(config_file)
+                print(f"Config loaded successfully: {config}")
+                logger.info(f"Config loaded successfully: {config}")
+                
+                # Get Dapr configuration and update values
+                if 'dapr' in config:
+                    dapr_config = config['dapr']
+                    print(f"Dapr config found: {dapr_config}")
+                    logger.info(f"Dapr config found: {dapr_config}")
+                    values.update({
+                        'message_bus_name': dapr_config.get('message_bus_name', 'messagepubsub'),
+                        'state_store_name': dapr_config.get('state_store_name', 'workflowstatestore'),
+                        'state_key': dapr_config.get('state_key', 'workflow_state'),
+                        'agents_registry_store_name': dapr_config.get('agents_registry_store_name', 'workflowstatestore'),
+                        'agents_registry_key': dapr_config.get('agents_registry_key', 'agents_registry'),
+                    })
+                    print(f"Updated values with Dapr config: {list(values.keys())}")
+                    logger.info(f"Updated values with Dapr config: {list(values.keys())}")
+                else:
+                    print("No 'dapr' section found in config")
+                    logger.warning("No 'dapr' section found in config")
+                
+                # Store the full config directly
+                values['config'] = config
+                print(f"Config stored directly: {config}")
+                logger.info(f"Config stored directly: {config}")
+                
+            except Exception as e:
+                print(f"Failed to load configuration from {config_file}: {e}")
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to load configuration from {config_file}: {e}", exc_info=True)
+                raise ValueError(f"Failed to load configuration from {config_file}: {e}") from e
+        else:
+            print("No config_file provided in values")
+            logger.warning("No config_file provided in values")
+            # If no config file provided, ensure required fields are present
+            required_fields = ['message_bus_name', 'state_store_name', 'agents_registry_store_name']
+            missing = [f for f in required_fields if f not in values]
+            if missing:
+                raise ValueError(f"When no config_file is provided, these fields must be specified: {', '.join(missing)}")
+        
+        return values
+
     def model_post_init(self, __context: Any) -> None:
         """Initializes the workflow with agentic execution capabilities."""
+        logger = logging.getLogger(__name__)
+        logger.info(f"DurableAgent model_post_init called")
+        logger.info(f"self.config: {self.config}")
 
         # Initialize Agent State
         self.state = AssistantWorkflowState()

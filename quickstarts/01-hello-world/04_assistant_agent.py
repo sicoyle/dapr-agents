@@ -10,7 +10,7 @@ import asyncio
 import logging
 from typing import List
 from pydantic import BaseModel, Field
-from dapr_agents import tool, AssistantAgent
+from dapr_agents import tool, DurableAgent
 from dapr_agents.memory import ConversationDaprStateMemory
 from dotenv import load_dotenv
 
@@ -40,7 +40,7 @@ def search_flights(destination: str) -> List[FlightOption]:
 async def main():
     try:
         # Initialize TravelBuddy agent
-        travel_planner = AssistantAgent(
+        travel_planner = DurableAgent(
             name="TravelBuddy",
             role="Travel Planner",
             goal="Help users find flights and remember preferences",

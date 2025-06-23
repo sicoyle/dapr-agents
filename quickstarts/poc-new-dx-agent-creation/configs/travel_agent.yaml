@@ -1,4 +1,4 @@
-master_config: "agents_config.yaml"
+global_config: "agents_config.yaml"
 llm_config: "anthropic"
 dapr_config: "development"
 agent_config: "reasoning"

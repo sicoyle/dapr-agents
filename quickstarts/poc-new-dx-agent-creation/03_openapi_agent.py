@@ -9,7 +9,15 @@ from dapr_agents.tool.utils.openapi import OpenAPISpecParser
 # from dapr_agents.storage import VectorStore
 
 async def main():
-    # Agent with OpenAPI integration - automatically uses OpenAPIReActAgent
+    # Could create a custom vector store
+    # embedding_function = SentenceTransformerEmbedder(model="all-MiniLM-L6-v2")
+    # custom_vector_store = PostgresVectorStore(
+    #     name="my_api_toolbox",
+    #     embedding_function=embedding_function,
+    #     connection_string="postgresql://user:pass@localhost:5432/vectordb"
+    # )
+    
+    #Agent with OpenAPI integration - automatically uses OpenAPIReActAgent
     agent = Agent(
         name="APIBot",
         role="API Integration Assistant",
@@ -21,6 +29,7 @@ async def main():
         ],
         openapi_spec_path="./api_specs/petstore.yaml",  # Triggers OpenAPIReActAgent
         config_file="configs/api_agent.yaml"
+        # api_vector_store=custom_vector_store
     )
     
     response = await agent.run("Find pets with status 'available'")

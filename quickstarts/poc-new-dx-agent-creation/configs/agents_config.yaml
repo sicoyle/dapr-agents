@@ -1,18 +1,10 @@
 # LLM Provider configurations
 llm:
-  openai:
-    provider: "openai"
-    model: "gpt-4"
-    api_key: "${OPENAI_API_KEY}"
-    temperature: 0.7
-    max_tokens: 4000
-  
-  anthropic:
-    provider: "anthropic"
-    model: "claude-3-sonnet"
-    api_key: "${ANTHROPIC_API_KEY}"
-    temperature: 0.7
-    max_tokens: 4000
+  provider: "openai"
+  model: "gpt-4"
+  api_key: "${OPENAI_API_KEY}"
+  temperature: 0.7
+  max_tokens: 4000
 
 # Dapr infrastructure configurations
 # TODO(@Sicoyle): look more here if i can just put component name and that's it?
@@ -27,22 +19,32 @@ dapr:
 
 # Agent behavior configurations
 agent:
+  # Simple agent for basic tool calling
   simple:
     max_iterations: 5
     tool_choice: "auto"
     reasoning: false
   
+  # Agent with reasoning capabilities
   reasoning:
     max_iterations: 10
     tool_choice: "auto"
     reasoning: true # should this be here or not? could be this is llm reasoning for reasoning model with thinking or planning things????
   
+  # Durable agent with state persistence
   durable:
     max_iterations: 10
     tool_choice: "auto"
     reasoning: false
   
+  # Advanced agent with reasoning and tool selection
   advanced:
     max_iterations: 20
     tool_choice: "required"
     reasoning: true
+  
+  # Data processing agent
+  data_processor:
+    max_iterations: 10
+    tool_choice: "auto"
+    reasoning: false

@@ -6,6 +6,7 @@ import signal
 import tempfile
 import threading
 import inspect
+import yaml
 from fastapi import status, Request
 from fastapi.responses import JSONResponse
 from cloudevents.http.conversion import from_http
@@ -21,7 +22,7 @@ from typing import (
     Type,
     Union,
 )
-from pydantic import BaseModel, Field, ValidationError, PrivateAttr
+from pydantic import BaseModel, Field, ValidationError, PrivateAttr, model_validator
 from dapr.clients import DaprClient
 from dapr_agents.agent.utils.text_printer import ColorTextFormatter
 from dapr_agents.memory import (
@@ -33,6 +34,7 @@ from dapr_agents.workflow.messaging import DaprPubSub
 from dapr_agents.workflow.messaging.routing import MessageRoutingMixin
 from dapr_agents.storage.daprstores.statestore import DaprStateStore
 from dapr_agents.workflow import WorkflowApp
+from dapr_agents.config import Config
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -85,7 +87,13 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         default=True, description="Whether to save workflow state locally."
     )
     local_state_path: Optional[str] = Field(
-        default=None, description="Path for saving local state."
+        default=None, description="Local path for saving state files."
+    )
+    config_file: Optional[str] = Field(
+        default=None, description="Path to YAML configuration file."
+    )
+    config: Optional[Dict[str, Any]] = Field(
+        default=None, description="Loaded configuration data."
     )
 
     # Private internal attributes (not schema/validated)
@@ -104,6 +112,9 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
 
     def model_post_init(self, __context: Any) -> None:
         """Initializes the workflow service, messaging, and metadata storage."""
+        # Check if Dapr is available before initializing Dapr-dependent components
+        if not self._is_dapr_available():
+            self._raise_dapr_required_error()
 
         # Set up color formatter for logging and CLI printing
         self._text_formatter = ColorTextFormatter()
@@ -119,6 +130,72 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         self._dapr_client = DaprClient()
 
         super().model_post_init(__context)
+
+    def _load_config_from_yaml(self):
+        """Load configuration from YAML file and store it for potential use"""
+        try:
+            config_loader = Config()
+            config = config_loader.load_yaml_config(self.config_file)
+            self._config = config
+            logger.info(f"Configuration loaded from {self.config_file}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to load configuration from {self.config_file}: {e}")
+            self._config = {}
+            # Continue with default values
+
+    @classmethod
+    def from_config(cls, config_file: str, **kwargs):
+        """
+        Create an AgenticWorkflow instance from a configuration file.
+        Parameters passed as kwargs will override values from the config file.
+        
+        Args:
+            config_file: Path to the YAML configuration file
+            **kwargs: Additional parameters to override configuration
+            
+        Returns:
+            AgenticWorkflow: Configured workflow instance
+        """
+        # Load configuration from YAML file
+        config_loader = Config()
+        config = config_loader.load_yaml_config(config_file)
+        
+        # Extract required fields from config, using existing Field defaults
+        workflow_params = {}
+        
+        # Get Dapr configuration
+        if 'dapr' in config:
+            dapr_config = config['dapr']
+            workflow_params.update({
+                'message_bus_name': dapr_config.get('message_bus_name', 'messagepubsub'),
+                'state_store_name': dapr_config.get('state_store_name', 'workflowstatestore'),
+                'state_key': dapr_config.get('state_key', 'workflow_state'),
+                'agents_registry_store_name': dapr_config.get('agents_registry_store_name', 'workflowstatestore'),
+                'agents_registry_key': dapr_config.get('agents_registry_key', 'agents_registry'),
+            })
+        
+        # Get workflow configuration
+        if 'workflow' in config:
+            workflow_config = config['workflow']
+            workflow_params.update({
+                'max_iterations': workflow_config.get('max_iterations', 20),
+                'save_state_locally': workflow_config.get('save_state_locally', True),
+                'local_state_path': workflow_config.get('local_state_path'),
+            })
+        
+        # Apply any direct field overrides from kwargs
+        # These will override the YAML config values
+        for key, value in kwargs.items():
+            if hasattr(cls, key):
+                workflow_params[key] = value
+            else:
+                logger.warning(f"Unknown parameter '{key}' will be ignored")
+        
+        # Add config_file to params
+        workflow_params['config_file'] = config_file
+        
+        return cls(**workflow_params)
 
     @property
     def app(self) -> "FastAPI":
@@ -148,12 +225,38 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
                     path, method, methods=[method_type], **extra_kwargs
                 )
 
-    def as_service(self, port: int, host: str = "0.0.0.0"):
+    def as_service(self, port: Optional[int] = None, host: str = "0.0.0.0"):
         """
         Enables FastAPI-based service mode for the agent by initializing a FastAPI server instance.
         Must be called before `start()` if you want to expose HTTP endpoints.
+        
+        Args:
+            port: Optional port number. If not provided, must be available in config.
+            host: Host address to bind to. Defaults to "0.0.0.0".
+            
+        Raises:
+            ValueError: If port is not provided and not available in config.
         """
         from dapr_agents.service.fastapi import FastAPIServerBase
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"as_service called with port={port}, host={host}")
+        logger.info(f"self.config: {self.config}")
+
+        # Get port from config if not provided
+        if port is None and self.config:
+            if 'dapr' in self.config and 'service_port' in self.config['dapr']:
+                port = self.config['dapr']['service_port']
+                logger.info(f"Using port {port} from config")
+            else:
+                logger.error("No port found in config")
+                logger.error(f"Config keys: {list(self.config.keys()) if self.config else 'None'}")
+                if self.config and 'dapr' in self.config:
+                    logger.error(f"Dapr config keys: {list(self.config['dapr'].keys())}")
+                raise ValueError("Port must be provided either as a parameter or in the config file")
+        elif port is None:
+            logger.error("No config loaded and no port provided")
+            raise ValueError("Port must be provided either as a parameter or in the config file")
 
         self._http_server = FastAPIServerBase(
             service_name=self.name,
@@ -795,3 +898,36 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
                 content={"error": "Failed to start workflow", "details": str(e)},
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    def _is_dapr_available(self) -> bool:
+        """
+        Check if Dapr is available by attempting to connect to the Dapr sidecar.
+        This provides better DX for users who don't have dapr running to see a nice error message.
+        
+        Returns:
+            bool: True if Dapr is available, False otherwise
+        """
+        try:
+            import requests
+            # Try to connect to Dapr's metadata endpoint with a short timeout
+            response = requests.get("http://localhost:3500/v1.0/metadata", timeout=1)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+    def _raise_dapr_required_error(self):
+        """
+        Raise a helpful error message when Dapr is required but not available.
+        """
+        error_msg = """🚫 Dapr Required for Durable Agent
+
+This agent requires Dapr to be running because it uses stateful, durable workflows.
+
+To run this agent, you need to:
+
+1. Install Dapr CLI: https://docs.dapr.io/getting-started/install-dapr-cli/
+2. Initialize Dapr: dapr init
+3. Run with Dapr: dapr run --app-id your-app-id --app-port 8001 --resources-path components/ -- python your_script.py
+
+For more information, see the README.md in the quickstart directory."""
+        raise RuntimeError(error_msg)

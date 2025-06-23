@@ -1,4 +1,4 @@
-from dapr_agents import AssistantAgent
+from dapr_agents import DurableAgent
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -6,7 +6,7 @@ import logging
 
 async def main():
     try:
-        wizard_service = AssistantAgent(
+        wizard_service = DurableAgent(
             role="Wizard",
             name="Gandalf",
             goal="Guide the Fellowship with wisdom and strategy, using magic and insight to ensure the downfall of Sauron.",

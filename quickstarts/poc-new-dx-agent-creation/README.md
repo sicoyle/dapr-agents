@@ -9,7 +9,7 @@ The unified agent interface provides a single entry point for all agent types wi
 - **ToolCallAgent** (default): Simple, stateless tool execution
 - **ReActAgent**: Reasoning-action pattern with explicit thought processes
 - **OpenAPIReActAgent**: API integration with vector store capabilities
-- **AssistantAgent**: Durable, stateful workflow with Dapr integration
+- **DurableAgent**: Durable, stateful workflow with Dapr integration
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ The unified agent interface provides a single entry point for all agent types wi
 - **OpenAI API Key** for LLM interactions
 - **Dapr Agents package** installed
 
-### For Durable Agents (AssistantAgent)
+### For Durable Agents (DurableAgent)
 - **Dapr CLI** installed and initialized
 - **Docker** (for Dapr components)
 
@@ -85,7 +85,7 @@ These examples require Dapr for stateful, durable agent workflows:
 dapr run --app-id durable-agent --app-port 8001 --dapr-http-port 3500 --resources-path components/ -- python 04_durable_agent.py
 ```
 **What it does**: Creates a stateful agent that maintains conversation state
-**Agent Type**: AssistantAgent
+**Agent Type**: DurableAgent
 **Dapr Required**: Yes
 
 Unlike simpler agents, this stateful agent exposes a REST API for workflow interactions:
@@ -102,7 +102,7 @@ You'll receive a workflow ID in response, which you can use to track progress.
 ##### Check workflow status:
 ```bash
 # Replace WORKFLOW_ID with the ID from the previous response
-curl -i -X GET http://localhost:3500/v1.0/workflows/durableTaskHub/WORKFLOW_ID
+curl -i -X GET http://localhost:3500/v1.0/workflows/dapr/WORKFLOW_ID
 ```
 
 ##### Check agent service status:
@@ -226,7 +226,7 @@ agent = Agent(
 
 The system automatically selects the agent type based on configuration:
 
-1. **AssistantAgent**: If `state_store_name` is specified
+1. **DurableAgent**: If `state_store_name` is specified
 2. **OpenAPIReActAgent**: If `openapi_spec_path` is specified
 3. **ReActAgent**: If `reasoning` is True
 4. **ToolCallAgent**: Default (simple tool execution)

@@ -75,14 +75,14 @@ dapr-llm.yaml             # Multi-App Run Template using the LLM orchestrator
 Each agent is implemented as a separate service. Here's an example for the Hobbit agent:
 
 ```python
-from dapr_agents import Agent, AssistantAgent
+from dapr_agents import Agent, DurableAgent
 from dotenv import load_dotenv
 import asyncio
 import logging
 
 async def main():
     try:
-        hobbit_service = AssistantAgent(
+        hobbit_service = DurableAgent(
           name="Frodo",
           role="Hobbit",
           goal="Carry the One Ring to Mount Doom, resisting its corruptive power while navigating danger and uncertainty.",
