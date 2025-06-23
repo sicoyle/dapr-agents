@@ -1,6 +1,7 @@
-# PoC New DX Agent Creation
+# Quick Reference For Trying out Each Agent Type
 
 This quickstart demonstrates the unified agent experience with automatic agent type selection and YAML configuration support.
+It supports trying out the various agents and parameters supported.
 
 ## Overview
 
@@ -11,6 +12,18 @@ The unified agent interface provides a single entry point for all agent types wi
 - **OpenAPIReActAgent**: API integration with vector store capabilities
 - **DurableAgent**: Durable, stateful workflow with Dapr integration
 
+
+## Agent Type Selection Logic
+
+The system automatically selects the agent type based on configuration:
+
+1. **DurableAgent**: If `state_store_name` is specified
+2. **OpenAPIReActAgent**: If `openapi_spec_path` is specified
+3. **ReActAgent**: If `reasoning` is True
+4. **ToolCallAgent**: Default (simple tool execution)
+
+This provides a seamless experience where you don't need to understand the underlying agent types - the system chooses the best one automatically.
+
 ## Prerequisites
 
 ### Basic Requirements
@@ -20,7 +33,7 @@ The unified agent interface provides a single entry point for all agent types wi
 
 ### For Durable Agents (DurableAgent)
 - **Dapr CLI** installed and initialized
-- **Docker** (for Dapr components)
+- Optionally, **Docker** (for Dapr components)
 
 ## Setup
 
@@ -32,19 +45,20 @@ pip install -e .
 ```
 
 ### 2. Set Environment Variables
+Optionally,
 ```bash
 export OPENAI_API_KEY="your-openai-key"
 ```
 
 ### 3. Install Dapr CLI (for durable agents only)
 
-TODO: copy link in dapr docs
+Follow the instructions to install the latest [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/). 
 
 ## Running the Quickstarts
 
 Navigate to the quickstart directory:
 ```bash
-cd quickstarts/poc-new-dx-agent-creation
+cd quickstarts/09-quick-ref-all-agent-types
 ```
 
 ### Running Without Dapr (Stateless Agents)
@@ -59,6 +73,8 @@ python 01_simple_tool_agent.py
 **Agent Type**: ToolCallAgent
 **Dapr Required**: No
 
+This is a simple agent that leverages specified `tools`, and is stateless.
+
 #### 2. Reasoning Agent
 ```bash
 python 02_reasoning_agent.py
@@ -67,6 +83,8 @@ python 02_reasoning_agent.py
 **Agent Type**: ReActAgent
 **Dapr Required**: No
 
+This is a simple agent leveraging the ReAct pattern, denoted by `reasoning=True` in the agent configuration.
+
 #### 3. API Integration Agent
 ```bash
 python 03_openapi_agent.py
@@ -74,6 +92,8 @@ python 03_openapi_agent.py
 **What it does**: Creates an agent that interacts with APIs using OpenAPI specifications
 **Agent Type**: OpenAPIReActAgent
 **Dapr Required**: No
+
+This is a simple agent supporting OpenAPI integrations and vector store support, denoted by `openapi_spec_path` in the agent configuration.
 
 ### Running With Dapr (Durable Agents)
 
@@ -88,7 +108,7 @@ dapr run --app-id durable-agent --app-port 8001 --dapr-http-port 3500 --resource
 **Agent Type**: DurableAgent
 **Dapr Required**: Yes
 
-Unlike simpler agents, this stateful agent exposes a REST API for workflow interactions:
+Unlike simpler agents, this stateful agent is instantiated through the `DurableAgent` class, and exposes a REST API for workflow interactions:
 
 ##### Start a new workflow:
 ```bash
@@ -138,22 +158,21 @@ dapr run --app-id advanced-agent --app-port 8002 --dapr-http-port 3501 --resourc
 
 ## Configuration Structure
 
-### Master Configuration (`configs/agents_config.yaml`)
+### Global Configuration (`configs/agents_config.yaml`)
 
 Contains shared configurations for:
-# TODO(@Sicoyle): I need to look if we can just pick up on Dapr LLM providers component instead of this! and see that they have all fields we would want.
-- **LLM providers**: OpenAI, Anthropic, Azure
+- **LLM providers**: OpenAI, etc
 - **Dapr**: Dapr specific fields for creating durable agents
-- **Agent behaviors**: Simple, reasoning, durable, advanced patterns
+- **Agent behaviors**: Simple, reasoning, and durable
 
 ### Individual Agent Configuration
 
-Each agent references configurations from the master config:
+Each agent references configurations from the global config:
 - `llm_config`: Which LLM provider to use
 - `dapr_config`: Dapr specific configurations
 - `agent_config`: Which agent behavior pattern to use
 
-## Examples
+## Reference Examples
 
 ### 1. Simple Tool Agent
 ```python
@@ -222,54 +241,6 @@ agent = Agent(
 )
 ```
 
-## Agent Type Selection Logic
-
-The system automatically selects the agent type based on configuration:
-
-1. **DurableAgent**: If `state_store_name` is specified
-2. **OpenAPIReActAgent**: If `openapi_spec_path` is specified
-3. **ReActAgent**: If `reasoning` is True
-4. **ToolCallAgent**: Default (simple tool execution)
-
-This provides a seamless experience where users don't need to understand the underlying agent types - the system chooses the best one automatically.
-
-## Comparison with Other Quickstarts
-
-This unified agent approach simplifies the patterns shown in other quickstarts:
-
-| Quickstart | Traditional Approach | Unified Approach |
-|------------|---------------------|------------------|
-| [01-hello-world](./01-hello-world) | Manual agent type selection | Automatic selection |
-| [03-agent-tool-call](./03-agent-tool-call) | ToolCallAgent only | All agent types supported |
-| [04-agentic-workflow](./04-agentic-workflow) | Complex workflow setup | Simple configuration |
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Import Errors**: Make sure you've installed the package with `pip install -e .` from the project root
-2. **API Key Issues**: Ensure your `OPENAI_API_KEY` environment variable is set correctly
-3. **Dapr Not Found**: For durable agents, make sure Dapr CLI is installed and initialized
-4. **Configuration File Not Found**: Ensure you're running from the correct directory (`quickstarts/poc-new-dx-agent-creation`)
-
-### Debug Mode
-
-To see detailed logs, set the log level:
-```bash
-export LOG_LEVEL=DEBUG
-```
-
-### Testing Individual Components
-
-You can test the configuration loading separately:
-```python
-from dapr_agents.agent.utils.factory import AgentConfig
-
-config = AgentConfig()
-config.load_yaml_config("configs/weather_agent.yaml")
-print(config)
-```
-
 ### Dapr Component Setup
 
 For durable agents, ensure you have the required Dapr components in a `components/` directory:
@@ -291,7 +262,7 @@ spec:
 ```
 
 ```yaml
-# components/messagebus.yaml
+# components/pubsub.yaml
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:

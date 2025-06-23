@@ -29,7 +29,7 @@ agent:
   reasoning:
     max_iterations: 10
     tool_choice: "auto"
-    reasoning: true # should this be here or not? could be this is llm reasoning for reasoning model with thinking or planning things????
+    reasoning: true # TODO: evaluate if this should be here or in llm config
   
   # Durable agent with state persistence
   durable:

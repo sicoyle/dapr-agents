@@ -1,0 +1,46 @@
+{
+    "instances": {
+        "a878f37b046a46d7b62a49c5165ce1b2": {
+            "input": "Process this dataset: [1, 2, 3, 4, 5]",
+            "output": "The dataset has been processed with an analysis score of 0.95. If you need to store these results or have any other requests, please let me know!",
+            "start_time": "2025-06-23T11:36:56.482570",
+            "end_time": "2025-06-23T11:37:01.767782",
+            "messages": [
+                {
+                    "id": "cc93f7d5-d9b2-4b34-a00f-3c544a3dc610",
+                    "role": "user",
+                    "content": "Process this dataset: [1, 2, 3, 4, 5]",
+                    "timestamp": "2025-06-23T11:36:56.502101",
+                    "name": null
+                },
+                {
+                    "id": "c8442f7e-00ea-4b3e-b86a-3e4050e755ed",
+                    "role": "assistant",
+                    "content": "The dataset has been processed with an analysis score of 0.95. If you need to store these results or have any other requests, please let me know!",
+                    "timestamp": "2025-06-23T11:37:01.764256",
+                    "name": null
+                }
+            ],
+            "last_message": {
+                "id": "c8442f7e-00ea-4b3e-b86a-3e4050e755ed",
+                "role": "assistant",
+                "content": "The dataset has been processed with an analysis score of 0.95. If you need to store these results or have any other requests, please let me know!",
+                "timestamp": "2025-06-23T11:37:01.764256",
+                "name": null
+            },
+            "tool_history": [
+                {
+                    "content": "{'analysis': 'Complete', 'score': 0.95, 'processed_data': '[1, 2, 3, 4, 5]'}",
+                    "role": "tool",
+                    "tool_call_id": "call_F8w4mLySlmB1O5g6cschphjw",
+                    "id": "e209d139-b51d-4d3c-99b1-597bab073e01",
+                    "function_name": "ProcessData",
+                    "function_args": "{\"data\":\"[1, 2, 3, 4, 5]\"}",
+                    "timestamp": "2025-06-23T11:36:59.959289"
+                }
+            ],
+            "source": null,
+            "source_workflow_instance_id": null
+        }
+    }
+}
