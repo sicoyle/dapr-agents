@@ -239,23 +239,15 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         """
         from dapr_agents.service.fastapi import FastAPIServerBase
 
-        logger = logging.getLogger(__name__)
-        logger.info(f"as_service called with port={port}, host={host}")
-        logger.info(f"self.config: {self.config}")
-
         # Get port from config if not provided
         if port is None and self.config:
             if 'dapr' in self.config and 'service_port' in self.config['dapr']:
                 port = self.config['dapr']['service_port']
-                logger.info(f"Using port {port} from config")
             else:
                 logger.error("No port found in config")
-                logger.error(f"Config keys: {list(self.config.keys()) if self.config else 'None'}")
                 if self.config and 'dapr' in self.config:
-                    logger.error(f"Dapr config keys: {list(self.config['dapr'].keys())}")
                 raise ValueError("Port must be provided either as a parameter or in the config file")
         elif port is None:
-            logger.error("No config loaded and no port provided")
             raise ValueError("Port must be provided either as a parameter or in the config file")
 
         self._http_server = FastAPIServerBase(
@@ -430,7 +422,6 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
             self.save_state()
 
         except Exception as e:
-            logger.error(f"Failed to initialize workflow state: {e}")
             raise RuntimeError(f"Error initializing workflow state: {e}") from e
 
     def validate_state(self, state_data: dict) -> dict:
@@ -464,7 +455,6 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
             return validated_state.model_dump()  # Convert validated model to dict
 
         except ValidationError as e:
-            logger.error(f"State validation failed: {e}")
             raise ValidationError(f"Invalid workflow state: {e.errors()}") from e
 
     def load_state(self) -> dict:
