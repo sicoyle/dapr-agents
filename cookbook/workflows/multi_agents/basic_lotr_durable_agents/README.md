@@ -1,4 +1,4 @@
-# Multi-Agent LOTR: Agents as Actors
+# Multi-Agent LOTR: Durable Agents
 
 This guide shows you how to set up and run an event-driven agentic workflow using Dapr Agents. By leveraging [Dapr Pub/Sub](https://docs.dapr.io/developing-applications/building-blocks/pubsub/pubsub-overview/) and FastAPI, `Dapr Agents` enables agents to collaborate dynamically in decentralized systems.
 
@@ -55,7 +55,7 @@ dapr run -f .
 Send an HTTP POST request to the workflow service to start the workflow. Use curl or any API client:
 
 ```bash
-curl -i -X POST http://localhost:8009/start-workflow \
+curl -i -X POST http://localhost:8004/start-workflow \
     -H "Content-Type: application/json" \
     -d '{"task": "Lets solve the riddle to open the Doors of Durin and enter Moria."}'
 ```

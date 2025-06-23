@@ -1,5 +1,5 @@
 from dapr_agents import tool
-from dapr_agents import AgentActor
+from dapr_agents import DurableAgent
 from pydantic import BaseModel, Field
 from dapr_agents import Agent
 from dotenv import load_dotenv
@@ -31,7 +31,7 @@ def sub(a: float, b: float) -> float:
 
 
 async def main():
-    calculator_agent = Agent(
+    calculator_service = DurableAgent(
         name="MathematicsAgent",
         role="Calculator Assistant",
         goal="Assist Humans with calculation tasks.",
@@ -40,15 +40,12 @@ async def main():
             "Break down the calculation into smaller steps.",
         ],
         tools=[add, sub],
-    )
-
-    calculator_service = AgentActor(
-        agent=calculator_agent,
         message_bus_name="pubsub",
         agents_registry_key="agents_registry",
         agents_registry_store_name="agentstatestore",
+        state_store_name="agentstatestore",
         service_port=8002,
-    )
+    ).as_service(8002)
 
     await calculator_service.start()
 

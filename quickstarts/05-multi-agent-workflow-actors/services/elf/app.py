@@ -1,4 +1,4 @@
-from dapr_agents import Agent, AgentActor
+from dapr_agents import DurableAgent
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -7,7 +7,7 @@ import logging
 async def main():
     try:
         # Define Agent
-        elf_agent = Agent(
+        elf_agent = DurableAgent(
             role="Elf",
             name="Legolas",
             goal="Act as a scout, marksman, and protector, using keen senses and deadly accuracy to ensure the success of the journey.",
@@ -18,18 +18,12 @@ async def main():
                 "Excel in ranged combat, delivering pinpoint arrow strikes from great distances.",
                 "Respond concisely, accurately, and relevantly, ensuring clarity and strict alignment with the task.",
             ],
-        )
-
-        # Expose Agent as an Actor over a Service
-        elf_actor = AgentActor(
-            agent=elf_agent,
             message_bus_name="messagepubsub",
             agents_registry_store_name="agentstatestore",
             agents_registry_key="agents_registry",
-            service_port=8003,
-        )
+        ).as_service(8003)
 
-        await elf_actor.start()
+        await elf_agent.start()
     except Exception as e:
         print(f"Error starting actor: {e}")
 

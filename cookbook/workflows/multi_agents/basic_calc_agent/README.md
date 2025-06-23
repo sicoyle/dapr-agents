@@ -44,13 +44,13 @@ Make sure Redis is running on your local machine (default port 6379).
 1. Start the calculator agent:
 
 ```bash
-dapr run --app-id CalculatorApp --app-port 8002 --resources-path ./components python calculator_agent.py
+dapr run --app-id CalculatorApp --app-port 8002  --dapr-http-port 3500 --resources-path ./components -- python calculator_agent.py
 ```
 
 2. Start the LLM orchestrator:
 
 ```bash
-dapr run --app-id OrchestratorApp --app-port 8004 --resources-path ./components python llm_orchestrator.py
+dapr run --app-id OrchestratorApp --app-port 8004 --resources-path ./components -- python llm_orchestrator.py
 ```
 
 3. Run the client:

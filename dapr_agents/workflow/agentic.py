@@ -895,9 +895,62 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         """
         try:
             import requests
-            # Try to connect to Dapr's metadata endpoint with a short timeout
-            response = requests.get("http://localhost:3500/v1.0/metadata", timeout=1)
-            return response.status_code == 200
+            import os
+            
+            # Check if we have a config file loaded and try to get the port from there
+            try:
+                config = self.config
+                if config:
+                    dapr_config = config.get('dapr', {})
+                    config_port = dapr_config.get('http_port') or dapr_config.get('service_port')
+                    if config_port:
+                        try:
+                            response = requests.get(f"http://localhost:{config_port}/v1.0/metadata", timeout=2)
+                            if response.status_code == 200:
+                                return True
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            
+            # Dapr automatically sets these environment variables when running with dapr run
+            dapr_http_port = os.environ.get('DAPR_HTTP_PORT')
+            dapr_grpc_port = os.environ.get('DAPR_GRPC_PORT')
+            
+            # Check HTTP port if available
+            if dapr_http_port:
+                try:
+                    response = requests.get(f"http://localhost:{dapr_http_port}/v1.0/metadata", timeout=2)
+                    if response.status_code == 200:
+                        return True
+                except Exception:
+                    pass
+            
+            # Check gRPC port if available (this is what the Dapr client uses by default)
+            if dapr_grpc_port:
+                try:
+                    import socket
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(2)
+                    result = sock.connect_ex(('localhost', int(dapr_grpc_port)))
+                    sock.close()
+                    if result == 0:
+                        return True
+                except Exception:
+                    pass
+            
+            # Fallback to common ports
+            possible_ports = ['3500', '3501', '3502']
+            
+            for port in possible_ports:
+                try:
+                    response = requests.get(f"http://localhost:{port}/v1.0/metadata", timeout=2)
+                    if response.status_code == 200:
+                        return True
+                except Exception:
+                    continue
+                    
+            return False
         except Exception:
             return False
 
