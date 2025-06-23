@@ -46,17 +46,23 @@ class ReActAgent(AgentBase):
         # Initialize prompt parts with the current date as the first entry
         prompt_parts = [f"# Today's date is: {datetime.now().strftime('%B %d, %Y')}"]
 
+        # Use the correct template format based on self.template_format
+        name_format = "{name}" if self.template_format == "f-string" else "{{name}}"
+        role_format = "{role}" if self.template_format == "f-string" else "{{role}}"
+        goal_format = "{goal}" if self.template_format == "f-string" else "{{goal}}"
+        instructions_format = "{instructions}" if self.template_format == "f-string" else "{{instructions}}"
+
         # Append name if provided
         if self.name:
-            prompt_parts.append("## Name\nYour name is {{name}}.")
+            prompt_parts.append(f"## Name\nYour name is {name_format}.")
 
         # Append role and goal with default values if not set
-        prompt_parts.append("## Role\nYour role is {{role}}.")
-        prompt_parts.append("## Goal\n{{goal}}.")
+        prompt_parts.append(f"## Role\nYour role is {role_format}.")
+        prompt_parts.append(f"## Goal\n{goal_format}.")
 
         # Append instructions if provided
         if self.instructions:
-            prompt_parts.append("## Instructions\n{{instructions}}")
+            prompt_parts.append(f"## Instructions\n{instructions_format}")
 
         # Tools section with schema details
         tools_section = "## Tools\nYou have access ONLY to the following tools:\n"

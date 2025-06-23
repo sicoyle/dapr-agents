@@ -87,6 +87,104 @@ class AgentBase(BaseModel, ABC):
             values["name"] = values["role"]
         return values
 
+    def model_post_init(self, __context: Any) -> None:
+        """
+        Sets up the prompt template based on system_prompt or attributes like name, role, goal, and instructions.
+        Confirms the source of prompt_template post-initialization.
+        """
+        # Initialize tool executor with provided tools
+        self._tool_executor = AgentToolExecutor(tools=self.tools)
+
+        # Check if both agent and LLM have a prompt template specified and raise an error if both exist
+        if self.prompt_template and self.llm.prompt_template:
+            raise ValueError(
+                "Conflicting prompt templates: both an agent prompt_template and an LLM prompt_template are provided. "
+                "Please set only one or ensure synchronization between the two."
+            )
+
+        # If the agent's prompt_template is provided, use it and skip further configuration
+        if self.prompt_template:
+            logger.info(
+                "Using the provided agent prompt_template. Skipping system prompt construction."
+            )
+            self.llm.prompt_template = self.prompt_template
+
+        # If the LLM client already has a prompt template, sync it and prefill/validate as needed
+        elif self.llm.prompt_template:
+            logger.info("Using existing LLM prompt_template. Synchronizing with agent.")
+            self.prompt_template = self.llm.prompt_template
+
+        else:
+            if not self.system_prompt:
+                logger.info("Constructing system_prompt from agent attributes.")
+                self.system_prompt = self.construct_system_prompt()
+
+            logger.info("Using system_prompt to create the prompt template.")
+            self.prompt_template = self.construct_prompt_template()
+
+        if not self.llm.prompt_template:
+            # Assign the prompt template to the LLM client
+            self.llm.prompt_template = self.prompt_template
+
+        # Pre-fill Agent Attributes if needed
+        self.prefill_agent_attributes()
+
+         # Now validate the prompt template after it's fully set up
+        self._validate_prompt_template()
+
+        # Complete post-initialization
+        super().model_post_init(__context)
+
+    def _validate_prompt_template(self) -> None:
+        """
+        Validates that the prompt template is properly constructed and attributes are handled correctly.
+        This runs after prompt template setup to ensure all attributes are properly handled.
+        """
+        if not self.prompt_template:
+            return
+
+        # Define input variables based on agent attributes
+        input_variables = ["chat_history"]  # Always include chat_history
+        if self.name:
+            input_variables.append("name")
+        if self.role:
+            input_variables.append("role")
+        if self.goal:
+            input_variables.append("goal")
+        if self.instructions:
+            input_variables.append("instructions")
+        
+        # Update the template's input variables
+        self.prompt_template.input_variables = list(set(self.prompt_template.input_variables + input_variables))
+
+        # Collect attributes set by user
+        set_attributes = {
+            "name": self.name,
+            "role": self.role,
+            "goal": self.goal,
+            "instructions": self.instructions,
+        }
+
+        # Use Pydantic's model_fields_set to detect if attributes were user-set
+        user_set_attributes = {
+            attr for attr in set_attributes if attr in self.model_fields_set
+        }
+
+        # Check if attributes are in input_variables
+        ignored_attributes = [
+            attr
+            for attr in set_attributes
+            if attr not in self.prompt_template.input_variables
+            and set_attributes[attr] is not None
+            and attr in user_set_attributes
+        ]
+
+        if ignored_attributes:
+            logger.warning(
+                f"The following agent attributes were explicitly set but are not in the prompt template: {', '.join(ignored_attributes)}. "
+                "These will be handled during initialization."
+            )
+
     @property
     def tool_executor(self) -> AgentToolExecutor:
         """Returns the tool executor, ensuring it's accessible but read-only."""
@@ -123,51 +221,6 @@ class AgentBase(BaseModel, ABC):
         """
         pass
 
-    def model_post_init(self, __context: Any) -> None:
-        """
-        Sets up the prompt template based on system_prompt or attributes like name, role, goal, and instructions.
-        Confirms the source of prompt_template post-initialization.
-        """
-        # Initialize tool executor with provided tools
-        self._tool_executor = AgentToolExecutor(tools=self.tools)
-
-        # Check if both agent and LLM have a prompt template specified and raise an error if both exist
-        if self.prompt_template and self.llm.prompt_template:
-            raise ValueError(
-                "Conflicting prompt templates: both an agent prompt_template and an LLM prompt_template are provided. "
-                "Please set only one or ensure synchronization between the two."
-            )
-
-        # If the agent's prompt_template is provided, use it and skip further configuration
-        if self.prompt_template:
-            logger.info(
-                "Using the provided agent prompt_template. Skipping system prompt construction."
-            )
-            self.llm.prompt_template = self.prompt_template
-
-        # If the LLM client already has a prompt template, sync it and prefill/validate as needed
-        elif self.llm.prompt_template:
-            logger.info("Using existing LLM prompt_template. Synchronizing with agent.")
-            self.prompt_template = self.llm.prompt_template
-
-        else:
-            if not self.system_prompt:
-                logger.info("Constructing system_prompt from agent attributes.")
-                self.system_prompt = self.construct_system_prompt()
-
-            logger.info("Using system_prompt to create the prompt template.")
-            self.prompt_template = self.construct_prompt_template()
-
-        # Pre-fill Agent Attributes if needed
-        self.prefill_agent_attributes()
-
-        if not self.llm.prompt_template:
-            # Assign the prompt template to the LLM client
-            self.llm.prompt_template = self.prompt_template
-
-        # Complete post-initialization
-        super().model_post_init(__context)
-
     def prefill_agent_attributes(self) -> None:
         """
         Pre-fill prompt template with agent attributes if specified in `input_variables`.
@@ -189,27 +242,6 @@ class AgentBase(BaseModel, ABC):
         if "instructions" in self.prompt_template.input_variables and self.instructions:
             prefill_data["instructions"] = "\n".join(self.instructions)
 
-        # Collect attributes set but not in input_variables for informational logging
-        set_attributes = {
-            "name": self.name,
-            "role": self.role,
-            "goal": self.goal,
-            "instructions": self.instructions,
-        }
-
-        # Use Pydantic's model_fields_set to detect if attributes were user-set
-        user_set_attributes = {
-            attr for attr in set_attributes if attr in self.model_fields_set
-        }
-
-        ignored_attributes = [
-            attr
-            for attr in set_attributes
-            if attr not in self.prompt_template.input_variables
-            and set_attributes[attr] is not None
-            and attr in user_set_attributes
-        ]
-
         # Apply pre-filled data only for attributes that are in input_variables
         if prefill_data:
             self.prompt_template = self.prompt_template.pre_fill_variables(
@@ -217,11 +249,6 @@ class AgentBase(BaseModel, ABC):
             )
             logger.info(
                 f"Pre-filled prompt template with attributes: {list(prefill_data.keys())}"
-            )
-        elif ignored_attributes:
-            raise ValueError(
-                f"The following agent attributes were explicitly set by the user but are not considered by the prompt template: {', '.join(ignored_attributes)}. "
-                "Please ensure that these attributes are included in the prompt template's input variables if they are needed."
             )
         else:
             logger.info(
