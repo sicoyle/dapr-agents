@@ -54,25 +54,14 @@ class DurableAgent(AgentWorkflowBase):
     @model_validator(mode="before")
     def load_config_before_validation(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         """Load configuration from YAML file before validation"""
-        print(f"DurableAgent model validator called with values: {list(values.keys())}")
-        logger = logging.getLogger(__name__)
-        logger.info(f"DurableAgent model validator called with values: {list(values.keys())}")
-        
         if config_file := values.get("config_file"):
             try:
-                print(f"Loading config from: {config_file}")
-                logger.info(f"Loading config from: {config_file}")
-                
                 config_loader = Config()
                 config = config_loader.load_config_with_global(config_file)
-                print(f"Config loaded successfully: {config}")
-                logger.info(f"Config loaded successfully: {config}")
                 
                 # Get Dapr configuration and update values
                 if 'dapr' in config:
                     dapr_config = config['dapr']
-                    print(f"Dapr config found: {dapr_config}")
-                    logger.info(f"Dapr config found: {dapr_config}")
                     values.update({
                         'message_bus_name': dapr_config.get('message_bus_name', 'messagepubsub'),
                         'state_store_name': dapr_config.get('state_store_name', 'workflowstatestore'),
@@ -83,23 +72,14 @@ class DurableAgent(AgentWorkflowBase):
                     print(f"Updated values with Dapr config: {list(values.keys())}")
                     logger.info(f"Updated values with Dapr config: {list(values.keys())}")
                 else:
-                    print("No 'dapr' section found in config")
                     logger.warning("No 'dapr' section found in config")
                 
                 # Store the full config directly
                 values['config'] = config
-                print(f"Config stored directly: {config}")
-                logger.info(f"Config stored directly: {config}")
-                
             except Exception as e:
-                print(f"Failed to load configuration from {config_file}: {e}")
-                logger = logging.getLogger(__name__)
-                logger.error(f"Failed to load configuration from {config_file}: {e}", exc_info=True)
                 raise ValueError(f"Failed to load configuration from {config_file}: {e}") from e
         else:
             print("No config_file provided in values")
-            logger.warning("No config_file provided in values")
-            # If no config file provided, ensure required fields are present
             required_fields = ['message_bus_name', 'state_store_name', 'agents_registry_store_name']
             missing = [f for f in required_fields if f not in values]
             if missing:
@@ -109,10 +89,6 @@ class DurableAgent(AgentWorkflowBase):
 
     def model_post_init(self, __context: Any) -> None:
         """Initializes the workflow with agentic execution capabilities."""
-        logger = logging.getLogger(__name__)
-        logger.info(f"DurableAgent model_post_init called")
-        logger.info(f"self.config: {self.config}")
-
         # Initialize Agent State
         self.state = AssistantWorkflowState()
 

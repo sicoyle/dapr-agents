@@ -36,7 +36,7 @@ class AgentFactory:
         Selects the agent class based on the pattern.
 
         Args:
-            pattern (str): Pattern type ('react', 'toolcalling', 'openapireact', 'assistant').
+            pattern (str): Pattern type ('react', 'toolcalling', 'openapireact').
 
         Returns:
             Type: Corresponding agent class.
@@ -131,11 +131,8 @@ class Agent:
             memory = memory or ConversationListMemory()
         except Exception as e:
             raise ValueError(f"Failed to initialize memory: {e}") from e
-
-        # Determine agent type
-        agent_type = self._determine_agent_type(config, pattern, reasoning, openapi_spec_path)
         
-        # Set the agent type as a private attribute
+        agent_type = self._determine_agent_type(config, pattern, reasoning, openapi_spec_path)
         self._agent_type = agent_type
         
         # Handle OpenAPI-specific kwargs
@@ -200,48 +197,18 @@ class Agent:
     
     def _load_configuration(self, config_file: Optional[str], params: Dict[str, Any]) -> Dict[str, Any]:
         """Load configuration from file or params"""
-        config = self._load_default_config()
+        config_loader = Config()
+        config = config_loader.load_defaults()
         
         if config_file:
             # Resolve relative path to config file
             if not os.path.isabs(config_file):
                 config_file = os.path.abspath(config_file)
-            config.update(self._load_yaml_config(config_file))
+            config.update(config_loader.load_config_with_global(config_file))
         
         # Params override file config (instantiation parameters take precedence)
         config.update(params)
         return config
-    
-    def _load_default_config(self) -> Dict[str, Any]:
-        """Load sensible defaults"""
-        return {
-            # TODO(Sicoyle): rm this bc should just be llm component eventually
-            'llm': {
-                'provider': 'openai',
-                'model': 'gpt-4',
-                'temperature': 0.7,
-                'max_tokens': 4000
-            },
-            'dapr': {
-                'message_bus_name': 'messagepubsub',
-                'state_store_name': None,
-                'state_key': 'workflow_state',
-                'agents_registry_store_name': 'workflowstatestore',
-                'agents_registry_key': 'agents_registry',
-                'service_port': 8001,
-                'grpc_port': 50001
-            },
-            'agent': {
-                'max_iterations': 10,
-                'tool_choice': 'auto',
-                'reasoning': False,
-            }
-        }
-    
-    def _load_yaml_config(self, file_path: str) -> Dict[str, Any]:
-        """Load configuration from YAML file with support for shared configs"""
-        config_loader = Config()
-        return config_loader.load_config_with_global(file_path)
     
     def _determine_agent_type(self, config: Dict[str, Any], pattern: Optional[str] = None, 
                             reasoning: bool = False, openapi_spec_path: Optional[str] = None) -> str:
@@ -327,5 +294,5 @@ class Agent:
         """Delegate attribute access to the underlying agent"""
         return getattr(self.agent, name)
     
-    # TODO(@Sicoyle): add as_service method
-    # TODO(@Sicoyle): add start method
+    # TODO(@Sicoyle): add as_service method in future PR so these agents have the same start options as durable agent
+    # TODO(@Sicoyle): add start method in future PR so these agents have the same start options as durable agent
