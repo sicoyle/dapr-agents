@@ -1,0 +1,17 @@
+# Example workflow configuration file
+# This demonstrates how to configure AgenticWorkflow using YAML
+
+# Reference to global configuration (optional)
+global_config: "global_config.yaml"
+
+# Dapr configuration reference (optional)
+dapr_config: "development"
+
+# Workflow configuration reference (optional)
+workflow_config: "default"
+
+# Agent-specific overrides
+dapr:
+  # Override specific Dapr settings
+  service_port: 8002
+  state_key: "my_workflow_state"
