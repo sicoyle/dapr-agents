@@ -126,8 +126,8 @@ class AgentBase(BaseModel, ABC):
             # Assign the prompt template to the LLM client
             self.llm.prompt_template = self.prompt_template
 
-        self.prefill_agent_attributes()
         self._validate_prompt_template()
+        self.prefill_agent_attributes()
         super().model_post_init(__context)
 
     def _validate_prompt_template(self) -> None:

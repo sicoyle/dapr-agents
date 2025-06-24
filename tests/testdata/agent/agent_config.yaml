@@ -1,0 +1,14 @@
+agent:
+  role: "Test Assistant"
+  name: "TestAgent"
+  goal: "Help with testing"
+  instructions:
+    - "Be helpful and accurate"
+    - "Provide clear explanations"
+  max_iterations: 5
+  template_format: "jinja2"
+
+llm:
+  provider: "openai"
+  model: "gpt-3.5-turbo"
+  temperature: 0.7

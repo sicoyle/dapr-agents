@@ -1,0 +1,16 @@
+# Agent configuration that references master config
+master_config: "tests/testdata/config/master_config.yaml"
+
+agent:
+  role: "Master Config Assistant"
+  name: "MasterConfigAgent"
+  goal: "Help with testing using master configuration"
+  instructions:
+    - "Use settings from master configuration"
+    - "Be helpful and accurate"
+  max_iterations: 5
+
+# Override specific settings from master config
+llm:
+  provider: "openai"
+  model: "gpt-4"  # Override master config model 
