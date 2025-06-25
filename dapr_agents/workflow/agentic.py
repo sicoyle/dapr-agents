@@ -24,7 +24,7 @@ from typing import (
 )
 from pydantic import BaseModel, Field, ValidationError, PrivateAttr, model_validator
 from dapr.clients import DaprClient
-from dapr_agents.agent.utils.text_printer import ColorTextFormatter
+from dapr_agents.agents.utils.text_printer import ColorTextFormatter
 from dapr_agents.memory import (
     ConversationListMemory,
     ConversationVectorMemory,

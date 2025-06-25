@@ -1,8 +1,5 @@
-from dapr_agents.agent import (
+from dapr_agents.agents.agent import (
     Agent,
-    ReActAgent,
-    ToolCallAgent,
-    OpenAPIReActAgent,
 )
 from dapr_agents.llm.openai import (
     OpenAIChatClient,

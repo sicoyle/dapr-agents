@@ -3,7 +3,9 @@ from dapr_agents.memory import (
     ConversationListMemory,
     ConversationVectorMemory,
 )
-from dapr_agents.agent.utils.text_printer import ColorTextFormatter
+from dapr_agents.storage import VectorStoreBase
+from dapr_agents.tool.storage import VectorToolStore
+from dapr_agents.agents.utils.text_printer import ColorTextFormatter
 from dapr_agents.types import MessageContent, MessagePlaceHolder
 from dapr_agents.tool.executor import AgentToolExecutor
 from dapr_agents.prompt.base import PromptTemplateBase
@@ -15,6 +17,9 @@ from pydantic import BaseModel, Field, PrivateAttr, model_validator, ConfigDict
 from abc import ABC, abstractmethod
 from datetime import datetime
 import logging
+import os
+import asyncio
+import signal
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +27,15 @@ logger = logging.getLogger(__name__)
 class AgentBase(BaseModel, ABC):
     """
     Base class for agents that interact with language models and manage tools for task execution.
+    
+     Args:
+        name: Agent name
+        role: Agent role
+        goal: Agent goal
+        instructions: List of instructions
+        tools: List of tools
+        llm: LLM client
+        memory: Memory instance
     """
 
     name: Optional[str] = Field(
@@ -60,6 +74,10 @@ class AgentBase(BaseModel, ABC):
     max_iterations: int = Field(
         default=10, description="Max iterations for conversation cycles."
     )
+    # NOTE for reviewer: am I missing anything else here for vector stores?
+    vector_store: Optional[VectorStoreBase] = Field(
+        ..., description="Vector store to enable semantic search and retrieval."
+    )
     memory: MemoryBase = Field(
         default_factory=ConversationListMemory,
         description="Handles conversation history and context storage.",
@@ -86,6 +104,34 @@ class AgentBase(BaseModel, ABC):
         if not values.get("name") and values.get("role"):
             values["name"] = values["role"]
         return values
+    
+    #TODO(@Sicoyle): split this up
+    @model_validator(mode="after")
+    def validate_llm(cls, values):
+        """Validate that llm is properly configured."""
+        # Validate LLM client
+        if hasattr(values, "llm") and values.llm:
+            llm_class_name = values.llm.__class__.__name__
+            if "OpenAI" in llm_class_name and not os.getenv("OPENAI_API_KEY"):
+                raise ValueError(
+                    "OpenAI API key is required. Please set the OPENAI_API_KEY environment variable:\n"
+                    "export OPENAI_API_KEY='your-api-key-here'\n"
+                    "Or pass it directly to the Agent constructor."
+                )
+            
+        return values
+    
+    @model_validator(mode="after")
+    def validate_memory(cls, values):
+        """Validate that optional memory is properly configured."""
+        if hasattr(values, "memory") and values.memory:
+            try:
+                memory = values.memory or ConversationListMemory()
+            except Exception as e:
+                raise ValueError(f"Failed to initialize memory: {e}") from e
+        
+        return values
+    
 
     def model_post_init(self, __context: Any) -> None:
         """
@@ -128,7 +174,26 @@ class AgentBase(BaseModel, ABC):
 
         self._validate_prompt_template()
         self.prefill_agent_attributes()
+
+         # Set up graceful shutdown
+        self._shutdown_event = asyncio.Event()
+        self._setup_signal_handlers()
+
         super().model_post_init(__context)
+
+    def _setup_signal_handlers(self):
+        """Set up signal handlers for graceful shutdown"""
+        try:
+            signal.signal(signal.SIGINT, self._signal_handler)
+            signal.signal(signal.SIGTERM, self._signal_handler)
+        except (OSError, ValueError):
+            # TODO: test this bc signal handlers may not work in all environments (e.g., Windows)
+            pass
+
+    def _signal_handler(self, signum, frame):
+        """Handle interrupt signals gracefully"""
+        print(f"\nReceived signal {signum}. Shutting down gracefully...")
+        self._shutdown_event.set()
 
     def _validate_prompt_template(self) -> None:
         """

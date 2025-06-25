@@ -31,7 +31,7 @@ from dapr_agents.workflow.messaging.decorator import message_router
 
 logger = logging.getLogger(__name__)
 
-
+# TODO(@Sicoyle): Make this use the AgentBase class instead of AgentWorkflowBase
 class DurableAgent(AgentWorkflowBase):
     """
     A conversational AI agent that responds to user messages, engages in discussions,
@@ -126,6 +126,8 @@ class DurableAgent(AgentWorkflowBase):
     def tool_calling_workflow(self, ctx: DaprWorkflowContext, message: TriggerAction):
         """
         Executes a tool-calling workflow, determining the task source (either an agent or an external user).
+        This uses Dapr Workflows to run the agent in a ReAct-style loop until it generates a final answer or reaches max iterations,
+        calling tools as needed.
         """
         # Step 0: Retrieve task and iteration input
         task = message.get("task")

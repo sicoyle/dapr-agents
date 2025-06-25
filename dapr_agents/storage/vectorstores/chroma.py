@@ -21,8 +21,8 @@ class ChromaVectorStore(VectorStoreBase):
     api_key: Optional[str] = Field(
         None, description="API key for the embedding service."
     )
-    embedding_function: Optional[EmbedderBase] = Field(
-        default_factory=SentenceTransformerEmbedder,
+    embedding_function: EmbedderBase = Field(
+        ...,  # Required field, no default
         description="Embedding function for embedding generation.",
     )
     persistent: bool = Field(False, description="Whether to enable persistent storage.")

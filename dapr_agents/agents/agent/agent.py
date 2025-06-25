@@ -1,13 +1,13 @@
 from dapr_agents.types import AgentError, AssistantMessage, ChatCompletion, ToolMessage
-from dapr_agents.agent import AgentBase
+from dapr_agents.agents.base import AgentBase
 from typing import List, Optional, Dict, Any, Union
 from pydantic import Field, ConfigDict
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
-
-class ToolCallAgent(AgentBase):
+class Agent(AgentBase):
     """
     Agent that manages tool calls and conversations using a language model.
     It integrates tools and processes them based on user inputs and task orchestration.
@@ -34,18 +34,38 @@ class ToolCallAgent(AgentBase):
         super().model_post_init(__context)
 
     async def run(self, input_data: Optional[Union[str, Dict[str, Any]]] = None) -> Any:
-        """
-        Asynchronously executes the agent's main task using the provided input or memory context.
+        """Run the agent with the given input with graceful shutdown support."""
+        try:
+            if self._shutdown_event.is_set():
+                print("Shutdown requested. Skipping agent execution.")
+                return None
 
-        Args:
-            input_data (Optional[Union[str, Dict[str, Any]]]): User input as string or dict.
+            task = asyncio.create_task(self._run_agent(input_data))
+            done, pending = await asyncio.wait(
+                [task, asyncio.create_task(self._shutdown_event.wait())],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
 
-        Returns:
-            Any: The agent's final output.
+            for p in pending:
+                p.cancel()
 
-        Raises:
-            AgentError: If user input is invalid or tool execution fails.
-        """
+            if self._shutdown_event.is_set():
+                print("Shutdown requested during execution. Cancelling agent.")
+                task.cancel()
+                return None
+
+            if task in done:
+                return await task
+
+        except asyncio.CancelledError:
+            print("Agent execution was cancelled.")
+            return None
+        except Exception as e:
+            print(f"Error during agent execution: {e}")
+            raise
+
+    async def _run_agent(self, input_data: Optional[Union[str, Dict[str, Any]]] = None) -> Any:
+        """Internal method for running the agent logic (original ToolCallAgent run method)."""
         logger.debug(
             f"Agent run started with input: {input_data if input_data else 'Using memory context'}"
         )

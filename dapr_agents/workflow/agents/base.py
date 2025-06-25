@@ -56,6 +56,8 @@ class AgentWorkflowBase(AgenticWorkflow):
         default=None, init=False, description="Client to execute and manage tools."
     )
 
+    # TODO(@Sicoyle): add stop_at_token field here or in the AgentBase class
+
     @model_validator(mode="before")
     def set_agent_and_topic_name(cls, values: dict):
         # Set name to role if name is not provided

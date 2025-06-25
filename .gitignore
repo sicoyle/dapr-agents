@@ -168,4 +168,7 @@ cython_debug/
 
 .ruff_cache/
 
+# Quickstart outputs
 *_state.json
+quickstarts/**/*_state.json
+chroma_db/

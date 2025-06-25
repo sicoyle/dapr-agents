@@ -57,7 +57,7 @@ class DaprHTTPClient(BaseModel):
             otel_enabled = False
 
         if otel_enabled:
-            from dapr_agents.agent.telemetry.otel import DaprAgentsOTel  # type: ignore[import-not-found]
+            from dapr_agents.agents.telemetry.otel import DaprAgentsOTel  # type: ignore[import-not-found]
 
             otel_client = DaprAgentsOTel(
                 service_name=os.getenv("OTEL_SERVICE_NAME", "dapr-http-client"),
