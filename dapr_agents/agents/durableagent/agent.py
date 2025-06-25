@@ -14,18 +14,18 @@ from dapr_agents.types import (
     ChatCompletion,
     ToolMessage,
 )
-from dapr_agents.workflow.agents.durable.schemas import (
+from .schemas import (
     AgentTaskResponse,
     BroadcastMessage,
     TriggerAction,
 )
-from dapr_agents.workflow.agents.durable.state import (
+from .state import (
     AssistantWorkflowEntry,
     AssistantWorkflowMessage,
     AssistantWorkflowState,
     AssistantWorkflowToolMessage,
 )
-from dapr_agents.workflow.agents.base import AgentWorkflowBase
+from .base import AgentWorkflowBase
 from dapr_agents.workflow.decorators import task, workflow
 from dapr_agents.workflow.messaging.decorator import message_router
 
