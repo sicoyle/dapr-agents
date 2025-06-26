@@ -32,6 +32,7 @@ from dapr_agents.workflow.messaging.decorator import message_router
 
 logger = logging.getLogger(__name__)
 
+
 # TODO(@Sicoyle): Clear up the lines between DurableAgent and AgentWorkflow
 class DurableAgent(AgentBase, AgenticWorkflow):
     """
@@ -121,16 +122,18 @@ class DurableAgent(AgentBase, AgenticWorkflow):
         """
         Run the durable agent with the given input.
         TODO: For DurableAgent, this method should trigger the workflow execution maybe..?
-        
+
         Args:
             input_data: The input data for the agent to process.
-            
+
         Returns:
             The result of the workflow execution.
         """
         # TODO: For DurableAgent, the run method should trigger the workflow
-        logger.info(f"DurableAgent {self.name} run method called with input: {input_data}")
-        
+        logger.info(
+            f"DurableAgent {self.name} run method called with input: {input_data}"
+        )
+
         # Return a message indicating this is a durable agent and agent start via run for durable agent is yet to be determined.
         return f"DurableAgent {self.name} is designed to run as a workflow service asynchronously. Use .as_service() and/or .start() instead for now. The workflow endpoints can also be usedto interact with this agent."
 

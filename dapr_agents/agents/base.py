@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class AgentBase(BaseModel, ABC):
     """
     Base class for agents that interact with language models and manage tools for task execution.
-    
+
      Args:
         name: Agent name
         role: Agent role
@@ -76,7 +76,8 @@ class AgentBase(BaseModel, ABC):
     )
     # NOTE for reviewer: am I missing anything else here for vector stores?
     vector_store: Optional[VectorStoreBase] = Field(
-        default=None, description="Vector store to enable semantic search and retrieval."
+        default=None,
+        description="Vector store to enable semantic search and retrieval.",
     )
     memory: MemoryBase = Field(
         default_factory=ConversationListMemory,
@@ -104,8 +105,8 @@ class AgentBase(BaseModel, ABC):
         if not values.get("name") and values.get("role"):
             values["name"] = values["role"]
         return values
-    
-    #TODO(@Sicoyle): split this up
+
+    # TODO(@Sicoyle): split this up
     @model_validator(mode="after")
     def validate_llm(cls, values):
         """Validate that llm is properly configured."""
@@ -118,9 +119,9 @@ class AgentBase(BaseModel, ABC):
                     "export OPENAI_API_KEY='your-api-key-here'\n"
                     "Or pass it directly to the Agent constructor."
                 )
-            
+
         return values
-    
+
     @model_validator(mode="after")
     def validate_memory(cls, values):
         """Validate that optional memory is properly configured."""
@@ -129,9 +130,8 @@ class AgentBase(BaseModel, ABC):
                 memory = values.memory or ConversationListMemory()
             except Exception as e:
                 raise ValueError(f"Failed to initialize memory: {e}") from e
-        
+
         return values
-    
 
     def model_post_init(self, __context: Any) -> None:
         """
@@ -174,7 +174,7 @@ class AgentBase(BaseModel, ABC):
         self._validate_prompt_template()
         self.prefill_agent_attributes()
 
-         # Set up graceful shutdown
+        # Set up graceful shutdown
         self._shutdown_event = asyncio.Event()
         self._setup_signal_handlers()
 

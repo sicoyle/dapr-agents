@@ -7,6 +7,7 @@ import asyncio
 
 logger = logging.getLogger(__name__)
 
+
 class Agent(AgentBase):
     """
     Agent that manages tool calls and conversations using a language model.
@@ -64,7 +65,9 @@ class Agent(AgentBase):
             print(f"Error during agent execution: {e}")
             raise
 
-    async def _run_agent(self, input_data: Optional[Union[str, Dict[str, Any]]] = None) -> Any:
+    async def _run_agent(
+        self, input_data: Optional[Union[str, Dict[str, Any]]] = None
+    ) -> Any:
         """Internal method for running the agent logic (original ToolCallAgent run method)."""
         logger.debug(
             f"Agent run started with input: {input_data if input_data else 'Using memory context'}"

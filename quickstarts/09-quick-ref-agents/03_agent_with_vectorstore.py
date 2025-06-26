@@ -24,12 +24,12 @@ def add_document(content: str, metadata: str = "") -> str:
 
 async def main():
     embedding_function = SentenceTransformerEmbedder(model="all-MiniLM-L6-v2")
-    
+
     vector_store = ChromaVectorStore(
         name="demo_vectorstore",
         embedding_function=embedding_function,
         persistent=True,
-        path="./chroma_db"
+        path="./chroma_db",
     )
 
     agent = Agent(
@@ -47,7 +47,7 @@ async def main():
 
     print("🚀 Starting Vector Database Agent...")
     print("📝 Adding a sample document...")
-    
+
     response = await agent.run("Add a document about machine learning basics")
     print("✅ Add Document Response:")
     print(response)
