@@ -75,7 +75,6 @@ class DurableAgent(AgentBase, AgenticWorkflow):
         description="Key used to store agent registry in the state store.",
     )
 
-    # Private attributes
     _agent_metadata: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="before")
@@ -527,21 +526,27 @@ class DurableAgent(AgentBase, AgenticWorkflow):
         Raises:
             ValueError: If no workflow entry is found for the given instance_id.
         """
-        workflow_entry: AssistantWorkflowEntry = self.state["instances"].get(
-            instance_id
-        )
+        workflow_entry = self.state["instances"].get(instance_id)
         if not workflow_entry:
             raise ValueError(
                 f"No workflow entry found for instance_id {instance_id} in local state."
             )
+
+        # Handle both Pydantic objects and dictionaries for now with a big
+        # TODO(@Sicoyle): rm dictionary approach in another PR
+        is_dict = isinstance(workflow_entry, dict)
 
         # Store user/assistant messages separately
         if message is not None:
             serialized_message = AssistantWorkflowMessage(**message).model_dump(
                 mode="json"
             )
-            workflow_entry["messages"].append(serialized_message)
-            workflow_entry["last_message"] = serialized_message
+            if is_dict:
+                workflow_entry.setdefault("messages", []).append(serialized_message)
+                workflow_entry["last_message"] = serialized_message
+            else:
+                workflow_entry.messages.append(serialized_message)
+                workflow_entry.last_message = serialized_message
 
             # Add to memory only if it's a user/assistant message
             self.memory.add_message(message)
@@ -551,7 +556,10 @@ class DurableAgent(AgentBase, AgenticWorkflow):
             serialized_tool_message = AssistantWorkflowToolMessage(
                 **tool_message
             ).model_dump(mode="json")
-            workflow_entry["tool_history"].append(serialized_tool_message)
+            if is_dict:
+                workflow_entry.setdefault("tool_history", []).append(serialized_tool_message)
+            else:
+                workflow_entry.tool_history.append(serialized_tool_message)
 
             # Also update agent-level tool history (execution tracking)
             agent_tool_message = ToolMessage(
@@ -563,8 +571,12 @@ class DurableAgent(AgentBase, AgenticWorkflow):
 
         # Store final output
         if final_output is not None:
-            workflow_entry["output"] = final_output
-            workflow_entry["end_time"] = datetime.now().isoformat()
+            if is_dict:
+                workflow_entry["output"] = final_output
+                workflow_entry["end_time"] = datetime.now().isoformat()
+            else:
+                workflow_entry.output = final_output
+                workflow_entry.end_time = datetime.now().isoformat()
 
         # Persist updated state
         self.save_state()

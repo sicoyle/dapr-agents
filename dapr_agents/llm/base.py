@@ -8,11 +8,8 @@ class LLMClientBase(BaseModel, ABC):
     Abstract base class for LLM models.
     """
 
-    # Private attributes for provider and api
     _provider: str = PrivateAttr()
     _api: str = PrivateAttr()
-
-    # Private attributes for config and client
     _config: Any = PrivateAttr()
     _client: Any = PrivateAttr()
 

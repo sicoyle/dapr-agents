@@ -43,7 +43,6 @@ class DaprHTTPClient(BaseModel):
         description="Default headers to include in all requests.",
     )
 
-    # Private attributes not exposed in model schema
     _base_url: str = PrivateAttr(default="http://localhost:3500/v1.0/invoke")
 
     def model_post_init(self, __context: Any) -> None:

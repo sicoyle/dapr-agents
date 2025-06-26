@@ -91,7 +91,6 @@ class AgentBase(BaseModel, ABC):
         description="The format used for rendering the prompt template.",
     )
 
-    # Private attributes
     _tool_executor: AgentToolExecutor = PrivateAttr()
     _text_formatter: ColorTextFormatter = PrivateAttr(
         default_factory=ColorTextFormatter
@@ -106,11 +105,9 @@ class AgentBase(BaseModel, ABC):
             values["name"] = values["role"]
         return values
 
-    # TODO(@Sicoyle): split this up
     @model_validator(mode="after")
     def validate_llm(cls, values):
         """Validate that llm is properly configured."""
-        # Validate LLM client
         if hasattr(values, "llm") and values.llm:
             llm_class_name = values.llm.__class__.__name__
             if "OpenAI" in llm_class_name and not os.getenv("OPENAI_API_KEY"):
@@ -140,14 +137,12 @@ class AgentBase(BaseModel, ABC):
         """
         self._tool_executor = AgentToolExecutor(tools=self.tools)
 
-        # Check if both agent and LLM have a prompt template specified and raise an error if both exist
         if self.prompt_template and self.llm.prompt_template:
             raise ValueError(
                 "Conflicting prompt templates: both an agent prompt_template and an LLM prompt_template are provided. "
                 "Please set only one or ensure synchronization between the two."
             )
 
-        # If the agent's prompt_template is provided, use it and skip further configuration
         if self.prompt_template:
             logger.info(
                 "Using the provided agent prompt_template. Skipping system prompt construction."
@@ -168,7 +163,6 @@ class AgentBase(BaseModel, ABC):
             self.prompt_template = self.construct_prompt_template()
 
         if not self.llm.prompt_template:
-            # Assign the prompt template to the LLM client
             self.llm.prompt_template = self.prompt_template
 
         self._validate_prompt_template()
@@ -202,7 +196,6 @@ class AgentBase(BaseModel, ABC):
         if not self.prompt_template:
             return
 
-        # Define input variables based on agent attributes
         input_variables = ["chat_history"]  # Always include chat_history
         if self.name:
             input_variables.append("name")

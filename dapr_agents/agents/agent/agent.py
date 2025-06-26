@@ -148,6 +148,7 @@ class Agent(AgentBase):
                     await self.process_response(response.get_tool_calls())
                 else:
                     self.memory.add_message(AssistantMessage(response.get_content()))
+                    # TODO(@Sicoyle): we should not clear the tool history here, but rather when the agent is done, or not at all.
                     self.tool_history.clear()
                     return response.get_content()
             except Exception as e:
