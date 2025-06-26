@@ -34,7 +34,6 @@ from dapr_agents.workflow.messaging import DaprPubSub
 from dapr_agents.workflow.messaging.routing import MessageRoutingMixin
 from dapr_agents.storage.daprstores.statestore import DaprStateStore
 from dapr_agents.workflow import WorkflowApp
-from dapr_agents.config import Config
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

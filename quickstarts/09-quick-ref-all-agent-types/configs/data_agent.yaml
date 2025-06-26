@@ -1,7 +1,0 @@
-global_config: "agents_config.yaml"
-agent_config: "data_processor"
-
-# Only override what's specific to this agent
-dapr:
-  state_key: "data_processor_state"
-  service_port: 8001

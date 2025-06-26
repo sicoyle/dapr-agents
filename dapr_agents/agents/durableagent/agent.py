@@ -6,9 +6,11 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import Field, model_validator
 
+from dapr_agents.agents.base import AgentBase
+from dapr_agents.workflow.agentic import AgenticWorkflow
+
 from dapr.ext.workflow import DaprWorkflowContext
 
-from dapr_agents.config import Config
 from dapr_agents.types import (
     AgentError,
     ChatCompletion,
@@ -25,14 +27,13 @@ from .state import (
     AssistantWorkflowState,
     AssistantWorkflowToolMessage,
 )
-from .base import AgentWorkflowBase
 from dapr_agents.workflow.decorators import task, workflow
 from dapr_agents.workflow.messaging.decorator import message_router
 
 logger = logging.getLogger(__name__)
 
-# TODO(@Sicoyle): Make this use the AgentBase class instead of AgentWorkflowBase
-class DurableAgent(AgentWorkflowBase):
+# TODO(@Sicoyle): Clear up the lines between DurableAgent and AgentWorkflow
+class DurableAgent(AgentBase, AgenticWorkflow):
     """
     A conversational AI agent that responds to user messages, engages in discussions,
     and dynamically utilizes external tools when needed.
@@ -50,60 +51,41 @@ class DurableAgent(AgentWorkflowBase):
         default=None,
         description="Strategy for selecting tools ('auto', 'required', 'none'). Defaults to 'auto' if tools are provided.",
     )
+    agent_topic_name: Optional[str] = Field(
+        None,
+        description="The topic name dedicated to this specific agent, derived from the agent's name if not provided.",
+    )
+    message_bus_name: Optional[str] = Field(
+        description="Name of the message bus for pub/sub communication.",
+    )
+    state_store_name: Optional[str] = Field(
+        default="workflowstatestore",
+        description="Name of the state store for workflow state persistence.",
+    )
+    state_key: Optional[str] = Field(
+        default="workflow_state",
+        description="Key used to store workflow state in the state store.",
+    )
+    agents_registry_store_name: Optional[str] = Field(
+        description="Name of the state store for agent registry.",
+    )
+    agents_registry_key: Optional[str] = Field(
+        default="agents_registry",
+        description="Key used to store agent registry in the state store.",
+    )
+
+    # Private attributes
+    _agent_metadata: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="before")
-    def load_config_before_validation(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        """Load configuration from YAML file before validation"""
-        if config_file := values.get("config_file"):
-            try:
-                config_loader = Config()
-                config = config_loader.load_config_with_global(config_file)
+    def set_agent_and_topic_name(cls, values: dict):
+        # Set name to role if name is not provided
+        if not values.get("name") and values.get("role"):
+            values["name"] = values["role"]
 
-                # Get Dapr configuration and update values
-                if "dapr" in config:
-                    dapr_config = config["dapr"]
-                    values.update(
-                        {
-                            "message_bus_name": dapr_config.get(
-                                "message_bus_name", "messagepubsub"
-                            ),
-                            "state_store_name": dapr_config.get(
-                                "state_store_name", "workflowstatestore"
-                            ),
-                            "state_key": dapr_config.get("state_key", "workflow_state"),
-                            "agents_registry_store_name": dapr_config.get(
-                                "agents_registry_store_name", "workflowstatestore"
-                            ),
-                            "agents_registry_key": dapr_config.get(
-                                "agents_registry_key", "agents_registry"
-                            ),
-                        }
-                    )
-                    print(f"Updated values with Dapr config: {list(values.keys())}")
-                    logger.info(
-                        f"Updated values with Dapr config: {list(values.keys())}"
-                    )
-                else:
-                    logger.warning("No 'dapr' section found in config")
-
-                # Store the full config directly
-                values["config"] = config
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to load configuration from {config_file}: {e}"
-                ) from e
-        else:
-            print("No config_file provided in values")
-            required_fields = [
-                "message_bus_name",
-                "state_store_name",
-                "agents_registry_store_name",
-            ]
-            missing = [f for f in required_fields if f not in values]
-            if missing:
-                raise ValueError(
-                    f"When no config_file is provided, these fields must be specified: {', '.join(missing)}"
-                )
+        # Derive agent_topic_name from agent name
+        if not values.get("agent_topic_name") and values.get("name"):
+            values["agent_topic_name"] = values["name"]
 
         return values
 
@@ -119,7 +101,38 @@ class DurableAgent(AgentWorkflowBase):
         # Define Tool Selection Strategy
         self.tool_choice = self.tool_choice or ("auto" if self.tools else None)
 
+        # Prepare agent metadata
+        self._agent_metadata = {
+            "name": self.name,
+            "role": self.role,
+            "goal": self.goal,
+            "instructions": self.instructions,
+            "topic_name": self.agent_topic_name,
+            "pubsub_name": self.message_bus_name,
+            "orchestrator": False,
+        }
+
+        # Register agent metadata
+        self.register_agentic_system()
+
         super().model_post_init(__context)
+
+    async def run(self, input_data: Optional[Union[str, Dict[str, Any]]] = None) -> Any:
+        """
+        Run the durable agent with the given input.
+        TODO: For DurableAgent, this method should trigger the workflow execution maybe..?
+        
+        Args:
+            input_data: The input data for the agent to process.
+            
+        Returns:
+            The result of the workflow execution.
+        """
+        # TODO: For DurableAgent, the run method should trigger the workflow
+        logger.info(f"DurableAgent {self.name} run method called with input: {input_data}")
+        
+        # Return a message indicating this is a durable agent and agent start via run for durable agent is yet to be determined.
+        return f"DurableAgent {self.name} is designed to run as a workflow service asynchronously. Use .as_service() and/or .start() instead for now. The workflow endpoints can also be usedto interact with this agent."
 
     @message_router
     @workflow(name="ToolCallingWorkflow")
@@ -553,6 +566,26 @@ class DurableAgent(AgentWorkflowBase):
         # Persist updated state
         self.save_state()
 
+    def save_state(self):
+        """Save the current state to persistent storage."""
+        # TODO: Implement state persistence
+        logger.debug("State save called (not yet implemented)")
+
+    async def broadcast_message(self, message: BroadcastMessage):
+        """Broadcast a message to all registered agents."""
+        # TODO: Implement message broadcasting
+        logger.debug(f"Broadcasting message: {message}")
+
+    async def send_message_to_agent(self, name: str, message: AgentTaskResponse):
+        """Send a message to a specific agent."""
+        # TODO: Implement agent-to-agent messaging
+        logger.debug(f"Sending message to agent {name}: {message}")
+
+    def register_agentic_system(self):
+        """Register the agent in the agentic system."""
+        # TODO: Implement agent registration
+        logger.debug(f"Registering agent {self.name} in agentic system")
+
     @message_router(broadcast=True)
     async def process_broadcast_message(self, message: BroadcastMessage):
         """
@@ -600,3 +633,8 @@ class DurableAgent(AgentWorkflowBase):
 
         except Exception as e:
             logger.error(f"Error processing broadcast message: {e}", exc_info=True)
+
+    @property
+    def agent_metadata(self) -> Optional[Dict[str, Any]]:
+        """Get the agent metadata."""
+        return self._agent_metadata

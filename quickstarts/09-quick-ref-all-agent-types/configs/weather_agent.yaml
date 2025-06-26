@@ -1,3 +1,0 @@
-global_config: "agents_config.yaml"
-llm_config: "openai"
-agent_config: "simple" 

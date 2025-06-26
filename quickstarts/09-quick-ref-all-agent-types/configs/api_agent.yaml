@@ -1,9 +1,0 @@
-global_config: "agents_config.yaml"
-llm_config: "openai"
-dapr_config: "dapr"
-agent_config: "reasoning"
-
-# Agent-specific overrides
-agent:
-  openapi_spec_path: "./api_specs/petstore.yaml"
-  max_iterations: 15 

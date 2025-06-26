@@ -76,7 +76,7 @@ class AgentBase(BaseModel, ABC):
     )
     # NOTE for reviewer: am I missing anything else here for vector stores?
     vector_store: Optional[VectorStoreBase] = Field(
-        ..., description="Vector store to enable semantic search and retrieval."
+        default=None, description="Vector store to enable semantic search and retrieval."
     )
     memory: MemoryBase = Field(
         default_factory=ConversationListMemory,
@@ -138,7 +138,6 @@ class AgentBase(BaseModel, ABC):
         Sets up the prompt template based on system_prompt or attributes like name, role, goal, and instructions.
         Confirms the source of prompt_template post-initialization.
         """
-        # Initialize tool executor with provided tools
         self._tool_executor = AgentToolExecutor(tools=self.tools)
 
         # Check if both agent and LLM have a prompt template specified and raise an error if both exist
@@ -248,7 +247,7 @@ class AgentBase(BaseModel, ABC):
 
     @property
     def tool_executor(self) -> AgentToolExecutor:
-        """Returns the tool executor, ensuring it's accessible but read-only."""
+        """Returns the client to execute and manage tools, ensuring it's accessible but read-only."""
         return self._tool_executor
 
     @property
@@ -303,6 +302,27 @@ class AgentBase(BaseModel, ABC):
         if "instructions" in self.prompt_template.input_variables and self.instructions:
             prefill_data["instructions"] = "\n".join(self.instructions)
 
+        # Collect attributes set but not in input_variables for informational logging
+        set_attributes = {
+            "name": self.name,
+            "role": self.role,
+            "goal": self.goal,
+            "instructions": self.instructions,
+        }
+
+        # Use Pydantic's model_fields_set to detect if attributes were user-set
+        user_set_attributes = {
+            attr for attr in set_attributes if attr in self.model_fields_set
+        }
+
+        ignored_attributes = [
+            attr
+            for attr in set_attributes
+            if attr not in self.prompt_template.input_variables
+            and set_attributes[attr] is not None
+            and attr in user_set_attributes
+        ]
+
         # Apply pre-filled data only for attributes that are in input_variables
         if prefill_data:
             self.prompt_template = self.prompt_template.pre_fill_variables(
@@ -310,6 +330,11 @@ class AgentBase(BaseModel, ABC):
             )
             logger.info(
                 f"Pre-filled prompt template with attributes: {list(prefill_data.keys())}"
+            )
+        elif ignored_attributes:
+            raise ValueError(
+                f"The following agent attributes were explicitly set by the user but are not considered by the prompt template: {', '.join(ignored_attributes)}. "
+                "Please ensure that these attributes are included in the prompt template's input variables if they are needed."
             )
         else:
             logger.info(

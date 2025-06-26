@@ -15,14 +15,12 @@ def get_forecast(city: str, days: int = 5) -> str:
 
 
 async def main():
-    # Simple agent - automatically uses ToolCallAgent
     agent = Agent(
         name="WeatherBot",
         role="Weather Assistant",
         goal="Provide weather information",
         instructions=["Get current weather", "Provide forecasts"],
         tools=[get_weather, get_forecast],
-        config_file="configs/weather_agent.yaml",
     )
 
     response = await agent.run("What's the weather in New York?")

@@ -23,7 +23,6 @@ def get_attractions(city: str) -> str:
 
 
 async def main():
-    # Agent that needs reasoning - automatically uses ReActAgent
     agent = Agent(
         name="TravelPlanner",
         role="Travel Assistant",
@@ -34,8 +33,6 @@ async def main():
             "Provide reasoning for recommendations",
         ],
         tools=[search_flights, book_hotel, get_attractions],
-        reasoning=True,  # Triggers ReActAgent
-        config_file="configs/travel_agent.yaml",
     )
 
     response = await agent.run("Plan a 3-day trip to Paris")

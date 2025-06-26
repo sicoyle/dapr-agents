@@ -21,7 +21,6 @@ def get_previous_analysis() -> str:
 
 
 async def main():
-    # Create the durable agent using config file
     print("Creating agent...")
     agent = DurableAgent(
         name="DataProcessor",
@@ -33,10 +32,14 @@ async def main():
             "Maintain context across conversations",
         ],
         tools=[process_data, store_results, get_previous_analysis],
-        config_file="configs/data_agent.yaml",
+        message_bus_name="messagepubsub",
+        state_store_name="workflowstatestore",
+        state_key="workflow_state",
+        agents_registry_store_name="workflowstatestore",
+        agents_registry_key="agents_registry",
     )
 
-    agent = agent.as_service()
+    agent = agent.as_service(port=8001)
 
     print(f"Agent created successfully. Type: {type(agent).__name__}")
     print("Starting durable agent as a service...")
