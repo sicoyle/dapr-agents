@@ -6,7 +6,6 @@ import os
 
 logger = logging.getLogger(__name__)
 
-
 class SentenceTransformerEmbedder(EmbedderBase):
     """
     SentenceTransformer-based embedder for generating text embeddings.

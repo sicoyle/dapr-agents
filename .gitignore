@@ -172,3 +172,4 @@ cython_debug/
 *_state.json
 quickstarts/**/*_state.json
 chroma_db/
+db/
