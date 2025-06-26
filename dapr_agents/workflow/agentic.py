@@ -918,71 +918,31 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
             bool: True if Dapr is available, False otherwise
         """
         try:
-            import requests
+            import socket
             import os
 
-            # Check if we have a config file loaded and try to get the port from there
-            try:
-                config = self.config
-                if config:
-                    dapr_config = config.get("dapr", {})
-                    config_port = dapr_config.get("http_port") or dapr_config.get(
-                        "service_port"
-                    )
-                    if config_port:
-                        try:
-                            response = requests.get(
-                                f"http://localhost:{config_port}/v1.0/metadata",
-                                timeout=2,
-                            )
-                            if response.status_code == 200:
-                                return True
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
-            # Dapr automatically sets these environment variables when running with dapr run
-            dapr_http_port = os.environ.get("DAPR_HTTP_PORT")
-            dapr_grpc_port = os.environ.get("DAPR_GRPC_PORT")
-
-            # Check HTTP port if available
-            if dapr_http_port:
+            def check_tcp_port(port: int, timeout: int = 2) -> bool:
+                """Check if a TCP port is open and accepting connections."""
                 try:
-                    response = requests.get(
-                        f"http://localhost:{dapr_http_port}/v1.0/metadata", timeout=2
-                    )
-                    if response.status_code == 200:
-                        return True
-                except Exception:
-                    pass
-
-            # Check gRPC port if available (this is what the Dapr client uses by default)
-            if dapr_grpc_port:
-                try:
-                    import socket
-
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(2)
-                    result = sock.connect_ex(("localhost", int(dapr_grpc_port)))
+                    sock.settimeout(timeout)
+                    result = sock.connect_ex(("localhost", port))
                     sock.close()
-                    if result == 0:
-                        return True
+                    return result == 0
                 except Exception:
-                    pass
+                    return False
 
-            # Fallback to common ports
-            possible_ports = ["3500", "3501", "3502"]
+            ports_to_check = []
+            for env_var in ["DAPR_HTTP_PORT", "DAPR_GRPC_PORT"]:
+                port = os.environ.get(env_var)
+                if port:
+                    ports_to_check.append(int(port))
 
-            for port in possible_ports:
-                try:
-                    response = requests.get(
-                        f"http://localhost:{port}/v1.0/metadata", timeout=2
-                    )
-                    if response.status_code == 200:
-                        return True
-                except Exception:
-                    continue
+            # Fallback ports
+            ports_to_check.extend([3500, 3501, 3502])
+            for port in ports_to_check:
+                if check_tcp_port(port):
+                    return True
 
             return False
         except Exception:
