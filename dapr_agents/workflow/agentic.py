@@ -166,9 +166,7 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         from dapr_agents.service.fastapi import FastAPIServerBase
 
         if port is None:
-            raise ValueError(
-                "Port must be provided as a parameter"
-            )
+            raise ValueError("Port must be provided as a parameter")
 
         self._http_server = FastAPIServerBase(
             service_name=self.name,
