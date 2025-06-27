@@ -8,6 +8,18 @@ This project uses modern Python packaging with `pyproject.toml`. Dependencies ar
 - Test dependencies are in `[project.optional-dependencies.test]`
 - Development dependencies are in `[project.optional-dependencies.dev]`
 
+### Generating Requirements Files
+
+If you need to generate requirements files (e.g., for deployment or specific environments):
+
+```bash
+# Generate requirements.txt
+pip-compile pyproject.toml
+
+# Generate dev-requirements.txt
+pip-compile pyproject.toml --extra dev
+```
+
 ### Installing Dependencies
 
 ```bash
@@ -19,18 +31,6 @@ pip install -e ".[dev]"
 
 # Install main package with all optional dependencies
 pip install -e ".[test,dev]"
-```
-
-### Generating Requirements Files
-
-If you need to generate requirements files (e.g., for deployment or specific environments):
-
-```bash
-# Generate requirements.txt
-pip-compile pyproject.toml
-
-# Generate dev-requirements.txt
-pip-compile pyproject.toml --extra dev
 ```
 
 ## Testing
