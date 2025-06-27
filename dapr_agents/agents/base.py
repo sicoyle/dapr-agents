@@ -107,26 +107,13 @@ class AgentBase(BaseModel, ABC):
 
     @model_validator(mode="after")
     def validate_llm(cls, values):
-        """Validate that llm is properly configured."""
+        """Validate that LLM is properly configured."""
         if hasattr(values, "llm") and values.llm:
-            llm_class_name = values.llm.__class__.__name__
-            if "OpenAI" in llm_class_name and not os.getenv("OPENAI_API_KEY"):
-                raise ValueError(
-                    "OpenAI API key is required. Please set the OPENAI_API_KEY environment variable:\n"
-                    "export OPENAI_API_KEY='your-api-key-here'\n"
-                    "Or pass it directly to the Agent constructor."
-                )
-
-        return values
-
-    @model_validator(mode="after")
-    def validate_memory(cls, values):
-        """Validate that optional memory is properly configured."""
-        if hasattr(values, "memory") and values.memory:
             try:
-                memory = values.memory or ConversationListMemory()
+                # Validate LLM is properly configured by accessing it as this is required to be set.
+                _ = values.llm
             except Exception as e:
-                raise ValueError(f"Failed to initialize memory: {e}") from e
+                raise ValueError(f"Failed to initialize LLM: {e}") from e
 
         return values
 
