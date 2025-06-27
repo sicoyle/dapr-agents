@@ -99,16 +99,23 @@ class Agent(AgentBase):
             AgentError: If a tool execution fails.
         """
         for tool in tool_calls:
-            function_name = tool.function.name
+            function_name = tool.get("function", {}).get("name")
+            tool_id = tool.get("id")
+            function_args = tool.get("function", {}).get("arguments", {})
+            
+            if not function_name:
+                logger.error(f"Tool call missing function name: {tool}")
+                continue
+                
             try:
                 logger.info(
-                    f"Executing {function_name} with arguments {tool.function.arguments}"
+                    f"Executing {function_name} with arguments {function_args}"
                 )
                 result = await self.tool_executor.run_tool(
-                    function_name, **tool.function.arguments_dict
+                    function_name, **function_args
                 )
                 tool_message = ToolMessage(
-                    tool_call_id=tool.id, name=function_name, content=str(result)
+                    tool_call_id=tool_id, name=function_name, content=str(result)
                 )
                 self.text_formatter.print_message(tool_message)
                 self.tool_history.append(tool_message)
@@ -141,21 +148,28 @@ class Agent(AgentBase):
                     tool_choice=self.tool_choice,
                 )
                 response_message = response.get_message()
-                self.text_formatter.print_message(response_message)
+                if response_message:
+                    self.text_formatter.print_message(response_message)
 
                 if response.get_reason() == "tool_calls":
-                    self.tool_history.append(response_message)
-                    await self.process_response(response.get_tool_calls())
+                    if response_message:
+                        self.tool_history.append(response_message)
+                    tool_calls = response.get_tool_calls()
+                    if tool_calls:
+                        await self.process_response(tool_calls)
                 else:
-                    self.memory.add_message(AssistantMessage(response.get_content()))
+                    content = response.get_content()
+                    if content:
+                        self.memory.add_message(AssistantMessage(content=content))
                     # TODO(@Sicoyle): we should not clear the tool history here, but rather when the agent is done, or not at all.
                     self.tool_history.clear()
-                    return response.get_content()
+                    return content
             except Exception as e:
                 logger.error(f"Error during chat generation: {e}")
                 raise AgentError(f"Failed during chat generation: {e}") from e
 
         logger.info("Max iterations reached. Agent has stopped.")
+        return None
 
     async def run_tool(self, tool_name: str, *args, **kwargs) -> Any:
         """

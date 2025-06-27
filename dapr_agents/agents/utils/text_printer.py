@@ -1,5 +1,5 @@
 from dapr_agents.types.message import BaseMessage
-from typing import Optional, Any, Union, Dict
+from typing import Optional, Any, Union, Dict, Sequence
 from colorama import Style
 
 # Define your custom colors as a dictionary
@@ -42,13 +42,13 @@ class ColorTextFormatter:
         color_code = COLORS.get(color, self.default_color)
         return f"{color_code}{text}{COLORS['reset']}"
 
-    def print_colored_text(self, text_blocks: list[tuple[str, Optional[str]]]):
+    def print_colored_text(self, text_blocks: Sequence[tuple[str, Optional[str]]]):
         """
         Print multiple blocks of text in specified colors dynamically, ensuring that newlines
         are handled correctly.
 
         Args:
-            text_blocks (list[tuple[str, Optional[str]]]): A list of text and color name pairs.
+            text_blocks (Sequence[tuple[str, Optional[str]]]): A list of text and color name pairs.
         """
         for text, color in text_blocks:
             # Split the text by \n to handle each line separately

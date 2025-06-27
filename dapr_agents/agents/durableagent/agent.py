@@ -145,8 +145,8 @@ class DurableAgent(AgentBase, AgenticWorkflow):
         calling tools as needed.
         """
         # Step 0: Retrieve task and iteration input
-        task = message.get("task")
-        iteration = message.get("iteration", 0)
+        task = message.task
+        iteration = message.iteration or 0
         instance_id = ctx.instance_id
 
         if not ctx.is_replaying:
@@ -156,14 +156,15 @@ class DurableAgent(AgentBase, AgenticWorkflow):
 
         # Step 1: Initialize instance entry on first iteration
         if iteration == 0:
-            metadata = message.get("_message_metadata", {})
+            metadata = getattr(message, '_message_metadata', {})
 
             # Ensure "instances" key exists
-            self.state.setdefault("instances", {})
+            if "instances" not in self.state:
+                self.state["instances"] = {}
 
             # Extract workflow metadata with proper defaults
-            source = metadata.get("source") or None
-            source_workflow_instance_id = message.get("workflow_instance_id") or None
+            source = metadata.get("source") if isinstance(metadata, dict) else None
+            source_workflow_instance_id = message.workflow_instance_id
 
             # Create a new workflow entry
             workflow_entry = AssistantWorkflowEntry(
@@ -173,9 +174,7 @@ class DurableAgent(AgentBase, AgenticWorkflow):
             )
 
             # Store in state, converting to JSON only if necessary
-            self.state["instances"].setdefault(
-                instance_id, workflow_entry.model_dump(mode="json")
-            )
+            self.state["instances"][instance_id] = workflow_entry.model_dump(mode="json")
 
             if not ctx.is_replaying:
                 logger.info(
@@ -287,20 +286,19 @@ class DurableAgent(AgentBase, AgenticWorkflow):
 
     @task
     async def generate_response(
-        self, instance_id: str, task: Union[str, Dict[str, Any]] = None
+        self, instance_id: str, task: Optional[Union[str, Dict[str, Any]]] = None
     ) -> ChatCompletion:
         """
-        Generates a response using a language model based on the provided task input.
+        Generates a response using the LLM based on the current conversation context.
 
         Args:
-            instance_id (str): The unique identifier of the workflow instance.
-            task (Union[str, Dict[str, Any]], optional): The task description or structured input
-                used to generate the response. Defaults to None.
+            instance_id (str): The workflow instance ID.
+            task (Optional[Union[str, Dict[str, Any]]]): The task to process.
 
         Returns:
-            ChatCompletion: The generated AI response encapsulated in a ChatCompletion object.
+            ChatCompletion: The LLM response.
         """
-        # Contruct prompt messages
+        # Construct prompt messages
         messages = self.construct_messages(task or {})
 
         # Store message in workflow state and local memory
@@ -313,13 +311,15 @@ class DurableAgent(AgentBase, AgenticWorkflow):
         # Process conversation iterations
         messages += self.tool_history
 
-        # Generate Tool Calls
-        response: ChatCompletion = self.llm.generate(
-            messages=messages, tools=self.tools, tool_choice=self.tool_choice
-        )
-
-        # Return chat completion as a dictionary
-        return response.model_dump()
+        try:
+            response: ChatCompletion = self.llm.generate(
+                messages=messages,
+                tools=self.tools,
+                tool_choice=self.tool_choice,
+            )
+            return response
+        except Exception as e:
+            raise AgentError(f"Failed during chat generation: {e}") from e
 
     @task
     def get_response_message(self, response: Dict[str, Any]) -> Dict[str, Any]:

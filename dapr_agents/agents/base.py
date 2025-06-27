@@ -236,19 +236,20 @@ class AgentBase(BaseModel, ABC):
         return self._text_formatter
 
     @property
-    def chat_history(self, task: str = None) -> List[MessageContent]:
+    def chat_history(self, task: Optional[str] = None) -> List[MessageContent]:
         """
         Retrieves the chat history from memory based on the memory type.
 
         Args:
-            task (str): The task or query provided by the user.
+            task (Optional[str]): The task or query provided by the user.
 
         Returns:
             List[MessageContent]: The chat history.
         """
-        if isinstance(self.memory, ConversationVectorMemory) and task:
-            query_embeddings = self.memory.vector_store.embed_documents([task])
-            return self.memory.get_messages(query_embeddings=query_embeddings)
+        if isinstance(self.memory, ConversationVectorMemory) and task and self.vector_store:
+            if hasattr(self.vector_store, 'embedding_function') and self.vector_store.embedding_function:
+                query_embeddings = self.vector_store.embedding_function.embed_documents([task])
+                return self.memory.get_messages(query_embeddings=query_embeddings)
         return self.memory.get_messages()
 
     @abstractmethod
@@ -378,21 +379,30 @@ class AgentBase(BaseModel, ABC):
         Returns:
             List[Dict[str, Any]]: List of formatted messages, including the user message if input_data is a string.
         """
+        if not self.prompt_template:
+            raise ValueError("Prompt template must be initialized before constructing messages.")
+            
         # Pre-fill chat history in the prompt template
         chat_history = self.memory.get_messages()
-        self.pre_fill_prompt_template(**{"chat_history": chat_history})
+        self.pre_fill_prompt_template(chat_history=chat_history)
 
         # Handle string input by adding a user message
         if isinstance(input_data, str):
             formatted_messages = self.prompt_template.format_prompt()
-            user_message = {"role": "user", "content": input_data}
-            return formatted_messages + [user_message]
+            if isinstance(formatted_messages, list):
+                user_message = {"role": "user", "content": input_data}
+                return formatted_messages + [user_message]
+            else:
+                return [{"role": "system", "content": formatted_messages}, {"role": "user", "content": input_data}]
 
         # Handle dictionary input as dynamic variables for the template
         elif isinstance(input_data, dict):
             # Pass the dictionary directly, assuming it contains keys expected by the prompt template
             formatted_messages = self.prompt_template.format_prompt(**input_data)
-            return formatted_messages
+            if isinstance(formatted_messages, list):
+                return formatted_messages
+            else:
+                return [{"role": "system", "content": formatted_messages}]
 
         else:
             raise ValueError("Input data must be either a string or dictionary.")
@@ -413,7 +423,7 @@ class AgentBase(BaseModel, ABC):
 
     def get_last_user_message(
         self, messages: List[Dict[str, Any]]
-    ) -> Optional[MessageContent]:
+    ) -> Optional[Dict[str, Any]]:
         """
         Retrieves the last user message in a list of messages.
 
@@ -421,7 +431,7 @@ class AgentBase(BaseModel, ABC):
             messages (List[Dict[str, Any]]): List of formatted messages to search.
 
         Returns:
-            Optional[MessageContent]: The last user message with trimmed content, or None if no user message exists.
+            Optional[Dict[str, Any]]: The last user message with trimmed content, or None if no user message exists.
         """
         # Iterate in reverse to find the most recent 'user' role message
         for message in reversed(messages):
