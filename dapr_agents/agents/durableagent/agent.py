@@ -156,7 +156,7 @@ class DurableAgent(AgentBase, AgenticWorkflow):
 
         # Step 1: Initialize instance entry on first iteration
         if iteration == 0:
-            metadata = getattr(message, '_message_metadata', {})
+            metadata = getattr(message, "_message_metadata", {})
 
             # Ensure "instances" key exists
             if "instances" not in self.state:
@@ -174,7 +174,9 @@ class DurableAgent(AgentBase, AgenticWorkflow):
             )
 
             # Store in state, converting to JSON only if necessary
-            self.state["instances"][instance_id] = workflow_entry.model_dump(mode="json")
+            self.state["instances"][instance_id] = workflow_entry.model_dump(
+                mode="json"
+            )
 
             if not ctx.is_replaying:
                 logger.info(

@@ -9,6 +9,7 @@ from dapr_agents.types import AgentToolExecutorError, ToolError
 
 logger = logging.getLogger(__name__)
 
+
 # The existing AgentBase class allows tools to be both Callable and AgentTool instances.
 # Therefore, the AgentToolExecutor must support both types of tools as well.
 class AgentToolExecutor(BaseModel):
@@ -45,16 +46,21 @@ class AgentToolExecutor(BaseModel):
         if callable(tool) and not isinstance(tool, AgentTool):
             try:
                 from dapr_agents.tool.base import AgentTool
+
                 tool = AgentTool.from_func(tool)
                 logger.info(f"Converted callable to AgentTool: {tool.name}")
             except Exception as e:
                 logger.error(f"Failed to convert callable to AgentTool: {e}")
-                raise AgentToolExecutorError(f"Failed to convert callable to AgentTool: {e}") from e
-        
+                raise AgentToolExecutorError(
+                    f"Failed to convert callable to AgentTool: {e}"
+                ) from e
+
         if isinstance(tool, AgentTool):
             if tool.name in self._tools_map:
                 logger.error(f"Attempted to register duplicate tool: {tool.name}")
-                raise AgentToolExecutorError(f"Tool '{tool.name}' is already registered.")
+                raise AgentToolExecutorError(
+                    f"Tool '{tool.name}' is already registered."
+                )
             self._tools_map[tool.name] = tool
             logger.info(f"Tool registered: {tool.name}")
         else:

@@ -246,9 +246,18 @@ class AgentBase(BaseModel, ABC):
         Returns:
             List[MessageContent]: The chat history.
         """
-        if isinstance(self.memory, ConversationVectorMemory) and task and self.vector_store:
-            if hasattr(self.vector_store, 'embedding_function') and self.vector_store.embedding_function:
-                query_embeddings = self.vector_store.embedding_function.embed_documents([task])
+        if (
+            isinstance(self.memory, ConversationVectorMemory)
+            and task
+            and self.vector_store
+        ):
+            if (
+                hasattr(self.vector_store, "embedding_function")
+                and self.vector_store.embedding_function
+            ):
+                query_embeddings = self.vector_store.embedding_function.embed_documents(
+                    [task]
+                )
                 return self.memory.get_messages(query_embeddings=query_embeddings)
         return self.memory.get_messages()
 
@@ -380,8 +389,10 @@ class AgentBase(BaseModel, ABC):
             List[Dict[str, Any]]: List of formatted messages, including the user message if input_data is a string.
         """
         if not self.prompt_template:
-            raise ValueError("Prompt template must be initialized before constructing messages.")
-            
+            raise ValueError(
+                "Prompt template must be initialized before constructing messages."
+            )
+
         # Pre-fill chat history in the prompt template
         chat_history = self.memory.get_messages()
         self.pre_fill_prompt_template(chat_history=chat_history)
@@ -393,7 +404,10 @@ class AgentBase(BaseModel, ABC):
                 user_message = {"role": "user", "content": input_data}
                 return formatted_messages + [user_message]
             else:
-                return [{"role": "system", "content": formatted_messages}, {"role": "user", "content": input_data}]
+                return [
+                    {"role": "system", "content": formatted_messages},
+                    {"role": "user", "content": input_data},
+                ]
 
         # Handle dictionary input as dynamic variables for the template
         elif isinstance(input_data, dict):

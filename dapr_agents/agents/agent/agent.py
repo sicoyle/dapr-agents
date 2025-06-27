@@ -102,15 +102,13 @@ class Agent(AgentBase):
             function_name = tool.get("function", {}).get("name")
             tool_id = tool.get("id")
             function_args = tool.get("function", {}).get("arguments", {})
-            
+
             if not function_name:
                 logger.error(f"Tool call missing function name: {tool}")
                 continue
-                
+
             try:
-                logger.info(
-                    f"Executing {function_name} with arguments {function_args}"
-                )
+                logger.info(f"Executing {function_name} with arguments {function_args}")
                 result = await self.tool_executor.run_tool(
                     function_name, **function_args
                 )
