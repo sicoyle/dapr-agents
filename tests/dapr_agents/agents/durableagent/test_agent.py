@@ -22,16 +22,19 @@ from dapr_agents.tool.base import AgentTool
 from dapr.ext.workflow import DaprWorkflowContext
 from dapr_agents.tool.executor import AgentToolExecutor
 
+
 # We need this otherwise these tests all fail since they require Dapr to be available.
 @pytest.fixture(autouse=True)
 def patch_dapr_check(monkeypatch):
     from dapr_agents.workflow import agentic
     from dapr_agents.workflow import base
     from unittest.mock import Mock
-    
+
     # Mock the Dapr availability check to always return True
-    monkeypatch.setattr(agentic.AgenticWorkflow, "_is_dapr_available", lambda self: True)
-    
+    monkeypatch.setattr(
+        agentic.AgenticWorkflow, "_is_dapr_available", lambda self: True
+    )
+
     # Mock the WorkflowApp initialization to prevent DaprClient creation which does an internal check for Dapr availability.
     def mock_workflow_app_post_init(self, __context: Any) -> None:
         self.wf_runtime = Mock()
@@ -40,26 +43,30 @@ def patch_dapr_check(monkeypatch):
         self.client = Mock()
         self.tasks = {}
         self.workflows = {}
-        
+
         try:
             super(base.WorkflowApp, self).model_post_init(__context)
         except AttributeError:
             # If parent doesn't have model_post_init, that's fine
             pass
-    
-    monkeypatch.setattr(base.WorkflowApp, "model_post_init", mock_workflow_app_post_init)
-    
+
+    monkeypatch.setattr(
+        base.WorkflowApp, "model_post_init", mock_workflow_app_post_init
+    )
+
     # Patch AssistantWorkflowState class to add __getitem__ and setdefault
     # TODO(@Sicoyle): in future, the AssistantWorkflowState class should be a Pydantic model,
     # and so we can not have to patch the class to add __getitem__ and setdefault,
     # because the data will not be a dictionary, but a Pydantic model with proper accessors.
     def _getitem(self, key):
         return getattr(self, key)
+
     def _setdefault(self, key, default):
         if hasattr(self, key):
             return getattr(self, key)
         setattr(self, key, default)
         return default
+
     AssistantWorkflowState.__getitem__ = _getitem
     AssistantWorkflowState.setdefault = _setdefault
 
@@ -68,12 +75,14 @@ def patch_dapr_check(monkeypatch):
         self._dapr_client = Mock()
         self._state_store_client = Mock()
         self._agent_metadata = {
-            "name": getattr(self, 'name', 'TestAgent'),
-            "role": getattr(self, 'role', 'Test Role'),
-            "goal": getattr(self, 'goal', 'Test Goal'),
-            "instructions": getattr(self, 'instructions', []),
-            "topic_name": getattr(self, 'agent_topic_name', getattr(self, 'name', 'TestAgent')),
-            "pubsub_name": getattr(self, 'message_bus_name', 'testpubsub'),
+            "name": getattr(self, "name", "TestAgent"),
+            "role": getattr(self, "role", "Test Role"),
+            "goal": getattr(self, "goal", "Test Goal"),
+            "instructions": getattr(self, "instructions", []),
+            "topic_name": getattr(
+                self, "agent_topic_name", getattr(self, "name", "TestAgent")
+            ),
+            "pubsub_name": getattr(self, "message_bus_name", "testpubsub"),
             "orchestrator": False,
         }
         self._workflow_name = "ToolCallingWorkflow"
@@ -81,21 +90,25 @@ def patch_dapr_check(monkeypatch):
         self._shutdown_event = asyncio.Event()
         self._subscriptions = {}
         self._topic_handlers = {}
-        
-        if not hasattr(self, 'state') or self.state is None:
+
+        if not hasattr(self, "state") or self.state is None:
             self.state = AssistantWorkflowState()
-        
+
         # Call the WorkflowApp model_post_init which we have mocked above.
         super(agentic.AgenticWorkflow, self).model_post_init(__context)
-    
-    monkeypatch.setattr(agentic.AgenticWorkflow, "model_post_init", mock_agentic_post_init)
-    
+
+    monkeypatch.setattr(
+        agentic.AgenticWorkflow, "model_post_init", mock_agentic_post_init
+    )
+
     # No-op for testing
     def mock_register_agentic_system(self):
         pass
-    
-    monkeypatch.setattr(agentic.AgenticWorkflow, "register_agentic_system", mock_register_agentic_system)
-    
+
+    monkeypatch.setattr(
+        agentic.AgenticWorkflow, "register_agentic_system", mock_register_agentic_system
+    )
+
     yield
 
 
@@ -249,22 +262,26 @@ class TestDurableAgent:
         assert "asynchronously" in result
 
     @pytest.mark.asyncio
-    async def test_tool_calling_workflow_initialization(self, basic_durable_agent, mock_workflow_context):
+    async def test_tool_calling_workflow_initialization(
+        self, basic_durable_agent, mock_workflow_context
+    ):
         """Test workflow initialization on first iteration."""
         message = {
             "task": "Test task",
             "iteration": 0,
-            "workflow_instance_id": "parent-instance-123"
+            "workflow_instance_id": "parent-instance-123",
         }
 
         mock_workflow_context.instance_id = "test-instance-123"
         mock_workflow_context.call_activity.side_effect = [
             {"content": "Test response"},
             {"message": "Test response"},
-            "stop"
+            "stop",
         ]
 
-        workflow_gen = basic_durable_agent.tool_calling_workflow(mock_workflow_context, message)
+        workflow_gen = basic_durable_agent.tool_calling_workflow(
+            mock_workflow_context, message
+        )
         try:
             next(workflow_gen)
         except StopIteration:
@@ -286,20 +303,19 @@ class TestDurableAgent:
                     "message": {
                         "content": "Test response",
                         "tool_calls": [],
-                        "finish_reason": "stop"
+                        "finish_reason": "stop",
                     },
-                    "finish_reason": "stop"
+                    "finish_reason": "stop",
                 }
             ]
         }
         basic_durable_agent.llm.generate = Mock(return_value=mock_response)
 
         from dapr_agents.agents.durableagent.state import AssistantWorkflowEntry
+
         instance_id = "test-instance-123"
         workflow_entry = AssistantWorkflowEntry(
-            input="Test task",
-            source="test_source",
-            source_workflow_instance_id=None
+            input="Test task", source="test_source", source_workflow_instance_id=None
         )
         basic_durable_agent.state.instances = {instance_id: workflow_entry}
 
@@ -317,7 +333,7 @@ class TestDurableAgent:
                     "message": {
                         "content": "Test response",
                         "tool_calls": [],
-                        "finish_reason": "stop"
+                        "finish_reason": "stop",
                     }
                 }
             ]
@@ -332,13 +348,7 @@ class TestDurableAgent:
     @pytest.mark.asyncio
     async def test_get_finish_reason_activity(self, basic_durable_agent):
         """Test the get_finish_reason activity."""
-        response = {
-            "choices": [
-                {
-                    "finish_reason": "stop"
-                }
-            ]
-        }
+        response = {"choices": [{"finish_reason": "stop"}]}
 
         result = basic_durable_agent.get_finish_reason(response)
 
@@ -356,8 +366,8 @@ class TestDurableAgent:
                                 "id": "call_123",
                                 "function": {
                                     "name": "test_tool",
-                                    "arguments": '{"arg1": "value1"}'
-                                }
+                                    "arguments": '{"arg1": "value1"}',
+                                },
                             }
                         ]
                     }
@@ -375,9 +385,7 @@ class TestDurableAgent:
     @pytest.mark.asyncio
     async def test_get_tool_calls_activity_no_tools(self, basic_durable_agent):
         """Test the get_tool_calls activity when no tools are present."""
-        response = {
-            "tool_calls": []
-        }
+        response = {"tool_calls": []}
 
         result = basic_durable_agent.get_tool_calls(response)
 
@@ -388,21 +396,22 @@ class TestDurableAgent:
         """Test successful tool execution in activity."""
         tool_call = {
             "id": "call_123",
-            "function": {
-                "name": "test_tool",
-                "arguments": '{"arg1": "value1"}'
-            }
+            "function": {"name": "test_tool", "arguments": '{"arg1": "value1"}'},
         }
         from dapr_agents.agents.durableagent.state import AssistantWorkflowEntry
+
         instance_id = "test-instance-123"
         workflow_entry = AssistantWorkflowEntry(
-            input="Test task",
-            source="test_source",
-            source_workflow_instance_id=None
+            input="Test task", source="test_source", source_workflow_instance_id=None
         )
         durable_agent_with_tools.state.instances = {instance_id: workflow_entry}
 
-        with patch.object(AgentToolExecutor, 'run_tool', new_callable=AsyncMock, return_value="test_result") as mock_run_tool:
+        with patch.object(
+            AgentToolExecutor,
+            "run_tool",
+            new_callable=AsyncMock,
+            return_value="test_result",
+        ) as mock_run_tool:
             await durable_agent_with_tools.execute_tool(instance_id, tool_call)
             instance_data = durable_agent_with_tools.state.instances[instance_id]
             assert len(instance_data.tool_history) == 1
@@ -417,15 +426,18 @@ class TestDurableAgent:
         """Test tool execution failure in activity."""
         tool_call = {
             "id": "call_123",
-            "function": {
-                "name": "test_tool",
-                "arguments": '{"arg1": "value1"}'
-            }
+            "function": {"name": "test_tool", "arguments": '{"arg1": "value1"}'},
         }
 
-        with patch.object(type(durable_agent_with_tools.tool_executor), 'run_tool', side_effect=Exception("Tool failed")):
+        with patch.object(
+            type(durable_agent_with_tools.tool_executor),
+            "run_tool",
+            side_effect=Exception("Tool failed"),
+        ):
             with pytest.raises(Exception, match="Tool failed"):
-                await durable_agent_with_tools.execute_tool("test-instance-123", tool_call)
+                await durable_agent_with_tools.execute_tool(
+                    "test-instance-123", tool_call
+                )
 
     @pytest.mark.asyncio
     async def test_broadcast_message_to_agents_activity(self, basic_durable_agent):
@@ -433,10 +445,12 @@ class TestDurableAgent:
         message = {
             "type": "broadcast",
             "content": "Test broadcast message",
-            "sender": "TestDurableAgent"
+            "sender": "TestDurableAgent",
         }
 
-        with patch.object(type(basic_durable_agent), 'broadcast_message') as mock_broadcast:
+        with patch.object(
+            type(basic_durable_agent), "broadcast_message"
+        ) as mock_broadcast:
             await basic_durable_agent.broadcast_message_to_agents(message)
             mock_broadcast.assert_called_once()
 
@@ -447,8 +461,12 @@ class TestDurableAgent:
         target_agent = "TargetAgent"
         target_instance_id = "target-instance-123"
 
-        with patch.object(type(basic_durable_agent), 'send_message_to_agent') as mock_send:
-            await basic_durable_agent.send_response_back(response, target_agent, target_instance_id)
+        with patch.object(
+            type(basic_durable_agent), "send_message_to_agent"
+        ) as mock_send:
+            await basic_durable_agent.send_response_back(
+                response, target_agent, target_instance_id
+            )
             mock_send.assert_called_once()
 
     @pytest.mark.asyncio
@@ -456,12 +474,18 @@ class TestDurableAgent:
         """Test finishing workflow activity."""
         message = {"content": "Final response"}
 
-        with patch.object(type(basic_durable_agent), 'update_workflow_state') as mock_update:
+        with patch.object(
+            type(basic_durable_agent), "update_workflow_state"
+        ) as mock_update:
             await basic_durable_agent.finish_workflow("test-instance-123", message)
             # The finish_workflow calls update_workflow_state twice, so check both calls
             assert mock_update.call_count == 2
-            mock_update.assert_any_call(instance_id="test-instance-123", message=message)
-            mock_update.assert_any_call(instance_id="test-instance-123", final_output="Final response")
+            mock_update.assert_any_call(
+                instance_id="test-instance-123", message=message
+            )
+            mock_update.assert_any_call(
+                instance_id="test-instance-123", final_output="Final response"
+            )
 
     @pytest.mark.asyncio
     async def test_update_workflow_state(self, basic_durable_agent):
@@ -470,16 +494,15 @@ class TestDurableAgent:
         message = {"content": "Test message", "role": "user"}
         tool_message = {
             "tool_call_id": "call_123",
-            "function_name": "test_tool", 
-            "content": "tool_result"
+            "function_name": "test_tool",
+            "content": "tool_result",
         }
         final_output = "Final output"
 
         from dapr_agents.agents.durableagent.state import AssistantWorkflowEntry
+
         workflow_entry = AssistantWorkflowEntry(
-            input="Test task",
-            source="test_source",
-            source_workflow_instance_id=None
+            input="Test task", source="test_source", source_workflow_instance_id=None
         )
         basic_durable_agent.state.instances = {instance_id: workflow_entry}
 
@@ -499,7 +522,7 @@ class TestDurableAgent:
             content="Test broadcast",
             role="assistant",
             type="broadcast",
-            sender="TestDurableAgent"
+            sender="TestDurableAgent",
         )
 
         # This needs refactoring / better implementation on this test since the actual implementation would depend on the pubsub msg broker.
@@ -513,7 +536,7 @@ class TestDurableAgent:
             role="assistant",
             task="Test task",
             agent_name="TargetAgent",
-            workflow_instance_id="target-instance-123"
+            workflow_instance_id="target-instance-123",
         )
 
         # This needs refactoring / better implementation on this test since the actual implementation would depend on the pubsub msg broker.
@@ -531,7 +554,7 @@ class TestDurableAgent:
             content="Test broadcast",
             role="assistant",
             type="broadcast",
-            sender="OtherAgent"
+            sender="OtherAgent",
         )
 
         # This needs refactoring / better implementation on this test since the actual implementation would depend on the pubsub msg broker.
@@ -550,5 +573,5 @@ class TestDurableAgent:
     def test_durable_agent_state_initialization(self, basic_durable_agent):
         """Test that the agent state is properly initialized."""
         assert isinstance(basic_durable_agent.state, AssistantWorkflowState)
-        assert hasattr(basic_durable_agent.state, 'instances')
+        assert hasattr(basic_durable_agent.state, "instances")
         assert basic_durable_agent.state.instances == {}

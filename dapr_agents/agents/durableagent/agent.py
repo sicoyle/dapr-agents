@@ -557,7 +557,9 @@ class DurableAgent(AgentBase, AgenticWorkflow):
                 **tool_message
             ).model_dump(mode="json")
             if is_dict:
-                workflow_entry.setdefault("tool_history", []).append(serialized_tool_message)
+                workflow_entry.setdefault("tool_history", []).append(
+                    serialized_tool_message
+                )
             else:
                 workflow_entry.tool_history.append(serialized_tool_message)
 
