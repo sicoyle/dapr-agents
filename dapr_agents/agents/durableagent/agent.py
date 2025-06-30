@@ -542,26 +542,23 @@ class DurableAgent(AgenticWorkflow, AgentBase):
     ):
         """
         Updates the workflow state by appending a new message or setting the final output.
-
-        Args:
-            instance_id (str): The unique identifier of the workflow instance.
-            message (Optional[Dict[str, Any]]): A dictionary representing a user/assistant message.
-            tool_message (Optional[Dict[str, Any]]): A dictionary representing a tool execution message.
-            final_output (Optional[str]): The final output of the workflow, marking its completion.
-
-        Raises:
-            ValueError: If no workflow entry is found for the given instance_id.
+        Accepts both dict and AssistantWorkflowState as valid state types.
         """
-        # Ensure state has the required structure
+        # Accept both dict and AssistantWorkflowState
         if isinstance(self.state, dict):
             if "instances" not in self.state:
                 self.state["instances"] = {}
-
             workflow_entry = self.state["instances"].get(instance_id)
             if not workflow_entry:
                 raise ValueError(
                     f"No workflow entry found for instance_id {instance_id} in local state."
                 )
+        elif isinstance(self.state, AssistantWorkflowState):
+            if instance_id not in self.state.instances:
+                raise ValueError(
+                    f"No workflow entry found for instance_id {instance_id} in AssistantWorkflowState."
+                )
+            workflow_entry = self.state.instances[instance_id]
         else:
             raise ValueError(f"Invalid state type: {type(self.state)}")
 
@@ -570,12 +567,15 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             serialized_message = AssistantWorkflowMessage(**message).model_dump(
                 mode="json"
             )
-            workflow_entry.setdefault("messages", []).append(serialized_message)
-            workflow_entry["last_message"] = serialized_message
+            if isinstance(workflow_entry, dict):
+                workflow_entry.setdefault("messages", []).append(serialized_message)
+                workflow_entry["last_message"] = serialized_message
+            else:
+                workflow_entry.messages.append(AssistantWorkflowMessage(**message))
+                workflow_entry.last_message = AssistantWorkflowMessage(**message)
 
             # Add to memory only if it's a user/assistant message
             from dapr_agents.types.message import UserMessage
-
             if message.get("role") == "user":
                 user_msg = UserMessage(content=message.get("content", ""))
                 self.memory.add_message(user_msg)
@@ -585,9 +585,12 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             serialized_tool_message = AssistantWorkflowToolMessage(
                 **tool_message
             ).model_dump(mode="json")
-            workflow_entry.setdefault("tool_history", []).append(
-                serialized_tool_message
-            )
+            if isinstance(workflow_entry, dict):
+                workflow_entry.setdefault("tool_history", []).append(
+                    serialized_tool_message
+                )
+            else:
+                workflow_entry.tool_history.append(AssistantWorkflowToolMessage(**tool_message))
 
             # Also update agent-level tool history (execution tracking)
             agent_tool_message = ToolMessage(
@@ -599,8 +602,12 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
         # Store final output
         if final_output is not None:
-            workflow_entry["output"] = final_output
-            workflow_entry["end_time"] = datetime.now().isoformat()
+            if isinstance(workflow_entry, dict):
+                workflow_entry["output"] = final_output
+                workflow_entry["end_time"] = datetime.now().isoformat()
+            else:
+                workflow_entry.output = final_output
+                workflow_entry.end_time = datetime.now()
 
         # Persist updated state
         self.save_state()

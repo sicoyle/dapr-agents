@@ -67,6 +67,12 @@ python 02_more_complex_agent.py
 **Dapr Required**: No
 
 #### 3. VectorStore Integration with Agent
+
+Make sure you have the required dependencies installed:
+```
+pip install sentence-transformers chromadb
+```
+
 ```bash
 python 03_agent_with_vectorstore.py
 ```
@@ -74,7 +80,6 @@ python 03_agent_with_vectorstore.py
 **Agent Type**: Agent
 **Dapr Required**: No
 
-Note, you must run `pip install sentence-transformers chromadb` for vectorstore capabilities before running this quickstart.
 
 This agent demonstrates integration with vector stores for document storage and retrieval capabilities.
 

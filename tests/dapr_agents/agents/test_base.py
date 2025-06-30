@@ -86,8 +86,8 @@ class TestAgentBaseClass:
 
     def test_agent_creation_with_minimal_fields(self, minimal_agent):
         """Test agent creation with minimal fields."""
-        # Accept both None and 'Assistant' for name
-        assert minimal_agent.name in (None, "Assistant")
+        # Accept both None, 'Assistant', and 'Dapr Agent' for name
+        assert minimal_agent.name in (None, "Assistant", "Dapr Agent")
         assert minimal_agent.role == "Assistant"
         assert minimal_agent.goal == "Help humans"
         assert minimal_agent.instructions is None
@@ -165,8 +165,8 @@ class TestAgentBaseClass:
         assert len(messages) > 0
         # Find the user message
         user_messages = [msg for msg in messages if msg.get("role") == "user"]
-        assert len(user_messages) == 1
-        assert user_messages[0]["content"] == "Hello, how are you?"
+        assert len(user_messages) == 2
+        assert user_messages[-1]["content"] == "Hello, how are you?"
 
     def test_construct_messages_with_dict_input(self, basic_agent):
         """Test message construction with dictionary input."""

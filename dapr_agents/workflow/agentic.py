@@ -76,7 +76,7 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
         default="agents_registry", description="Key for agents registry in state store."
     )
     max_iterations: int = Field(
-        default=20, description="Maximum iterations for workflows.", ge=1
+        default=10, description="Maximum iterations for workflows.", ge=1
     )
     memory: MemoryBase = Field(
         default_factory=ConversationListMemory,
