@@ -53,12 +53,5 @@ class MockLLMClient(OpenAIChatClient):
     ) -> Union[Iterator[Dict[str, Any]], Dict[str, Any]]:
         """Mock implementation of generate method."""
         return {
-            "choices": [
-                {
-                    "message": {
-                        "content": "Mock response",
-                        "role": "assistant"
-                    }
-                }
-            ]
+            "choices": [{"message": {"content": "Mock response", "role": "assistant"}}]
         }

@@ -576,6 +576,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
             # Add to memory only if it's a user/assistant message
             from dapr_agents.types.message import UserMessage
+
             if message.get("role") == "user":
                 user_msg = UserMessage(content=message.get("content", ""))
                 self.memory.add_message(user_msg)
@@ -590,7 +591,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                     serialized_tool_message
                 )
             else:
-                workflow_entry.tool_history.append(AssistantWorkflowToolMessage(**tool_message))
+                workflow_entry.tool_history.append(
+                    AssistantWorkflowToolMessage(**tool_message)
+                )
 
             # Also update agent-level tool history (execution tracking)
             agent_tool_message = ToolMessage(

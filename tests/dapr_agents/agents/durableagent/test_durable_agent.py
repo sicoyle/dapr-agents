@@ -281,8 +281,13 @@ class TestDurableAgent:
 
         # Manually insert a mock instance to ensure the state is populated for the assertion
         from dapr_agents.agents.durableagent.state import AssistantWorkflowEntry
-        basic_durable_agent.state.instances["test-instance-123"] = AssistantWorkflowEntry(
-            input="Test task", source=None, source_workflow_instance_id="parent-instance-123"
+
+        basic_durable_agent.state.instances[
+            "test-instance-123"
+        ] = AssistantWorkflowEntry(
+            input="Test task",
+            source=None,
+            source_workflow_instance_id="parent-instance-123",
         )
 
         workflow_gen = basic_durable_agent.tool_calling_workflow(
