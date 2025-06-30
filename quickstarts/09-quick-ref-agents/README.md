@@ -1,28 +1,11 @@
-# Quick Reference For Trying out Each Agent Type
-
-This quickstart demonstrates the unified agent experience with automatic agent type selection and YAML configuration support.
-It supports trying out the various agents and parameters supported.
+# Quick Reference For Trying out Agent VS DurableAgent
 
 ## Overview
 
 The unified agent interface provides a single entry point for all agent types with automatic selection based on configuration parameters:
 
-- **ToolCallAgent** (default): Simple, stateless tool execution
-- **ReActAgent**: Reasoning-action pattern with explicit thought processes
-- **OpenAPIReActAgent**: API integration with vector store capabilities
-- **DurableAgent**: Durable, stateful workflow with Dapr integration
-
-
-## Agent Type Selection Logic
-
-The system automatically selects the agent type based on configuration:
-
-1. **DurableAgent**: If `state_store_name` is specified
-2. **OpenAPIReActAgent**: If `openapi_spec_path` is specified
-3. **ReActAgent**: If `reasoning` is True
-4. **ToolCallAgent**: Default (simple tool execution)
-
-This provides a seamless experience where you don't need to understand the underlying agent types - the system chooses the best one automatically.
+- **Agent** (default): Simple, stateless tool execution
+- **DurableAgent**: Durable, stateful workflow leveraging Dapr
 
 ## Prerequisites
 
@@ -50,7 +33,7 @@ Optionally,
 export OPENAI_API_KEY="your-openai-key"
 ```
 
-### 3. Install Dapr CLI (for durable agents only)
+### 3. Install Dapr CLI (for DurableAgent only)
 
 Follow the instructions to install the latest [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/). 
 
@@ -58,7 +41,7 @@ Follow the instructions to install the latest [Dapr CLI](https://docs.dapr.io/ge
 
 Navigate to the quickstart directory:
 ```bash
-cd quickstarts/09-quick-ref-all-agent-types
+cd quickstarts/09-quick-ref-agents
 ```
 
 ### Running Without Dapr (Stateless Agents)
@@ -67,39 +50,39 @@ These examples work without Dapr and demonstrate the unified agent interface:
 
 #### 1. Simple Tool Agent
 ```bash
-python 01_simple_tool_agent.py
+python 01_simple_agent.py
 ```
-**What it does**: Creates a basic weather assistant using ToolCallAgent (default)
-**Agent Type**: ToolCallAgent
+**What it does**: Creates a basic weather assistant
+**Agent Type**: Agent
 **Dapr Required**: No
 
 This is a simple agent that leverages specified `tools`, and is stateless.
 
 #### 2. Reasoning Agent
 ```bash
-python 02_reasoning_agent.py
+python 02_more_complex_agent.py
 ```
-**What it does**: Creates a travel planner using ReActAgent with reasoning
-**Agent Type**: ReActAgent
+**What it does**: Creates a travel planner using Agent reasoning
+**Agent Type**: Agent
 **Dapr Required**: No
 
-This is a simple agent leveraging the ReAct pattern, denoted by `reasoning=True` in the agent configuration.
-
-#### 3. API Integration Agent
+#### 3. VectorStore Integration with Agent
 ```bash
-python 03_openapi_agent.py
+python 03_agent_with_vectorstore.py
 ```
-**What it does**: Creates an agent that interacts with APIs using OpenAPI specifications
-**Agent Type**: OpenAPIReActAgent
+**What it does**: Creates an agent that interacts with a vectorstore
+**Agent Type**: Agent
 **Dapr Required**: No
 
-This is a simple agent supporting OpenAPI integrations and vector store support, denoted by `openapi_spec_path` in the agent configuration.
+Note, you must run `pip install sentence-transformers chromadb` for vectorstore capabilities before running this quickstart.
+
+This agent demonstrates integration with vector stores for document storage and retrieval capabilities.
 
 ### Running With Dapr (Durable Agents)
 
-These examples require Dapr for stateful, durable agent workflows:
+DurableAgent requires Dapr for stateful, durable agent workflows:
 
-#### 4. Durable State Agent
+#### 4. Durable Agent
 ```bash
 # Start Dapr with the required components
 dapr run --app-id durable-agent --app-port 8001 --dapr-http-port 3500 --resources-path components/ -- python 04_durable_agent.py
