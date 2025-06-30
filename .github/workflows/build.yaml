@@ -63,3 +63,6 @@ jobs:
     - name: Check Typing
       run: |
         tox -e type
+    - name: Run Tests
+      run: |
+        tox -e pytest
