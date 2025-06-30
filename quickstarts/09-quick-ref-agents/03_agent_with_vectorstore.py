@@ -39,17 +39,17 @@ async def main():
         vector_store=vector_store,
     )
 
-    print("🚀 Starting Vector Database Agent...")
-    print("📝 Adding a sample document...")
+    print("Starting Vector Database Agent...")
+    print("Adding a sample document...")
 
     response = await agent.run("Add a document about machine learning basics")
-    print("✅ Add Document Response:")
+    print("Add Document Response:")
     print(response)
     print()
 
-    print("🔍 Searching for documents...")
+    print("Searching for documents...")
     response = await agent.run("Search for documents about machine learning")
-    print("✅ Search Response:")
+    print("Search Response:")
     print(response)
 
 
@@ -59,8 +59,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n🛑 Interrupted by user. Exiting gracefully...")
+        print("\nInterrupted by user. Exiting gracefully...")
     except Exception as e:
-        print(f"\n❌ Error occurred: {e}")
-        print("💡 Make sure you have the required dependencies installed:")
-        print("   pip install sentence-transformers chromadb")
+        print(f"\nError occurred: {e}")
+        print("Make sure you have the required dependencies installed:")
+        print(" pip install sentence-transformers chromadb")
