@@ -26,7 +26,7 @@ async def main():
     agent = Agent(
         name="TravelPlanner",
         role="Travel Assistant",
-        goal="Plan travel itineraries with reasoning",
+        goal="Plan travel itineraries",
         instructions=[
             "Plan travel itineraries",
             "Search for flights and hotels",

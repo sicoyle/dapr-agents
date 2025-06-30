@@ -104,7 +104,9 @@ class Agent(AgentBase):
         for tool_call in tool_calls:
             function_name = tool_call.function.name
             tool_id = tool_call.id
-            function_args = tool_call.function.arguments_dict  # Use the property to get dict
+            function_args = (
+                tool_call.function.arguments_dict
+            )  # Use the property to get dict
 
             if not function_name:
                 logger.error(f"Tool call missing function name: {tool_call}")
@@ -148,12 +150,15 @@ class Agent(AgentBase):
                     messages=current_messages,
                     tools=self.get_llm_tools(),
                 )
-                
+
                 # Handle different response types
                 if isinstance(response, ChatCompletion):
                     response_message = response.get_message()
                     if response_message:
-                        message_dict = {"role": "assistant", "content": response_message}
+                        message_dict = {
+                            "role": "assistant",
+                            "content": response_message,
+                        }
                         self.text_formatter.print_message(message_dict)
 
                     if response.get_reason() == "tool_calls":
@@ -166,27 +171,33 @@ class Agent(AgentBase):
                                     content = response_message.get("content", "")
                                     if content is None:
                                         content = ""
-                                    tool_calls_data = response_message.get("tool_calls", [])
+                                    tool_calls_data = response_message.get(
+                                        "tool_calls", []
+                                    )
                                 else:
-                                    content = str(response_message) if response_message is not None else ""
+                                    content = (
+                                        str(response_message)
+                                        if response_message is not None
+                                        else ""
+                                    )
                                     tool_calls_data = []
-                                
+
                                 message_dict = {
-                                    "role": "assistant", 
+                                    "role": "assistant",
                                     "content": content,
-                                    "tool_calls": tool_calls_data
+                                    "tool_calls": tool_calls_data,
                                 }
                                 messages.append(message_dict)
-                            
+
                             await self.process_response(tool_calls)
                             for tool_msg in self.tool_history:
                                 tool_message_dict = {
                                     "role": "tool",
                                     "content": tool_msg.content or "",
-                                    "tool_call_id": tool_msg.tool_call_id
+                                    "tool_call_id": tool_msg.tool_call_id,
                                 }
                                 messages.append(tool_message_dict)
-                            
+
                             # Continue to next iteration to let LLM process tool results
                             continue
                     else:
@@ -199,7 +210,9 @@ class Agent(AgentBase):
                         return content
                 else:
                     # Handle Dict or Iterator responses (for structured output or streaming)
-                    logger.warning(f"Received non-ChatCompletion response: {type(response)}")
+                    logger.warning(
+                        f"Received non-ChatCompletion response: {type(response)}"
+                    )
                     if isinstance(response, dict):
                         return response.get("content", str(response))
                     else:

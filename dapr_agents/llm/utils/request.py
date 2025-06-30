@@ -117,9 +117,13 @@ class RequestHandler:
             tool_dicts = []
             for tool in tools:
                 if isinstance(tool, AgentTool):
-                    tool_dicts.append(ToolHelper.format_tool(tool, tool_format=llm_provider))
+                    tool_dicts.append(
+                        ToolHelper.format_tool(tool, tool_format=llm_provider)
+                    )
                 else:
-                    tool_dicts.append(ToolHelper.format_tool(tool, tool_format=llm_provider))
+                    tool_dicts.append(
+                        ToolHelper.format_tool(tool, tool_format=llm_provider)
+                    )
             params["tools"] = tool_dicts
 
         if response_format:

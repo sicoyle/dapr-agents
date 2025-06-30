@@ -1,9 +1,3 @@
-# Set your OpenAI API key before running:
-# export OPENAI_API_KEY="your-api-key-here"
-#
-# For vector store functionality:
-# pip install sentence-transformers chromadb
-
 from dapr_agents import Agent
 from dapr_agents.tool import tool
 from dapr_agents.storage.vectorstores import ChromaVectorStore

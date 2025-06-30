@@ -118,7 +118,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             task = message.task
             iteration = message.iteration or 0
             workflow_instance_id = message.workflow_instance_id
-            
+
         instance_id = ctx.instance_id
 
         if not ctx.is_replaying:
@@ -158,9 +158,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                 )
 
             if not ctx.is_replaying:
-                logger.info(
-                    f"Initial message from {source} -> {self.name}"
-                )
+                logger.info(f"Initial message from {source} -> {self.name}")
 
         # Step 2: Retrieve workflow entry for this instance
         if isinstance(self.state, dict):
@@ -168,7 +166,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             # Handle dictionary format
             if isinstance(workflow_entry, dict):
                 source = workflow_entry.get("source")
-                source_workflow_instance_id = workflow_entry.get("source_workflow_instance_id")
+                source_workflow_instance_id = workflow_entry.get(
+                    "source_workflow_instance_id"
+                )
             else:
                 # Handle object format
                 source = workflow_entry.source
@@ -274,9 +274,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         # Step 7: Continue Workflow Execution
         if isinstance(message, dict):
             message.update({"task": None, "iteration": next_iteration_count})
-            
+
         ctx.continue_as_new(message)
-        
+
     @task
     async def generate_response(
         self, instance_id: str, task: Optional[Union[str, Dict[str, Any]]] = None
@@ -305,15 +305,17 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         tool_messages = []
         for tool_msg in self.tool_history:
             if isinstance(tool_msg, ToolMessage):
-                tool_messages.append({
-                    "role": tool_msg.role,
-                    "content": tool_msg.content,
-                    "tool_call_id": tool_msg.tool_call_id
-                })
+                tool_messages.append(
+                    {
+                        "role": tool_msg.role,
+                        "content": tool_msg.content,
+                        "tool_call_id": tool_msg.tool_call_id,
+                    }
+                )
             else:
                 # Handle case where tool_msg is already a dict
                 tool_messages.append(tool_msg)
-        
+
         messages.extend(tool_messages)
 
         try:
@@ -322,16 +324,16 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                 tools=self.get_llm_tools(),
                 tool_choice=self.tool_choice,
             )
-            
+
             # Convert ChatCompletion object to dictionary for workflow serialization
-            if hasattr(response, 'model_dump'):
+            if hasattr(response, "model_dump"):
                 return response.model_dump()
             elif isinstance(response, dict):
                 return response
             else:
                 # Fallback: convert to string and wrap in dict
                 return {"content": str(response)}
-                
+
         except Exception as e:
             raise AgentError(f"Failed during chat generation: {e}") from e
 
@@ -431,18 +433,24 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
         try:
             function_args = function_details.get("arguments", "")
-            logger.info(f"Executing tool '{function_name}' with raw arguments: {function_args}")
-            
+            logger.info(
+                f"Executing tool '{function_name}' with raw arguments: {function_args}"
+            )
+
             function_args_as_dict = json.loads(function_args) if function_args else {}
-            logger.info(f"Parsed arguments for '{function_name}': {function_args_as_dict}")
+            logger.info(
+                f"Parsed arguments for '{function_name}': {function_args_as_dict}"
+            )
 
             # Execute tool function
             result = await self.tool_executor.run_tool(
                 function_name, **function_args_as_dict
             )
-            
-            logger.info(f"Tool '{function_name}' executed successfully with result: {result}")
-            
+
+            logger.info(
+                f"Tool '{function_name}' executed successfully with result: {result}"
+            )
+
             # Construct tool execution message payload
             workflow_tool_message = {
                 "tool_call_id": tool_call.get("id"),
@@ -548,7 +556,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         if isinstance(self.state, dict):
             if "instances" not in self.state:
                 self.state["instances"] = {}
-            
+
             workflow_entry = self.state["instances"].get(instance_id)
             if not workflow_entry:
                 raise ValueError(
@@ -567,6 +575,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
             # Add to memory only if it's a user/assistant message
             from dapr_agents.types.message import UserMessage
+
             if message.get("role") == "user":
                 user_msg = UserMessage(content=message.get("content", ""))
                 self.memory.add_message(user_msg)
@@ -610,7 +619,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         """
         try:
             # Extract metadata safely from message attributes
-            metadata = getattr(message, '_message_metadata', {})
+            metadata = getattr(message, "_message_metadata", {})
 
             if not isinstance(metadata, dict):
                 logger.warning(
@@ -620,7 +629,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
             source = metadata.get("source", "unknown_source")
             message_type = metadata.get("type", "unknown_type")
-            message_content = getattr(message, 'content', "No Data")
+            message_content = getattr(message, "content", "No Data")
 
             logger.info(
                 f"{self.name} received broadcast message of type '{message_type}' from '{source}'."

@@ -5,13 +5,30 @@ from dapr_agents.memory import (
 )
 from dapr_agents.storage import VectorStoreBase
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
-from dapr_agents.types import MessageContent, MessagePlaceHolder, BaseMessage, ChatCompletion
+from dapr_agents.types import (
+    MessageContent,
+    MessagePlaceHolder,
+    BaseMessage,
+    ChatCompletion,
+)
 from dapr_agents.tool.executor import AgentToolExecutor
 from dapr_agents.prompt.base import PromptTemplateBase
 from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.prompt import ChatPromptTemplate
 from dapr_agents.tool.base import AgentTool
-from typing import List, Optional, Dict, Any, Union, Callable, Literal, Iterator, Type, Iterable, Sequence
+from typing import (
+    List,
+    Optional,
+    Dict,
+    Any,
+    Union,
+    Callable,
+    Literal,
+    Iterator,
+    Type,
+    Iterable,
+    Sequence,
+)
 from pydantic import BaseModel, Field, PrivateAttr, model_validator, ConfigDict
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -27,7 +44,10 @@ from dapr_agents.llm.dapr import DaprChatClient
 logger = logging.getLogger(__name__)
 
 # Type alias for all concrete chat client implementations
-ChatClientType = Union[OpenAIChatClient, HFHubChatClient, NVIDIAChatClient, DaprChatClient]
+ChatClientType = Union[
+    OpenAIChatClient, HFHubChatClient, NVIDIAChatClient, DaprChatClient
+]
+
 
 class AgentBase(BaseModel, ABC):
     """
@@ -264,11 +284,15 @@ class AgentBase(BaseModel, ABC):
                 query_embeddings = self.vector_store.embedding_function.embed_documents(
                     [task]
                 )
-                return self.memory.get_messages(query_embeddings=query_embeddings) # returns List[MessageContent]
+                return self.memory.get_messages(
+                    query_embeddings=query_embeddings
+                )  # returns List[MessageContent]
             else:
-                return self.memory.get_messages() # returns List[MessageContent]
+                return self.memory.get_messages()  # returns List[MessageContent]
         else:
-            messages: List[BaseMessage] = self.memory.get_messages() # returns List[BaseMessage]
+            messages: List[
+                BaseMessage
+            ] = self.memory.get_messages()  # returns List[BaseMessage]
             converted_messages: List[MessageContent] = []
             for msg in messages:
                 if isinstance(msg, MessageContent):
@@ -294,7 +318,7 @@ class AgentBase(BaseModel, ABC):
         """
         if not self.prompt_template:
             return
-            
+
         prefill_data = {}
         if "name" in self.prompt_template.input_variables and self.name:
             prefill_data["name"] = self.name
@@ -454,7 +478,9 @@ class AgentBase(BaseModel, ABC):
         if chat_history:
             last_msg = chat_history[-1]
             # Ensure we return MessageContent type
-            if isinstance(last_msg, BaseMessage) and not isinstance(last_msg, MessageContent):
+            if isinstance(last_msg, BaseMessage) and not isinstance(
+                last_msg, MessageContent
+            ):
                 return MessageContent(**last_msg.model_dump())
             return last_msg
         return None
@@ -482,7 +508,7 @@ class AgentBase(BaseModel, ABC):
     def get_llm_tools(self) -> List[Union[AgentTool, Dict[str, Any]]]:
         """
         Converts tools to the format expected by LLM clients.
-        
+
         Returns:
             List[Union[AgentTool, Dict[str, Any]]]: Tools in LLM-compatible format.
         """
