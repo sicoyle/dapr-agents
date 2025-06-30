@@ -120,70 +120,9 @@ if __name__ == "__main__":
 
 **Expected output:** The agent will use the weather tool to provide the current weather.
 
-### 3. ReAct Pattern Implementation
+### 3. Durable Agent
 
-Run the ReAct pattern example to see how to create an agent that can reason and act:
-
-<!-- STEP
-name: Run simple agent with tools example
-expected_stdout_lines:
-  - "user:"
-  - "What should I do in London today?"
-  - "Thought:"
-  - 'Action: {"name": "SearchWeather", "arguments": {"city": "London"}}'
-  - "Observation: rainy"
-  - "Thought:"
-  - 'Action: {"name": "GetActivities", "arguments": {"weather": "rainy"}}'
-  - "Observation: Visit museums"
-  - "Thought:"
-  - "assistant:"
-  - "Result:"
-timeout_seconds: 30
-output_match_mode: substring
--->
-```bash
-python 03_reason_act.py
-```
-<!-- END_STEP -->
-
-```python
-import asyncio
-from dapr_agents import tool, ReActAgent
-from dotenv import load_dotenv
-
-load_dotenv()
-
-@tool
-def search_weather(city: str) -> str:
-    """Get weather information for a city."""
-    weather_data = {"london": "rainy", "paris": "sunny"}
-    return weather_data.get(city.lower(), "Unknown")
-
-@tool
-def get_activities(weather: str) -> str:
-    """Get activity recommendations."""
-    activities = {"rainy": "Visit museums", "sunny": "Go hiking"}
-    return activities.get(weather.lower(), "Stay comfortable")
-
-async def main():
-    react_agent = ReActAgent(
-        name="TravelAgent",
-        role="Travel Assistant",
-        instructions=["Check weather, then suggest activities"],
-        tools=[search_weather, get_activities]
-    )
-
-    result = await react_agent.run("What should I do in London today?")
-    if result:
-        print("Result:", result)
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-**Expected output:** The agent will first check the weather in London, find it's rainy, and then recommend visiting museums.
-
-### 4. Stateful Assistant Agent
+A stateful agent that uses Dapr Workflows to ensure durability and persistence of agent reasoning.
 
 Make sure Dapr is initialized on your system:
 
@@ -194,7 +133,7 @@ dapr init
 Run the assistant agent example to see how to create a stateful agent with persistent memory:
 
 ```bash
-dapr run --app-id stateful-llm --app-port 8001 --dapr-http-port 3500 --resources-path components/ -- python 04_assistant_agent.py
+dapr run --app-id stateful-llm --app-port 8001 --dapr-http-port 3500 --resources-path components/ -- python 03_durable_agent.py
 ```
 
 This example demonstrates a stateful travel planning assistant that:
@@ -292,7 +231,7 @@ You'll receive a workflow ID in response, which you can use to track progress.
 
 ```bash
 # Replace WORKFLOW_ID with the ID from the previous response
-curl -i -X GET http://localhost:3500/v1.0/workflows/durableTaskHub/WORKFLOW_ID
+curl -i -X GET http://localhost:3500/v1.0/workflows/dapr/WORKFLOW_ID
 ```
 
 ### How It Works
@@ -310,7 +249,7 @@ The key components of this implementation are:
 
 4. **Service Exposure**: The agent exposes REST endpoints to start and manage workflows.
 
-### 5. Simple Workflow
+### 4. Simple Workflow
 
 Run the workflow example to see how to create a multi-step LLM process:
 
@@ -323,7 +262,7 @@ expected_stdout_lines:
 output_match_mode: substring
 -->
 ```bash
-dapr run --app-id dapr-agent-wf -- python 05_chain_tasks.py
+dapr run --app-id dapr-agent-wf -- python 04_chain_tasks.py
 ```
 <!-- END_STEP -->
 
@@ -364,12 +303,83 @@ if __name__ == '__main__':
 
 **Expected output:** The workflow will create an outline about AI Agents and then generate a blog post based on that outline.
 
+### 5. Agent with Vector Store
+
+Run the vector store agent example to see how to create an agent that can search and store documents:
+
+<!-- STEP
+name: Run agent with vector store example
+expected_stdout_lines:
+  - "Starting Vector Database Agent..."
+  - "Add Document Response:"
+  - "Search Response:"
+output_match_mode: substring
+-->
+```bash
+python 05_agent_with_vectorstore.py
+```
+<!-- END_STEP -->
+
+This example demonstrates how to create an agent with vector store capabilities:
+
+```python
+from dapr_agents import Agent
+from dapr_agents.tool import tool
+from dapr_agents.storage.vectorstores import ChromaVectorStore
+from dapr_agents.document.embedder.sentence import SentenceTransformerEmbedder
+
+@tool
+def search_documents(query: str) -> str:
+    """Search for documents in the vector store"""
+    return f"Found documents related to '{query}': Document 1, Document 2"
+
+@tool
+def add_document(content: str, metadata: str = "") -> str:
+    """Add a document to the vector store"""
+    return f"Added document: {content[:50]}..."
+
+async def main():
+    embedding_function = SentenceTransformerEmbedder(model="all-MiniLM-L6-v2")
+    
+    vector_store = ChromaVectorStore(
+        name="demo_vectorstore",
+        embedding_function=embedding_function,
+        persistent=True,
+        path="./chroma_db",
+    )
+
+    agent = Agent(
+        name="VectorBot",
+        role="Vector Database Assistant",
+        goal="Help with document search and storage",
+        instructions=[
+            "Search documents in vector store",
+            "Add documents to vector store",
+            "Provide relevant information from stored documents",
+        ],
+        tools=[search_documents, add_document],
+        vector_store=vector_store,
+    )
+
+    response = await agent.run("Add a document about machine learning basics")
+    print("Add Document Response:")
+    print(response)
+    
+    response = await agent.run("Search for documents about machine learning")
+    print("Search Response:")
+    print(response)
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+
 ## Key Concepts
 
 - **OpenAIChatClient**: The interface for interacting with OpenAI's LLMs
 - **Agent**: A class that combines an LLM with tools and instructions
 - **@tool decorator**: A way to create tools that agents can use
-- **ReActAgent**: An agent that follows the Reasoning + Action pattern
+- **DurableAgent**: An agent that follows the Reasoning + Action pattern and achieves durability through Dapr Workflows
+- **VectorStore**: Persistent storage for document embeddings that enables semantic search capabilities
 - **WorkflowApp**: A Dapr-powered way to create stateful, multi-step processes
 
 ## Dapr Integration
@@ -392,6 +402,10 @@ In the later quickstarts, you'll see explicit Dapr integration through state sto
 2. **Python Version**: If you encounter compatibility issues, make sure you're using Python 3.10+
 3. **Environment Activation**: Ensure your virtual environment is activated before running examples
 4. **Import Errors**: If you see module not found errors, verify that `pip install -r requirements.txt` completed successfully
+5. **Vector Store Dependencies**: If you encounter import errors with the vector store example, install additional dependencies:
+   ```bash
+   pip install sentence-transformers chromadb
+   ```
 
 ## Next Steps
 
