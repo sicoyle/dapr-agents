@@ -290,7 +290,9 @@ class AgentBase(BaseModel, ABC):
             else:
                 return self.memory.get_messages()  # returns List[MessageContent]
         else:
-            messages = self.memory.get_messages()  # returns List[BaseMessage] or List[Dict]
+            messages = (
+                self.memory.get_messages()
+            )  # returns List[BaseMessage] or List[Dict]
             converted_messages: List[MessageContent] = []
             for msg in messages:
                 if isinstance(msg, MessageContent):
