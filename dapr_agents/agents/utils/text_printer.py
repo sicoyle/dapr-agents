@@ -26,7 +26,7 @@ class ColorTextFormatter:
         Args:
             default_color (Optional[str]): Default color to use for text. Defaults to reset.
         """
-        self.default_color = COLORS.get(default_color, COLORS["reset"])
+        self.default_color = COLORS.get(default_color or "reset", COLORS["reset"])
 
     def format_text(self, text: str, color: Optional[str] = None) -> str:
         """
@@ -39,7 +39,7 @@ class ColorTextFormatter:
         Returns:
             str: Colored text.
         """
-        color_code = COLORS.get(color, self.default_color)
+        color_code = COLORS.get(color or "reset", self.default_color)
         return f"{color_code}{text}{COLORS['reset']}"
 
     def print_colored_text(self, text_blocks: Sequence[tuple[str, Optional[str]]]):

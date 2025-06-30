@@ -9,8 +9,10 @@ def process_data(data: str) -> dict:
 
 
 @tool
-def store_results(results: dict) -> str:
+def store_results(results: dict = None) -> str:
     """Store analysis results"""
+    if results is None:
+        results = {}
     return f"Results stored successfully: {results}"
 
 

@@ -4,6 +4,8 @@ from typing import List, Optional, Dict, Any, Union
 from pydantic import Field, ConfigDict
 import logging
 import asyncio
+from dapr_agents.types.message import UserMessage
+from dapr_agents.types.message import ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +81,8 @@ class Agent(AgentBase):
 
         if input_data and user_message:
             # Add the new user message to memory only if input_data is provided and user message exists
-            self.memory.add_message(user_message)
+            user_msg = UserMessage(content=user_message.get("content", ""))
+            self.memory.add_message(user_msg)
 
         # Always print the last user message for context, even if no input_data is provided
         if user_message:
@@ -88,23 +91,23 @@ class Agent(AgentBase):
         # Process conversation iterations
         return await self.process_iterations(messages)
 
-    async def process_response(self, tool_calls: List[dict]) -> None:
+    async def process_response(self, tool_calls: List[ToolCall]) -> None:
         """
         Asynchronously executes tool calls and appends tool results to memory.
 
         Args:
-            tool_calls (List[dict]): Tool calls returned by the LLM.
+            tool_calls (List[ToolCall]): Tool calls returned by the LLM.
 
         Raises:
             AgentError: If a tool execution fails.
         """
-        for tool in tool_calls:
-            function_name = tool.get("function", {}).get("name")
-            tool_id = tool.get("id")
-            function_args = tool.get("function", {}).get("arguments", {})
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            tool_id = tool_call.id
+            function_args = tool_call.function.arguments_dict  # Use the property to get dict
 
             if not function_name:
-                logger.error(f"Tool call missing function name: {tool}")
+                logger.error(f"Tool call missing function name: {tool_call}")
                 continue
 
             try:
@@ -137,31 +140,70 @@ class Agent(AgentBase):
         for iteration in range(self.max_iterations):
             logger.info(f"Iteration {iteration + 1}/{self.max_iterations} started.")
 
-            messages += self.tool_history
+            # Create a copy of messages for this iteration
+            current_messages = messages.copy()
 
             try:
-                response: ChatCompletion = self.llm.generate(
-                    messages=messages,
-                    tools=self.tools,
-                    tool_choice=self.tool_choice,
+                response = self.llm.generate(
+                    messages=current_messages,
+                    tools=self.get_llm_tools(),
                 )
-                response_message = response.get_message()
-                if response_message:
-                    self.text_formatter.print_message(response_message)
-
-                if response.get_reason() == "tool_calls":
+                
+                # Handle different response types
+                if isinstance(response, ChatCompletion):
+                    response_message = response.get_message()
                     if response_message:
-                        self.tool_history.append(response_message)
-                    tool_calls = response.get_tool_calls()
-                    if tool_calls:
-                        await self.process_response(tool_calls)
+                        message_dict = {"role": "assistant", "content": response_message}
+                        self.text_formatter.print_message(message_dict)
+
+                    if response.get_reason() == "tool_calls":
+                        tool_calls = response.get_tool_calls()
+                        if tool_calls:
+                            # Add the assistant message with tool calls to the conversation
+                            if response_message:
+                                # Extract content from response_message if it's a dict
+                                if isinstance(response_message, dict):
+                                    content = response_message.get("content", "")
+                                    if content is None:
+                                        content = ""
+                                    tool_calls_data = response_message.get("tool_calls", [])
+                                else:
+                                    content = str(response_message) if response_message is not None else ""
+                                    tool_calls_data = []
+                                
+                                message_dict = {
+                                    "role": "assistant", 
+                                    "content": content,
+                                    "tool_calls": tool_calls_data
+                                }
+                                messages.append(message_dict)
+                            
+                            await self.process_response(tool_calls)
+                            for tool_msg in self.tool_history:
+                                tool_message_dict = {
+                                    "role": "tool",
+                                    "content": tool_msg.content or "",
+                                    "tool_call_id": tool_msg.tool_call_id
+                                }
+                                messages.append(tool_message_dict)
+                            
+                            # Continue to next iteration to let LLM process tool results
+                            continue
+                    else:
+                        # Final response - add to memory and return
+                        content = response.get_content()
+                        if content:
+                            self.memory.add_message(AssistantMessage(content=content))
+                        # # TODO(@Sicoyle): we should not clear the tool history here, but rather when the agent is done, or not at all.
+                        self.tool_history.clear()
+                        return content
                 else:
-                    content = response.get_content()
-                    if content:
-                        self.memory.add_message(AssistantMessage(content=content))
-                    # TODO(@Sicoyle): we should not clear the tool history here, but rather when the agent is done, or not at all.
-                    self.tool_history.clear()
-                    return content
+                    # Handle Dict or Iterator responses (for structured output or streaming)
+                    logger.warning(f"Received non-ChatCompletion response: {type(response)}")
+                    if isinstance(response, dict):
+                        return response.get("content", str(response))
+                    else:
+                        return str(response)
             except Exception as e:
                 logger.error(f"Error during chat generation: {e}")
                 raise AgentError(f"Failed during chat generation: {e}") from e

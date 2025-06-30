@@ -4,15 +4,14 @@ from dapr_agents.memory import (
     ConversationVectorMemory,
 )
 from dapr_agents.storage import VectorStoreBase
-from dapr_agents.tool.storage import VectorToolStore
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
-from dapr_agents.types import MessageContent, MessagePlaceHolder
+from dapr_agents.types import MessageContent, MessagePlaceHolder, BaseMessage, ChatCompletion
 from dapr_agents.tool.executor import AgentToolExecutor
 from dapr_agents.prompt.base import PromptTemplateBase
-from dapr_agents.llm import LLMClientBase, OpenAIChatClient
+from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.prompt import ChatPromptTemplate
 from dapr_agents.tool.base import AgentTool
-from typing import List, Optional, Dict, Any, Union, Callable, Literal
+from typing import List, Optional, Dict, Any, Union, Callable, Literal, Iterator, Type, Iterable, Sequence
 from pydantic import BaseModel, Field, PrivateAttr, model_validator, ConfigDict
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -20,9 +19,15 @@ import logging
 import os
 import asyncio
 import signal
+from dapr_agents.llm.openai import OpenAIChatClient
+from dapr_agents.llm.huggingface import HFHubChatClient
+from dapr_agents.llm.nvidia import NVIDIAChatClient
+from dapr_agents.llm.dapr import DaprChatClient
 
 logger = logging.getLogger(__name__)
 
+# Type alias for all concrete chat client implementations
+ChatClientType = Union[OpenAIChatClient, HFHubChatClient, NVIDIAChatClient, DaprChatClient]
 
 class AgentBase(BaseModel, ABC):
     """
@@ -38,8 +43,8 @@ class AgentBase(BaseModel, ABC):
         memory: Memory instance
     """
 
-    name: Optional[str] = Field(
-        default=None,
+    name: str = Field(
+        default="Dapr Agent",
         description="The agent's name, defaulting to the role if not provided.",
     )
     role: Optional[str] = Field(
@@ -58,7 +63,7 @@ class AgentBase(BaseModel, ABC):
         default=None,
         description="A custom system prompt, overriding name, role, goal, and instructions.",
     )
-    llm: LLMClientBase = Field(
+    llm: ChatClientType = Field(
         default_factory=OpenAIChatClient,
         description="Language model client for generating responses.",
     )
@@ -254,12 +259,23 @@ class AgentBase(BaseModel, ABC):
             if (
                 hasattr(self.vector_store, "embedding_function")
                 and self.vector_store.embedding_function
+                and hasattr(self.vector_store.embedding_function, "embed_documents")
             ):
                 query_embeddings = self.vector_store.embedding_function.embed_documents(
                     [task]
                 )
-                return self.memory.get_messages(query_embeddings=query_embeddings)
-        return self.memory.get_messages()
+                return self.memory.get_messages(query_embeddings=query_embeddings) # returns List[MessageContent]
+            else:
+                return self.memory.get_messages() # returns List[MessageContent]
+        else:
+            messages: List[BaseMessage] = self.memory.get_messages() # returns List[BaseMessage]
+            converted_messages: List[MessageContent] = []
+            for msg in messages:
+                if isinstance(msg, MessageContent):
+                    converted_messages.append(msg)
+                else:
+                    converted_messages.append(MessageContent(**msg.model_dump()))
+            return converted_messages
 
     @abstractmethod
     def run(self, input_data: Union[str, Dict[str, Any]]) -> Any:
@@ -276,18 +292,18 @@ class AgentBase(BaseModel, ABC):
         Pre-fill prompt template with agent attributes if specified in `input_variables`.
         Logs any agent attributes set but not used by the template.
         """
-        # Start with a dictionary for attributes
+        if not self.prompt_template:
+            return
+            
         prefill_data = {}
-
-        # Check if each attribute is defined in input_variables before adding
         if "name" in self.prompt_template.input_variables and self.name:
             prefill_data["name"] = self.name
 
         if "role" in self.prompt_template.input_variables:
-            prefill_data["role"] = self.role
+            prefill_data["role"] = self.role or ""
 
         if "goal" in self.prompt_template.input_variables:
-            prefill_data["goal"] = self.goal
+            prefill_data["goal"] = self.goal or ""
 
         if "instructions" in self.prompt_template.input_variables and self.instructions:
             prefill_data["instructions"] = "\n".join(self.instructions)
@@ -395,7 +411,9 @@ class AgentBase(BaseModel, ABC):
 
         # Pre-fill chat history in the prompt template
         chat_history = self.memory.get_messages()
-        self.pre_fill_prompt_template(chat_history=chat_history)
+        # Convert List[BaseMessage] to string for the prompt template
+        chat_history_str = "\n".join([str(msg) for msg in chat_history])
+        self.pre_fill_prompt_template(chat_history=chat_history_str)
 
         # Handle string input by adding a user message
         if isinstance(input_data, str):
@@ -433,7 +451,13 @@ class AgentBase(BaseModel, ABC):
             Optional[MessageContent]: The last message in the history, or None if none exist.
         """
         chat_history = self.chat_history
-        return chat_history[-1] if chat_history else None
+        if chat_history:
+            last_msg = chat_history[-1]
+            # Ensure we return MessageContent type
+            if isinstance(last_msg, BaseMessage) and not isinstance(last_msg, MessageContent):
+                return MessageContent(**last_msg.model_dump())
+            return last_msg
+        return None
 
     def get_last_user_message(
         self, messages: List[Dict[str, Any]]
@@ -454,6 +478,26 @@ class AgentBase(BaseModel, ABC):
                 message["content"] = message["content"].strip()
                 return message
         return None
+
+    def get_llm_tools(self) -> List[Union[AgentTool, Dict[str, Any]]]:
+        """
+        Converts tools to the format expected by LLM clients.
+        
+        Returns:
+            List[Union[AgentTool, Dict[str, Any]]]: Tools in LLM-compatible format.
+        """
+        llm_tools: List[Union[AgentTool, Dict[str, Any]]] = []
+        for tool in self.tools:
+            if isinstance(tool, AgentTool):
+                llm_tools.append(tool)
+            elif callable(tool):
+                try:
+                    agent_tool = AgentTool.from_func(tool)
+                    llm_tools.append(agent_tool)
+                except Exception as e:
+                    logger.warning(f"Failed to convert callable to AgentTool: {e}")
+                    continue
+        return llm_tools
 
     def pre_fill_prompt_template(self, **kwargs: Union[str, Callable[[], str]]) -> None:
         """

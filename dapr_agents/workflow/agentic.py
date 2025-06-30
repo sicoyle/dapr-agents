@@ -11,6 +11,7 @@ from fastapi import status, Request
 from fastapi.responses import JSONResponse
 from cloudevents.http.conversion import from_http
 from cloudevents.http.event import CloudEvent
+from dapr_agents.agents.utils.text_printer import ColorTextFormatter
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -91,7 +92,7 @@ class AgenticWorkflow(WorkflowApp, DaprPubSub, MessageRoutingMixin):
 
     # Private internal attributes (not schema/validated)
     _state_store_client: Optional[DaprStateStore] = PrivateAttr(default=None)
-    _text_formatter: Optional[ColorTextFormatter] = PrivateAttr(default=None)
+    _text_formatter: [ColorTextFormatter] = PrivateAttr(default=ColorTextFormatter)
     _agent_metadata: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _workflow_name: str = PrivateAttr(default=None)
     _dapr_client: Optional[DaprClient] = PrivateAttr(default=None)

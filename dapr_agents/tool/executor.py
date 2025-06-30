@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, PrivateAttr
 from rich.table import Table
 from rich.console import Console
 
-from dapr_agents.tool import AgentTool
+from dapr_agents.tool.base import AgentTool
 from dapr_agents.types import AgentToolExecutorError, ToolError
 
 logger = logging.getLogger(__name__)
@@ -45,8 +45,6 @@ class AgentToolExecutor(BaseModel):
         # Convert callable to AgentTool if needed since we support both Callable and AgentTool instances.
         if callable(tool) and not isinstance(tool, AgentTool):
             try:
-                from dapr_agents.tool.base import AgentTool
-
                 tool = AgentTool.from_func(tool)
                 logger.info(f"Converted callable to AgentTool: {tool.name}")
             except Exception as e:
