@@ -21,6 +21,7 @@ python3.10 -m venv .venv
 source .venv/bin/activate
 
 # Install dependencies
+pip-compile pyproject.toml
 pip install -r requirements.txt
 ```
 

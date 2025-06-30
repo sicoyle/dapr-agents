@@ -249,14 +249,15 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             )
 
             # Step 9: Respond to source agent if available
-            yield ctx.call_activity(
-                self.send_response_back,
-                input={
-                    "response": response_message,
-                    "target_agent": source,
-                    "target_instance_id": source_workflow_instance_id,
-                },
-            )
+            if source and source_workflow_instance_id:
+                yield ctx.call_activity(
+                    self.send_response_back,
+                    input={
+                        "response": response_message,
+                        "target_agent": source,
+                        "target_instance_id": source_workflow_instance_id,
+                    },
+                )
 
             # Step 10: Share Final Message
             yield ctx.call_activity(
