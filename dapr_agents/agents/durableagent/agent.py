@@ -301,8 +301,20 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                 instance_id=instance_id, message=task_message
             )
 
-        # Process conversation iterations - simple approach like the original
-        messages.extend(self.tool_history)
+        # Convert ToolMessage objects to dictionaries for LLM compatibility
+        tool_messages = []
+        for tool_msg in self.tool_history:
+            if isinstance(tool_msg, ToolMessage):
+                tool_messages.append({
+                    "role": tool_msg.role,
+                    "content": tool_msg.content,
+                    "tool_call_id": tool_msg.tool_call_id
+                })
+            else:
+                # Handle case where tool_msg is already a dict
+                tool_messages.append(tool_msg)
+        
+        messages.extend(tool_messages)
 
         try:
             response = self.llm.generate(
