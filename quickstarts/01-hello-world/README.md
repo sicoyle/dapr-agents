@@ -10,6 +10,8 @@ This quickstart provides a hands-on introduction to Dapr Agents through simple e
 
 ## Environment Setup
 
+### Option 1: Using pip (Traditional)
+
 ```bash
 # Create a virtual environment
 python3.10 -m venv .venv
@@ -23,6 +25,34 @@ source .venv/bin/activate
 # Install dependencies
 pip-compile pyproject.toml
 pip install -r requirements.txt
+
+# For vectorstore functionality (optional)
+pip install sentence-transformers chromadb 'posthog<6.0.0'
+```
+
+### Option 2: Using uv (Recommended)
+
+```bash
+# Create and activate virtual environment
+uv venv .venv
+source .venv/bin/activate
+
+# Install core dependencies
+uv pip install -r requirements.txt
+
+# For vectorstore functionality (optional)
+uv add sentence-transformers chromadb 'posthog<6.0.0'
+```
+
+### Option 3: Install with extras (uv only)
+
+```bash
+# Create and activate virtual environment
+uv venv .venv
+source .venv/bin/activate
+
+# Install with vectorstore extras
+uv pip install -e ".[vectorstore]"
 ```
 
 ## Configuration
@@ -306,9 +336,22 @@ if __name__ == '__main__':
 
 ### 5. Agent with Vector Store
 
-Make sure you have the required dependencies installed:
+**Prerequisites:** This example requires vectorstore dependencies. Install them using one of these methods:
+
+**Using uv (recommended):**
+```bash
+uv add sentence-transformers chromadb 'posthog<6.0.0'
 ```
-pip install sentence-transformers chromadb
+
+**Using pip:**
+```bash
+pip install sentence-transformers chromadb 'posthog<6.0.0'
+```
+
+**Or install with extras (uv only):**
+```bash
+uv pip install -e ".[vectorstore]"
+```
 
 Run the vector store agent example to see how to create an agent that can search and store documents:
 
