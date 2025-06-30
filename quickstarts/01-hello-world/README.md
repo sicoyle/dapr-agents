@@ -305,6 +305,10 @@ if __name__ == '__main__':
 
 ### 5. Agent with Vector Store
 
+Make sure you have the required dependencies installed:
+```
+pip install sentence-transformers chromadb
+
 Run the vector store agent example to see how to create an agent that can search and store documents:
 
 <!-- STEP
@@ -402,10 +406,6 @@ In the later quickstarts, you'll see explicit Dapr integration through state sto
 2. **Python Version**: If you encounter compatibility issues, make sure you're using Python 3.10+
 3. **Environment Activation**: Ensure your virtual environment is activated before running examples
 4. **Import Errors**: If you see module not found errors, verify that `pip install -r requirements.txt` completed successfully
-5. **Vector Store Dependencies**: If you encounter import errors with the vector store example, install additional dependencies:
-   ```bash
-   pip install sentence-transformers chromadb
-   ```
 
 ## Next Steps
 
