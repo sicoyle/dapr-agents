@@ -196,7 +196,11 @@ class Agent(AgentBase):
                             for tool_call in tool_calls:
                                 # Find the corresponding ToolMessage in self.tool_history
                                 tool_msg = next(
-                                    (msg for msg in self.tool_history if msg.tool_call_id == tool_call.id),
+                                    (
+                                        msg
+                                        for msg in self.tool_history
+                                        if msg.tool_call_id == tool_call.id
+                                    ),
                                     None,
                                 )
                                 if tool_msg:

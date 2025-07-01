@@ -44,9 +44,7 @@ async def test_process_input(orchestrator_config):
     """Test the process_input task."""
     with patch(
         "dapr_agents.workflow.orchestrators.random.OrchestratorWorkflowBase.model_post_init"
-    ), patch(
-        "dapr_agents.workflow.agentic.AgenticWorkflow.model_post_init"
-    ), patch(
+    ), patch("dapr_agents.workflow.agentic.AgenticWorkflow.model_post_init"), patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow._is_dapr_available"
     ) as mock_dapr_check, patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow._state_store_client"
@@ -70,9 +68,7 @@ async def test_select_random_speaker(orchestrator_config):
     """Test the select_random_speaker task."""
     with patch(
         "dapr_agents.workflow.orchestrators.random.OrchestratorWorkflowBase.model_post_init"
-    ), patch(
-        "dapr_agents.workflow.agentic.AgenticWorkflow.model_post_init"
-    ), patch(
+    ), patch("dapr_agents.workflow.agentic.AgenticWorkflow.model_post_init"), patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow._is_dapr_available"
     ) as mock_dapr_check, patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow._state_store_client"

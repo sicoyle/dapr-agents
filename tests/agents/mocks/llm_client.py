@@ -19,11 +19,13 @@ class MockLLMClient(UserDict):
         self.data["api_key"] = kwargs.get("api_key", "mock-api-key")
         self.data["base_url"] = kwargs.get("base_url", "https://api.openai.com/v1")
         self.data["timeout"] = kwargs.get("timeout", 1500)
-        
+
         # Store additional attributes that might be accessed
-        object.__setattr__(self, '_prompt_template', kwargs.get("prompt_template", None))
-        object.__setattr__(self, '_model', self.data["model"])
-        object.__setattr__(self, '_azure_deployment', self.data["azure_deployment"])
+        object.__setattr__(
+            self, "_prompt_template", kwargs.get("prompt_template", None)
+        )
+        object.__setattr__(self, "_model", self.data["model"])
+        object.__setattr__(self, "_azure_deployment", self.data["azure_deployment"])
 
     def __getattr__(self, name):
         if name == "data":
@@ -33,7 +35,7 @@ class MockLLMClient(UserDict):
         return None
 
     def __setattr__(self, name, value):
-        if name == "data" or name.startswith('_'):
+        if name == "data" or name.startswith("_"):
             object.__setattr__(self, name, value)
         else:
             self.data[name] = value
@@ -58,7 +60,7 @@ class MockLLMClient(UserDict):
             "azure_deployment": self.data["azure_deployment"],
             "api_key": self.data["api_key"],
             "base_url": self.data["base_url"],
-            "timeout": self.data["timeout"]
+            "timeout": self.data["timeout"],
         }
 
     def generate(

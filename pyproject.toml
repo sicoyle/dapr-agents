@@ -63,6 +63,7 @@ test = [
 ]
 dev = [
     "mypy>=1.15.0",
+    "tox>=4.0.0",
 ]
 vectorstore = [
     "sentence-transformers>=4.1.0",

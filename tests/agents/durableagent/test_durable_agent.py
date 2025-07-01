@@ -147,6 +147,7 @@ class TestDurableAgent:
     def mock_workflow_context(self):
         """Create a mock Dapr workflow context."""
         from dapr.ext.workflow import DaprWorkflowContext
+
         context = DaprWorkflowContext()
         context.instance_id = "test-instance-123"
         context.is_replaying = False

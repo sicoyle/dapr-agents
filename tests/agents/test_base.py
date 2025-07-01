@@ -313,9 +313,9 @@ class TestAgentBaseClass:
         """Test validation fails when OpenAI is used without API key."""
         import openai
         from openai import OpenAI
-        
+
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        
+
         # Temporarily restore the real OpenAI client for this test
         monkeypatch.setattr("openai.OpenAI", OpenAI)
 

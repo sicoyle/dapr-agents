@@ -28,7 +28,6 @@ mock_dapr.common.pubsub.subscription.StreamCancelledError = Exception
 mock_dapr.common.pubsub.subscription.SubscriptionMessage = MagicMock
 
 
-
 # Register the mock modules
 sys.modules["dapr"] = mock_dapr
 sys.modules["dapr.common"] = mock_dapr.common
@@ -73,6 +72,7 @@ class MockDaprWorkflowClient:
 
 class MockDaprWorkflowContext:
     """Mock DaprWorkflowContext for testing."""
+
     def __init__(self):
         self.instance_id = "test-instance"
         self.is_replaying = False
@@ -138,7 +138,6 @@ mock_modules = {
     "dapr.aio.clients": mock_dapr.aio.clients,
     "dapr.aio.clients.grpc": mock_dapr.aio.clients.grpc,
     "dapr.aio.clients.grpc.subscription": mock_dapr.aio.clients.grpc.subscription,
-
 }
 
 for name, mock in mock_modules.items():
