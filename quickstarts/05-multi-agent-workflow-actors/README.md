@@ -101,9 +101,9 @@ async def main():
             agents_registry_key="agents_registry"
         ).as_service(8001)
 
-        await hobbit_actor.start()
+        await hobbit_agent.start()
     except Exception as e:
-        print(f"Error starting actor: {e}")
+        print(f"Error starting agent: {e}")
 
 
 if __name__ == "__main__":
@@ -265,7 +265,6 @@ dapr run -f dapr-llm.yaml
 - **Agent Service**: Stateful service exposing an agent via API endpoints with independent lifecycle management
 - **Pub/Sub Messaging**: Event-driven communication between agents for real-time collaboration
 - **State Store**: Persistent storage for both agent registration and conversational memory
-- **Actor Model**: Self-contained, sequential message processing via Dapr's Virtual Actor pattern
 - **Workflow Orchestration**: Coordinating agent interactions in a durable and resilient manner
 
 ## Workflow Types

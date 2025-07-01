@@ -189,14 +189,24 @@ class Agent(AgentBase):
                                 }
                                 messages.append(message_dict)
 
+                            # Run tools and collect only the results for the current tool calls to prevent LLM errs.
+                            # Context: https://github.com/dapr/dapr-agents/pull/139#discussion_r2176117456
+                            tool_results = []
                             await self.process_response(tool_calls)
-                            for tool_msg in self.tool_history:
-                                tool_message_dict = {
-                                    "role": "tool",
-                                    "content": tool_msg.content or "",
-                                    "tool_call_id": tool_msg.tool_call_id,
-                                }
-                                messages.append(tool_message_dict)
+                            for tool_call in tool_calls:
+                                # Find the corresponding ToolMessage in self.tool_history
+                                tool_msg = next(
+                                    (msg for msg in self.tool_history if msg.tool_call_id == tool_call.id),
+                                    None,
+                                )
+                                if tool_msg:
+                                    tool_message_dict = {
+                                        "role": "tool",
+                                        "content": tool_msg.content or "",
+                                        "tool_call_id": tool_msg.tool_call_id,
+                                    }
+                                    tool_results.append(tool_message_dict)
+                            messages.extend(tool_results)
 
                             # Continue to next iteration to let LLM process tool results
                             continue
@@ -205,7 +215,6 @@ class Agent(AgentBase):
                         content = response.get_content()
                         if content:
                             self.memory.add_message(AssistantMessage(content=content))
-                        # # TODO(@Sicoyle): we should not clear the tool history here, but rather when the agent is done, or not at all.
                         self.tool_history.clear()
                         return content
                 else:
