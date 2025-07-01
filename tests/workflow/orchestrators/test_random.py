@@ -23,7 +23,7 @@ async def test_random_orchestrator_initialization(orchestrator_config):
         "dapr_agents.workflow.orchestrators.random.OrchestratorWorkflowBase.model_post_init"
     ) as mock_init, patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow.model_post_init"
-    ) as mock_agentic_init, patch(
+    ), patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow._is_dapr_available"
     ) as mock_dapr_check, patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow._state_store_client"
