@@ -1,3 +1,3 @@
-dapr-agents>=0.5.0
+-e ../../ # Import the local dapr agents package
 python-dotenv
 requests
