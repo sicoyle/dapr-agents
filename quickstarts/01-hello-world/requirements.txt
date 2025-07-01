@@ -1,2 +1,2 @@
--e ../../
+-e ../../ # Import the local dapr agents package
 python-dotenv
