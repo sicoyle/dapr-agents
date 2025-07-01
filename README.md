@@ -66,7 +66,7 @@ As a part of **CNCF**, Dapr Agents is vendor-neutral, eliminating concerns about
 
 ## Roadmap
 
-Here are some of the major features we're working on for the current quarter:
+Here are some of the major features we're working on:
 
 ### Q2 2025
 - **MCP Support** - Integration with Anthropic's MCP platform ([#50](https://github.com/dapr/dapr-agents/issues/50) ✅ )
@@ -83,7 +83,6 @@ Here are some of the major features we're working on for the current quarter:
 
 For more details about these features and other planned work, please check out our [GitHub issues](https://github.com/dapr/dapr-agents/issues).
 
-
 ### Language Support
 
 | Language | Current Status | Development Status | Stable Status |
@@ -92,6 +91,17 @@ For more details about these features and other planned work, please check out o
 | .NET     | Planning | Q3 2025 | Q4 2025 |
 | Other Languages | Coming Soon | TBD | TBD |
 
+## Documentation
+
+- [Development Guide](docs/development/README.md) - For developers and contributors
+
+## Community
+
+### Contributing to Dapr Agents
+
+Please refer to our [Dapr Community Code of Conduct](https://github.com/dapr/community/blob/master/CODE-OF-CONDUCT.md)
+
+For development setup and guidelines, see our [Development Guide](docs/development/README.md).
 
 ## Getting Started
 
@@ -99,8 +109,6 @@ Prerequisites:
 
 - [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/)
 - [Python 3.10](https://www.python.org/downloads/release/python-3100/)
-
-
 
 ### Install Dapr Agents
 
@@ -121,7 +129,3 @@ Dapr Agents is an open-source project under the CNCF umbrella, and we welcome co
 - Documentation: [https://dapr.github.io/dapr-agents/](https://dapr.github.io/dapr-agents/)
 - Community Discord: [Join the discussion](https://bit.ly/dapr-discord). 
 - Contribute: Open an issue or submit a PR to help improve Dapr Agents!
-
-## Code of Conduct
-
-Please refer to our [Dapr Community Code of Conduct](https://github.com/dapr/community/blob/master/CODE-OF-CONDUCT.md)

@@ -6,6 +6,7 @@ test
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 
@@ -173,3 +174,7 @@ cython_debug/
 quickstarts/**/*_state.json
 chroma_db/
 db/
+
+# Requirements files since we use pyproject.toml instead
+requirements.txt
+dev-requirements.txt

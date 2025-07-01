@@ -5,11 +5,13 @@ on:
       - main
     paths:
       - docs/**
+      - '!docs/development/**'
   pull_request:
     branches:
       - main
     paths:
       - docs/**
+      - '!docs/development/**'
   workflow_dispatch:
 permissions:
   contents: write
@@ -29,6 +31,7 @@ jobs:
             docs:
               - 'docs/**'
               - 'mkdocs.yml'
+              - '!docs/development/**'
           base_sha: 'main'
 
   documentation_validation:
