@@ -73,6 +73,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
     def model_post_init(self, __context: Any) -> None:
         """Initializes the workflow with agentic execution capabilities."""
         self.state = AssistantWorkflowState()
+
         # Call AgenticWorkflow's model_post_init first to initialize state store and other dependencies
         super().model_post_init(__context)
 
@@ -80,6 +81,18 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         # TODO: can this be configurable or dynamic? Would that make sense?
         self._workflow_name = "ToolCallingWorkflow"
         self.tool_choice = self.tool_choice or ("auto" if self.tools else None)
+
+        # Register the agentic system
+        self._agent_metadata = {
+            "name": self.name,
+            "role": self.role,
+            "goal": self.goal,
+            "instructions": self.instructions,
+            "topic_name": self.agent_topic_name,
+            "pubsub_name": self.message_bus_name,
+            "orchestrator": False,
+        }        
+        self.register_agentic_system()
 
     async def run(self, input_data: Optional[Union[str, Dict[str, Any]]] = None) -> Any:
         """
