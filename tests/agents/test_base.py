@@ -261,8 +261,8 @@ class TestAgentBaseClass:
 
     def test_chat_history_with_vector_memory_and_task(self):
         """Test chat history retrieval with vector memory and task."""
-        from tests.dapr_agents.agents.mocks.vectorstore import MockVectorStore
-        from tests.dapr_agents.agents.mocks.memory import DummyVectorMemory
+        from tests.agents.mocks.vectorstore import MockVectorStore
+        from tests.agents.mocks.memory import DummyVectorMemory
 
         mock_vector_store = MockVectorStore()
         mock_llm = MockLLMClient()
@@ -309,9 +309,15 @@ class TestAgentBaseClass:
         ):
             agent.prefill_agent_attributes()
 
-    def test_validate_llm_openai_without_api_key(self):
+    def test_validate_llm_openai_without_api_key(self, monkeypatch):
         """Test validation fails when OpenAI is used without API key."""
         import openai
+        from openai import OpenAI
+        
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        
+        # Temporarily restore the real OpenAI client for this test
+        monkeypatch.setattr("openai.OpenAI", OpenAI)
 
         with pytest.raises(
             openai.OpenAIError, match="api_key client option must be set"

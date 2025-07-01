@@ -13,7 +13,7 @@ from dapr_agents.types import (
 )
 from dapr_agents.memory import ConversationListMemory
 from dapr_agents.llm import OpenAIChatClient
-from tests.dapr_agents.agents.agent.testtools import echo_tool, error_tool
+from tests.agents.agent.testtools import echo_tool, error_tool
 
 
 class TestAgent:
