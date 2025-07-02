@@ -75,42 +75,37 @@ dapr-llm.yaml             # Multi-App Run Template using the LLM orchestrator
 Each agent is implemented as a separate service. Here's an example for the Hobbit agent:
 
 ```python
-from dapr_agents import DurableAgent
+from dapr_agents import Agent, DurableAgent
 from dotenv import load_dotenv
 import asyncio
 import logging
 
-
 async def main():
     try:
-        # Define Agent and expose it as a service
-        hobbit_agent = DurableAgent(
-            role="Hobbit", 
-            name="Frodo",
-            goal="Carry the One Ring to Mount Doom, resisting its corruptive power while navigating danger and uncertainty.",
-            instructions=[
-                "Speak like Frodo, with humility, determination, and a growing sense of resolve.",
-                "Endure hardships and temptations, staying true to the mission even when faced with doubt.",
-                "Seek guidance and trust allies, but bear the ultimate burden alone when necessary.",
-                "Move carefully through enemy-infested lands, avoiding unnecessary risks.",
-                "Respond concisely, accurately, and relevantly, ensuring clarity and strict alignment with the task."
-            ],
-            message_bus_name="messagepubsub",
-            state_store_name="agenticworkflowstate",
-            agents_registry_store_name="agentstatestore",
-            agents_registry_key="agents_registry"
-        ).as_service(8001)
+        hobbit_service = DurableAgent(
+          name="Frodo",
+          role="Hobbit",
+          goal="Carry the One Ring to Mount Doom, resisting its corruptive power while navigating danger and uncertainty.",
+          instructions=[
+              "Speak like Frodo, with humility, determination, and a growing sense of resolve.",
+              "Endure hardships and temptations, staying true to the mission even when faced with doubt.",
+              "Seek guidance and trust allies, but bear the ultimate burden alone when necessary.",
+              "Move carefully through enemy-infested lands, avoiding unnecessary risks.",
+              "Respond concisely, accurately, and relevantly, ensuring clarity and strict alignment with the task."],
+          message_bus_name="messagepubsub",
+          state_store_name="workflowstatestore",
+          state_key="workflow_state",
+          agents_registry_store_name="agentstatestore",
+          agents_registry_key="agents_registry", 
+        )
 
-        await hobbit_agent.start()
+        await hobbit_service.start()
     except Exception as e:
-        print(f"Error starting agent: {e}")
-
+        print(f"Error starting service: {e}")
 
 if __name__ == "__main__":
     load_dotenv()
-
     logging.basicConfig(level=logging.INFO)
-
     asyncio.run(main())
 ```
 
@@ -126,29 +121,24 @@ from dotenv import load_dotenv
 import asyncio
 import logging
 
-
 async def main():
     try:
-        random_workflow = RandomOrchestrator(
+        random_workflow_service = RandomOrchestrator(
             name="RandomOrchestrator",
             message_bus_name="messagepubsub",
-            state_store_name="workflowstatestore",
+            state_store_name="agenticworkflowstate",
             state_key="workflow_state",
             agents_registry_store_name="agentstatestore",
             agents_registry_key="agents_registry",
             max_iterations=3
         ).as_service(port=8004)
-
-        await random_workflow.start()
+        await random_workflow_service.start()
     except Exception as e:
-        print(f"Error starting workflow: {e}")
-
+        print(f"Error starting service: {e}")
 
 if __name__ == "__main__":
     load_dotenv()
-
     logging.basicConfig(level=logging.INFO)
-
     asyncio.run(main())
 ```
 
@@ -168,17 +158,14 @@ common:
 apps:
 - appID: HobbitApp
   appDirPath: ./services/hobbit/
-  appPort: 8001
   command: ["python3", "app.py"]
 
 - appID: WizardApp
   appDirPath: ./services/wizard/
-  appPort: 8002
   command: ["python3", "app.py"]
 
 - appID: ElfApp
   appDirPath: ./services/elf/
-  appPort: 8003
   command: ["python3", "app.py"]
 
 - appID: WorkflowApp
@@ -253,7 +240,6 @@ expected_stdout_lines:
 timeout_seconds: 200
 output_match_mode: substring
 background: false
-sleep: 5
 -->
 ```bash
 dapr run -f dapr-llm.yaml 
@@ -265,6 +251,7 @@ dapr run -f dapr-llm.yaml
 - **Agent Service**: Stateful service exposing an agent via API endpoints with independent lifecycle management
 - **Pub/Sub Messaging**: Event-driven communication between agents for real-time collaboration
 - **State Store**: Persistent storage for both agent registration and conversational memory
+- **Actor Model**: Self-contained, sequential message processing via Dapr's Virtual Actor pattern
 - **Workflow Orchestration**: Coordinating agent interactions in a durable and resilient manner
 
 ## Workflow Types
@@ -297,4 +284,3 @@ After completing this quickstart, you can:
 - Extend agents with custom tools
 - Deploy agents and Dapr to a Kubernetes cluster. For more information on read [Deploy Dapr on a Kubernetes cluster](https://docs.dapr.io/operations/hosting/kubernetes/kubernetes-deploy)
 - Check out the [Cookbooks](../../cookbook/)
-

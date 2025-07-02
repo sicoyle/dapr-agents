@@ -10,17 +10,14 @@ apps:
 - appID: HobbitApp
   appDirPath: ./services/hobbit/
   command: ["python3", "app.py"]
-  appPort: 8001
 
 - appID: WizardApp
   appDirPath: ./services/wizard/
   command: ["python3", "app.py"]
-  appPort: 8002
 
 - appID: ElfApp
   appDirPath: ./services/elf/
   command: ["python3", "app.py"]
-  appPort: 8003
 
 - appID: WorkflowApp
   appDirPath: ./services/workflow-llm/

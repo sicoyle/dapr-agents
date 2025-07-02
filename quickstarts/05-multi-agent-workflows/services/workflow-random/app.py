@@ -6,7 +6,7 @@ import logging
 
 async def main():
     try:
-        random_workflow = RandomOrchestrator(
+        workflow_service = RandomOrchestrator(
             name="RandomOrchestrator",
             message_bus_name="messagepubsub",
             state_store_name="workflowstatestore",
@@ -16,9 +16,9 @@ async def main():
             max_iterations=3,
         ).as_service(port=8004)
 
-        await random_workflow.start()
+        await workflow_service.start()
     except Exception as e:
-        print(f"Error starting workflow: {e}")
+        print(f"Error starting service: {e}")
 
 
 if __name__ == "__main__":

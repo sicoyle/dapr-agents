@@ -6,10 +6,9 @@ import logging
 
 async def main():
     try:
-        # Define Agent
-        hobbit_agent = DurableAgent(
-            role="Hobbit",
+        hobbit_service = DurableAgent(
             name="Frodo",
+            role="Hobbit",
             goal="Carry the One Ring to Mount Doom, resisting its corruptive power while navigating danger and uncertainty.",
             instructions=[
                 "Speak like Frodo, with humility, determination, and a growing sense of resolve.",
@@ -19,14 +18,15 @@ async def main():
                 "Respond concisely, accurately, and relevantly, ensuring clarity and strict alignment with the task.",
             ],
             message_bus_name="messagepubsub",
+            state_store_name="workflowstatestore",
+            state_key="workflow_state",
             agents_registry_store_name="agentstatestore",
             agents_registry_key="agents_registry",
-            service_port=8001,
-        ).as_service(8001)
+        )
 
-        await hobbit_agent.start()
+        await hobbit_service.start()
     except Exception as e:
-        print(f"Error starting actor: {e}")
+        print(f"Error starting service: {e}")
 
 
 if __name__ == "__main__":
