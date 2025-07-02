@@ -8,9 +8,9 @@ from .dapr_manager import DaprManager
 
 __all__ = [
     "DevelopmentScenario",
-    "ScenarioManager", 
+    "ScenarioManager",
     "VersionManager",
     "EnvManager",
     "ComponentManager",
-    "DaprManager"
-] 
+    "DaprManager",
+]

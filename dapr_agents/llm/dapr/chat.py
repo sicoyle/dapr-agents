@@ -38,7 +38,7 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
     def model_post_init(self, __context: Any) -> None:
         """Post-initialization setup."""
         super().model_post_init(__context)
-        
+
         # Set the default LLM component from environment variable
         self._llm_component = os.environ.get("DAPR_LLM_COMPONENT_DEFAULT", "echo")
 
@@ -60,7 +60,7 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             DaprChatClient: An instance of DaprChatClient configured with the model settings from the Prompty source.
         """
         from dapr_agents.prompt.prompty import Prompty
-        
+
         # Load the Prompty instance from the provided source
         prompty_instance = Prompty.load(prompty_source)
 
@@ -79,63 +79,60 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
     def _convert_tools_to_sdk_format(self, tools: List[AgentTool]) -> List[Tool]:
         """
         Convert AgentTool objects to Python SDK Tool objects.
-        
+
         Args:
             tools: List of AgentTool objects
-            
+
         Returns:
             List of Tool objects for the Python SDK
         """
         sdk_tools = []
-        
+
         for agent_tool in tools:
             # Get the tool definition in the correct format for dapr
             tool_def = agent_tool.to_function_call("dapr")
-            
+
             # Extract the function definition from the OpenAI-compatible format
             if tool_def.get("type") == "function" and "function" in tool_def:
                 func_def = tool_def["function"]
             else:
                 # Fallback if it's already in function format
                 func_def = tool_def
-            
+
             # Use the original tool name directly
             tool_name = func_def["name"]
-            
+
             # Create ToolFunction with JSON string parameters
             tool_function = ToolFunction(
                 name=tool_name,
                 description=func_def["description"],
-                parameters=json.dumps(func_def["parameters"])  # Convert dict to JSON string
+                parameters=json.dumps(
+                    func_def["parameters"]
+                ),  # Convert dict to JSON string
             )
-            
-            # Create Tool
-            sdk_tool = Tool(
-                type="function",
-                function=tool_function
-            )
-            
-            sdk_tools.append(sdk_tool)
-        
-        return sdk_tools
-        
 
+            # Create Tool
+            sdk_tool = Tool(type="function", function=tool_function)
+
+            sdk_tools.append(sdk_tool)
+
+        return sdk_tools
 
     def convert_to_conversation_inputs(
         self, inputs: List[Dict[str, Any]], tools: Optional[List[Tool]] = None
     ) -> List[ConversationInput]:
         """
         Convert input dictionaries to ConversationInput objects.
-        
+
         Args:
             inputs: List of input dictionaries
             tools: Optional list of Tool objects to attach to user messages
-            
+
         Returns:
             List of ConversationInput objects
         """
         conversation_inputs = []
-        
+
         for item in inputs:
             # Create ConversationInput
             conv_input = ConversationInput(
@@ -143,13 +140,13 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
                 role=item.get("role"),
                 scrub_pii=item.get("scrubPII") == "true",
             )
-            
+
             # ✅ Add tools ONLY to user messages (following SDK best practices)
             if tools and item.get("role") == "user":
                 conv_input.tools = tools
-            
+
             conversation_inputs.append(conv_input)
-        
+
         return conversation_inputs
 
     def generate(
@@ -211,7 +208,7 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
 
         # Process and normalize the messages
         params = {"inputs": RequestHandler.normalize_chat_messages(messages)}
-        
+
         # Merge Prompty parameters if available, then override with any explicit kwargs
         if self.prompty:
             params = {**self.prompty.model.parameters.model_dump(), **params, **kwargs}
@@ -230,16 +227,20 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
         # Override stream parameter if explicitly provided
         if stream is not None:
             params["stream"] = stream
-            
+
         # ✅ SIMPLIFIED: Convert inputs with tools attached directly
         inputs = self.convert_to_conversation_inputs(params["inputs"], sdk_tools)
-        
+
         # ✅ SIMPLIFIED: No tools in parameters - only basic conversation parameters
         conversation_parameters = {}
-        
+
         # Add other parameters (excluding tools, inputs, and unsupported params)
         for key, value in params.items():
-            if key not in ["inputs", "tools", "stream"]:  # Skip inputs, tools, and stream
+            if key not in [
+                "inputs",
+                "tools",
+                "stream",
+            ]:  # Skip inputs, tools, and stream
                 conversation_parameters[key] = value
 
         try:
@@ -247,7 +248,12 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             if params.get("stream", False):
                 logger.info("Invoking the Dapr Streaming Conversation API.")
                 return self._handle_streaming(
-                    llm_component, inputs, context_id, scrubPII, temperature, conversation_parameters
+                    llm_component,
+                    inputs,
+                    context_id,
+                    scrubPII,
+                    temperature,
+                    conversation_parameters,
                 )
             else:
                 logger.info("Invoking the Dapr Conversation API.")
@@ -262,14 +268,14 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
                 logger.info("Chat completion completed successfully.")
 
                 # ✅ SIMPLIFIED: Handle tool calls from response
-                if response and response.get('outputs'):
-                    output = response['outputs'][0]
+                if response and response.get("outputs"):
+                    output = response["outputs"][0]
                     print(f"📝 Raw output: {output}")
-                    
+
                     # Check for tool calls in the response
-                    if 'tool_calls' in output and output['tool_calls']:
+                    if "tool_calls" in output and output["tool_calls"]:
                         logger.info(f"Received {len(output['tool_calls'])} tool calls")
-                        for i, tool_call in enumerate(output['tool_calls']):
+                        for i, tool_call in enumerate(output["tool_calls"]):
                             logger.info(f"Tool call {i+1}: {tool_call}")
 
                 return response
@@ -278,7 +284,15 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             logger.error(f"Error in Dapr conversation: {e}")
             raise
 
-    def _handle_streaming(self, llm_component, inputs, context_id, scrub_pii, temperature, conversation_parameters):
+    def _handle_streaming(
+        self,
+        llm_component,
+        inputs,
+        context_id,
+        scrub_pii,
+        temperature,
+        conversation_parameters,
+    ):
         """Handle streaming responses separately to avoid generator issues."""
         response_stream = self.client.chat_completion_stream(
             llm=llm_component or self._llm_component,

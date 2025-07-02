@@ -18,8 +18,9 @@ from pydantic import BaseModel, Field
 
 # NOTE: Imports may still fail due to Dapr SDK issues, but circular import is fixed
 try:
-    from dapr_agents.tool import tool  
+    from dapr_agents.tool import tool
     from dapr_agents.llm.dapr import DaprChatClient
+
     IMPORTS_AVAILABLE = True
 except ImportError as e:
     # Likely due to Dapr SDK compatibility, not circular import
@@ -49,7 +50,9 @@ except ImportError as e:
 
 
 class MathSchema(BaseModel):
-    operation: str = Field(description="Math operation: add, subtract, multiply, divide")
+    operation: str = Field(
+        description="Math operation: add, subtract, multiply, divide"
+    )
     a: float = Field(description="First number")
     b: float = Field(description="Second number")
 
@@ -76,7 +79,10 @@ class MathSchema(BaseModel):
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not IMPORTS_AVAILABLE, reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}")
+@pytest.mark.skipif(
+    not IMPORTS_AVAILABLE,
+    reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}",
+)
 class TestToolNamingConventions:
     """Test tool naming conventions and conversions."""
 
@@ -87,7 +93,7 @@ class TestToolNamingConventions:
         return []
         # return [
         #     ("Function (weather)", get_weather_info),
-        #     ("Function (tip)", calculate_tip), 
+        #     ("Function (tip)", calculate_tip),
         #     ("Function (with schema)", calculator),
         #     ("Function (time)", get_current_time)
         # ]
@@ -95,18 +101,18 @@ class TestToolNamingConventions:
     def test_tool_name_consistency(self, test_tools):
         """Test that tool names are consistent across different formats."""
         pytest.skip("Disabled due to circular import issue")
-        
+
         # TODO: Re-enable this test logic once imports work
         # for tool_type, tool_obj in test_tools:
         #     # Test AgentTool name attribute
         #     assert hasattr(tool_obj, 'name'), f"{tool_type} should have name attribute"
         #     assert tool_obj.name, f"{tool_type} name should not be empty"
-        #     
+        #
         #     # Test OpenAI format conversion
         #     openai_format = tool_obj.to_function_call("openai")
         #     assert "function" in openai_format
         #     assert "name" in openai_format["function"]
-        #     
+        #
         #     # Test Dapr format conversion
         #     dapr_format = tool_obj.to_function_call("dapr")
         #     assert "function" in dapr_format
@@ -115,21 +121,21 @@ class TestToolNamingConventions:
     def test_dapr_client_tool_conversion(self, test_tools, dapr_runtime):
         """Test tool conversion through DaprChatClient."""
         pytest.skip("Disabled due to circular import issue")
-        
+
         # TODO: Re-enable this test logic once imports work
         # client = DaprChatClient()
-        # 
+        #
         # for tool_type, tool_obj in test_tools:
         #     # Test SDK format conversion
         #     sdk_tools = client._convert_tools_to_sdk_format([tool_obj])
         #     assert len(sdk_tools) == 1
-        #     
+        #
         #     sdk_tool = sdk_tools[0]
         #     assert hasattr(sdk_tool, 'function')
         #     assert hasattr(sdk_tool.function, 'name')
         #     assert hasattr(sdk_tool.function, 'description')
         #     assert hasattr(sdk_tool.function, 'parameters')
-        #     
+        #
         #     # Validate parameters are valid JSON
         #     try:
         #         json.loads(sdk_tool.function.parameters)
@@ -137,9 +143,12 @@ class TestToolNamingConventions:
         #         pytest.fail(f"{tool_type} produced invalid JSON parameters")
 
 
-@pytest.mark.integration 
+@pytest.mark.integration
 @pytest.mark.slow
-@pytest.mark.skipif(not IMPORTS_AVAILABLE, reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}")
+@pytest.mark.skipif(
+    not IMPORTS_AVAILABLE,
+    reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}",
+)
 class TestToolExecutionFlows:
     """Test complete tool execution workflows."""
 
@@ -165,7 +174,10 @@ class TestToolExecutionFlows:
 
 @pytest.mark.integration
 @pytest.mark.slow
-@pytest.mark.skipif(not IMPORTS_AVAILABLE, reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}")
+@pytest.mark.skipif(
+    not IMPORTS_AVAILABLE,
+    reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}",
+)
 class TestStreamingToolExecution:
     """Test streaming with tool execution."""
 
@@ -179,60 +191,70 @@ class TestStreamingToolExecution:
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not IMPORTS_AVAILABLE, reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}")
+@pytest.mark.skipif(
+    not IMPORTS_AVAILABLE,
+    reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}",
+)
 class TestToolExecutionErrorHandling:
     """Test error handling in tool execution."""
 
     def test_tool_execution_error_handling(self, dapr_runtime):
         """Test handling of tool execution errors."""
-        pytest.skip("Disabled due to circular import issue") 
+        pytest.skip("Disabled due to circular import issue")
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not IMPORTS_AVAILABLE, reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}")
+@pytest.mark.skipif(
+    not IMPORTS_AVAILABLE,
+    reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}",
+)
 class TestDirectDaprClientUsage:
     """Test direct Dapr client usage patterns for low-level SDK testing."""
 
     def test_direct_client_non_streaming(self, dapr_runtime):
         """Test direct Dapr client non-streaming conversation."""
-        pytest.skip("To be implemented when SDK is working - preserves low-level client patterns")
-        
+        pytest.skip(
+            "To be implemented when SDK is working - preserves low-level client patterns"
+        )
+
         # TODO: Implement when SDK working - pattern from manual helpers:
         # try:
         #     from dapr.clients import DaprClient
         #     from dapr.clients.grpc._request import ConversationInput
-        #     
+        #
         #     with DaprClient() as client:
         #         inputs = [ConversationInput(
         #             content="Hello, how are you? Please respond briefly.",
         #             role="user"
         #         )]
-        #         
+        #
         #         response = client.converse_alpha1(
         #             name='anthropic',
         #             inputs=inputs,
         #             context_id='test-context'
         #         )
-        #         
+        #
         #         assert response.outputs
         #         assert len(response.outputs) > 0
         #         assert response.outputs[0].result
 
     def test_direct_client_streaming(self, dapr_runtime):
         """Test direct Dapr client streaming conversation."""
-        pytest.skip("To be implemented when SDK is working - preserves streaming client patterns")
-        
+        pytest.skip(
+            "To be implemented when SDK is working - preserves streaming client patterns"
+        )
+
         # TODO: Implement when SDK working - pattern from manual helpers:
         # try:
         #     from dapr.clients import DaprClient
         #     from dapr.clients.grpc._request import ConversationInput
-        #     
+        #
         #     with DaprClient() as client:
         #         inputs = [ConversationInput(
         #             content="Count from 1 to 3 briefly.",
         #             role="user"
         #         )]
-        #         
+        #
         #         chunks = []
         #         for chunk in client.converse_stream_alpha1(
         #             name='anthropic',
@@ -242,7 +264,7 @@ class TestDirectDaprClientUsage:
         #             chunks.append(chunk)
         #             if len(chunks) >= 5:  # Reasonable limit
         #                 break
-        #         
+        #
         #         assert len(chunks) > 0
         #         # Validate chunk structure
         #         assert any(hasattr(chunk, 'result') for chunk in chunks)

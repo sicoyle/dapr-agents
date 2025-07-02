@@ -52,7 +52,9 @@ class ResponseHandler:
                 )
 
                 # Normalize format and resolve actual model class
-                normalized_format = StructureHandler.normalize_iterable_format(response_format)
+                normalized_format = StructureHandler.normalize_iterable_format(
+                    response_format
+                )
                 model_cls = StructureHandler.resolve_response_model(normalized_format)
 
                 if not model_cls:

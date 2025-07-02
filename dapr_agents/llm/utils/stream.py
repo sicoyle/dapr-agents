@@ -107,20 +107,29 @@ class StreamHandler:
                         )
 
                     # Add tool call arguments to current tool calls
-                    tool_calls[tool_call_index]["function"]["arguments"] += tool_call_arguments
+                    tool_calls[tool_call_index]["function"][
+                        "arguments"
+                    ] += tool_call_arguments
 
                     # Process Iterable model if provided
-                    if response_format and isinstance(response_format, Iterable) is True:
+                    if (
+                        response_format
+                        and isinstance(response_format, Iterable) is True
+                    ):
                         trimmed_character = tool_call_arguments.strip()
                         # Check beginning of List
                         if trimmed_character == "[" and json_extraction_active is False:
                             json_extraction_active = True
                         # Check beginning of a JSON object
-                        elif trimmed_character == "{" and json_extraction_active is True:
+                        elif (
+                            trimmed_character == "{" and json_extraction_active is True
+                        ):
                             json_brace_level += 1
                             json_string_buffer += trimmed_character
                         # Check the end of a JSON object
-                        elif "}" in trimmed_character and json_extraction_active is True:
+                        elif (
+                            "}" in trimmed_character and json_extraction_active is True
+                        ):
                             json_brace_level -= 1
                             json_string_buffer += trimmed_character.rstrip(",")
                             if json_brace_level == 0:
@@ -272,12 +281,16 @@ class StreamHandler:
         try:
             model_class = get_args(response_format)[0]
             # Return current tool call
-            structured_output = StructureHandler.validate_response(json_string_buffer, model_class)
+            structured_output = StructureHandler.validate_response(
+                json_string_buffer, model_class
+            )
             if isinstance(structured_output, model_class):
                 logger.info("Structured output was successfully validated.")
                 yield {"type": "structured_output", "data": structured_output}
         except ValidationError as validation_error:
-            logger.error(f"Validation error: {validation_error} with JSON: {json_string_buffer}")
+            logger.error(
+                f"Validation error: {validation_error} with JSON: {json_string_buffer}"
+            )
 
     @staticmethod
     def _get_final_tool_calls(
