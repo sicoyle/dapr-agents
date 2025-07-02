@@ -11,7 +11,7 @@ This test suite validates React (Reasoning-Action) agents working with Dapr conv
 
 import pytest
 import asyncio
-from dapr_agents.agent.patterns.react import ReactAgent
+from dapr_agents.agent.patterns.react import ReActAgent
 from dapr_agents import ReActAgent, tool
 from dapr_agents.llm.dapr import DaprChatClient
 
@@ -302,7 +302,7 @@ class TestReActAgentProviders:
         self, dapr_runtime, basic_tools, test_environment
     ):
         """Test React agent with OpenAI provider (requires API key)."""
-        if not test_environment.has_api_key("openai"):
+        if not test_environment.get("api_keys", {}).get("openai", False):
             pytest.skip("OpenAI API key not available")
 
         agent = ReActAgent(
@@ -325,7 +325,7 @@ class TestReActAgentProviders:
         self, dapr_runtime, basic_tools, test_environment
     ):
         """Test React agent with Anthropic provider (requires API key)."""
-        if not test_environment.has_api_key("anthropic"):
+        if not test_environment.get("api_keys", {}).get("anthropic", False):
             pytest.skip("Anthropic API key not available")
 
         agent = ReActAgent(

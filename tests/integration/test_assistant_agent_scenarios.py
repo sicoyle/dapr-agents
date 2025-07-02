@@ -146,7 +146,7 @@ class TestAssistantAgentScenarios:
 
         print("✅ AssistantAgent tools configured correctly")
 
-    @pytest.mark.skipif(not pytest.dapr_available, reason="Dapr runtime not available")
+    @pytest.mark.integration
     async def test_assistant_agent_workflow_runtime_setup(self, assistant_agent_basic):
         """Test that AssistantAgent sets up workflow runtime correctly."""
         agent = assistant_agent_basic
@@ -174,7 +174,7 @@ class TestAssistantAgentScenarios:
 
         print("✅ AssistantAgent workflow runtime setup correctly")
 
-    @pytest.mark.skipif(not pytest.dapr_available, reason="Dapr runtime not available")
+    @pytest.mark.integration
     async def test_assistant_agent_basic_workflow_execution(
         self, assistant_agent_basic
     ):
@@ -210,7 +210,7 @@ class TestAssistantAgentScenarios:
         finally:
             agent.stop_runtime()
 
-    @pytest.mark.skipif(not pytest.dapr_available, reason="Dapr runtime not available")
+    @pytest.mark.integration
     async def test_assistant_agent_tool_calling_workflow(
         self, assistant_agent_with_tools
     ):
@@ -253,7 +253,7 @@ class TestAssistantAgentScenarios:
         finally:
             agent.stop_runtime()
 
-    @pytest.mark.skipif(not pytest.dapr_available, reason="Dapr runtime not available")
+    @pytest.mark.integration
     async def test_assistant_agent_multi_iteration_workflow(
         self, assistant_agent_with_tools
     ):
@@ -296,7 +296,7 @@ class TestAssistantAgentScenarios:
         finally:
             agent.stop_runtime()
 
-    @pytest.mark.skipif(not pytest.dapr_available, reason="Dapr runtime not available")
+    @pytest.mark.integration
     async def test_assistant_agent_memory_persistence(
         self, assistant_agent_with_memory
     ):
@@ -345,7 +345,7 @@ class TestAssistantAgentScenarios:
         finally:
             agent.stop_runtime()
 
-    @pytest.mark.skipif(not pytest.dapr_available, reason="Dapr runtime not available")
+    @pytest.mark.integration
     async def test_assistant_agent_error_handling(self, assistant_agent_with_tools):
         """Test AssistantAgent error handling in workflows."""
         agent = assistant_agent_with_tools

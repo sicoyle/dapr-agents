@@ -1,9 +1,8 @@
 """Development scenario detection and management."""
 
-import os
 from pathlib import Path
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict
 import subprocess
 import logging
 
@@ -133,7 +132,7 @@ class ScenarioManager:
     def _check_python_sdk(self) -> bool:
         """Check if Python SDK is available."""
         try:
-            import dapr
+            import dapr 
 
             return True
         except ImportError:

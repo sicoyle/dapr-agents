@@ -10,7 +10,5 @@ spec:
     value: test-key
   - name: timeout
     value: 60s
-  - name: supportsToolCalling
-    value: 'true'
   type: conversation.echo
   version: v1

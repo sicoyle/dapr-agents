@@ -58,7 +58,47 @@ def load_env_file():
     else:
         print(f"⚠️  Warning: No .env file found at {env_file}")
 
+    providers = [
+        "GEMINI",
+        "OPENAI",
+        "ANTHROPIC",
+        "DEEPSEEK",
+        "MISTRAL",
+    ]
+
+    providers_alt_keys = {
+        "GEMINI": ["GOOGLE", "GOOGLE_AI", "GEMINI"],
+    }
+
+        # show what LLM providers we have keys for (don't show the keys)
+    print("🔑 LLM Providers with keys:")
+    for provider in providers:
+        key = get_provider_key(provider, env_vars, providers_alt_keys)
+        if key:
+            print(f"   - {provider}")
+        else:
+            print(f"   - {provider} (not found in .env or environment)")
+
     return env_vars
+
+def get_provider_key(provider, env_vars, providers_alt_keys):
+    """Get the API key for a provider."""
+    provider_prefixes = providers_alt_keys.get(provider, [provider])
+    for prefix in provider_prefixes:
+        key = f"{prefix}_API_KEY"
+        if key in env_vars:
+            value = env_vars[key]
+            env_vars[key] = value
+            break
+        elif key in os.environ:
+            value = os.environ[key]
+            break
+    if value:
+        for prefix in provider_prefixes:
+            env_vars[f"{prefix}_API_KEY"] = value
+        return value
+    else:
+        return None
 
 
 def process_component_file(source_file, target_file, env_vars):
@@ -269,7 +309,9 @@ def run_daprd(args):
 
     try:
         # Run the sidecar with explicit environment inheritance
-        subprocess.run(cmd, check=True, env=os.environ.copy())
+        env = os.environ.copy()
+        env.update(env_vars)
+        subprocess.run(cmd, check=True, env=env)
     except KeyboardInterrupt:
         print("\n🛑 Stopping sidecar...")
     except subprocess.CalledProcessError as e:
