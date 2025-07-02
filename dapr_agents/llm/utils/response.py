@@ -4,7 +4,8 @@ from typing import Any, Dict, Iterator, Literal, Optional, Type, Union
 
 from pydantic import BaseModel
 
-from dapr_agents.llm.utils import StreamHandler, StructureHandler
+from .stream import StreamHandler
+from .structure import StructureHandler
 from dapr_agents.types import ChatCompletion
 
 logger = logging.getLogger(__name__)
@@ -51,9 +52,7 @@ class ResponseHandler:
                 )
 
                 # Normalize format and resolve actual model class
-                normalized_format = StructureHandler.normalize_iterable_format(
-                    response_format
-                )
+                normalized_format = StructureHandler.normalize_iterable_format(response_format)
                 model_cls = StructureHandler.resolve_response_model(normalized_format)
 
                 if not model_cls:
