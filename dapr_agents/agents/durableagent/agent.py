@@ -91,7 +91,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             "topic_name": self.agent_topic_name,
             "pubsub_name": self.message_bus_name,
             "orchestrator": False,
-        }        
+        }
         self.register_agentic_system()
 
     async def run(self, input_data: Optional[Union[str, Dict[str, Any]]] = None) -> Any:
