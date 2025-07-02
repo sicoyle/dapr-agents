@@ -12,9 +12,7 @@ Note: AssistantAgent requires Dapr Workflows runtime + Redis state store + pub/s
 """
 
 import pytest
-import asyncio
-import json
-from typing import List, Dict, Any
+from typing import Dict, Any
 from dapr_agents.workflow.agents.assistant import AssistantAgent
 from dapr_agents.tool import tool
 from dapr_agents.llm.dapr import DaprChatClient

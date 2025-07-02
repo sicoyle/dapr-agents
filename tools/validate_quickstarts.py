@@ -16,12 +16,13 @@ Options:
 """
 
 import argparse
-import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import List, Optional
+import yaml
+import ast
 
 
 class QuickstartValidator:
@@ -43,6 +44,102 @@ class QuickstartValidator:
                 quickstarts.append(item.name)
         return sorted(quickstarts)
     
+    def _validate_readme(self, quickstart_path: Path) -> bool:
+        """Check for README.md and basic headers."""
+        readme_path = quickstart_path / "README.md"
+        if not readme_path.exists():
+            print("❌ Missing README.md")
+            return False
+        print("✅ README.md exists")
+        
+        with open(readme_path, "r", encoding="utf-8") as f:
+            if "# " not in f.read():
+                print("⚠️  README.md might be missing proper headers")
+            else:
+                print("✅ README.md has headers")
+        return True
+
+    def _validate_python_syntax(self, quickstart_path: Path) -> bool:
+        """Validate syntax of all Python files."""
+        python_files = list(quickstart_path.rglob("*.py"))
+        if not python_files:
+            print("⚠️  No Python files found")
+            return True
+        
+        print("🐍 Checking Python syntax...")
+        for py_file in python_files:
+            try:
+                with open(py_file, "r", encoding="utf-8") as f:
+                    ast.parse(f.read())
+            except Exception as e:
+                print(f"❌ Python syntax error in: {py_file.relative_to(self.project_root)}")
+                print(f"   {e}")
+                return False
+        print("✅ All Python files have valid syntax")
+        return True
+
+    def _validate_requirements(self, quickstart_path: Path) -> bool:
+        """Validate requirements.txt if it exists."""
+        requirements_path = quickstart_path / "requirements.txt"
+        if not requirements_path.exists():
+            print("⚠️  No requirements.txt found")
+            return True
+        
+        print("📦 Checking requirements.txt...")
+        if requirements_path.stat().st_size == 0:
+            print("⚠️  requirements.txt is empty")
+            return True
+
+        with open(requirements_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith(("#", "-")):
+                    # A very basic check to see if a line looks like a package
+                    if not line[0].isalpha():
+                        print(f"❌ requirements.txt format appears invalid at line: {line}")
+                        return False
+        print("✅ requirements.txt format looks valid")
+        return True
+
+    def _validate_dapr_components(self, quickstart_path: Path) -> bool:
+        """Validate Dapr component YAML files."""
+        components_dir = quickstart_path / "components"
+        if not components_dir.exists():
+            print("⚠️  No components directory found")
+            return True
+
+        print("🔧 Checking Dapr components...")
+        yaml_files = list(components_dir.glob("*.yaml")) + list(components_dir.glob("*.yml"))
+        if not yaml_files:
+            print("⚠️  No component YAML files found in components directory")
+            return True
+
+        print("✅ Found Dapr component files")
+        for yaml_file in yaml_files:
+            try:
+                with open(yaml_file, "r", encoding="utf-8") as f:
+                    yaml.safe_load(f)
+            except Exception as e:
+                print(f"❌ YAML syntax error in: {yaml_file.relative_to(self.project_root)}")
+                print(f"   {e}")
+                return False
+        print("✅ All YAML files have valid syntax")
+        return True
+
+    def _run_all_validations(self, quickstart_path: Path) -> bool:
+        """Run all individual validation checks for a quickstart."""
+        checks = [
+            self._validate_readme,
+            self._validate_python_syntax,
+            self._validate_requirements,
+            self._validate_dapr_components
+        ]
+        
+        for check in checks:
+            if not check(quickstart_path):
+                return False
+        return True
+
     def validate_quickstart(self, quickstart_name: str) -> bool:
         """Validate a single quickstart directory."""
         quickstart_path = self.quickstarts_dir / quickstart_name
@@ -70,10 +167,8 @@ class QuickstartValidator:
             
             # Determine the activate script path
             if sys.platform == "win32":
-                activate_script = venv_path / "Scripts" / "activate"
                 python_executable = venv_path / "Scripts" / "python"
             else:
-                activate_script = venv_path / "bin" / "activate"
                 python_executable = venv_path / "bin" / "python"
             
             print(f"Installing requirements for {quickstart_path.name}...")
@@ -82,12 +177,8 @@ class QuickstartValidator:
                 "-r", "requirements.txt"
             ], cwd=quickstart_path, check=True, capture_output=True)
             
-            print(f"Running validation script for {quickstart_path.name}...")
-            result = subprocess.run([
-                "bash", "../validate.sh", quickstart_path.name
-            ], cwd=self.quickstarts_dir, capture_output=False)
-            
-            success = result.returncode == 0
+            print(f"Running validation for {quickstart_path.name} in isolated env...")
+            success = self._run_all_validations(quickstart_path)
             
         except subprocess.CalledProcessError as e:
             print(f"❌ Error during isolated environment validation: {e}")
@@ -106,12 +197,8 @@ class QuickstartValidator:
     
     def _validate_with_current_env(self, quickstart_path: Path) -> bool:
         """Validate quickstart with the current environment."""
-        print(f"Running validation script for {quickstart_path.name}...")
-        result = subprocess.run([
-            "bash", "./validate.sh", quickstart_path.name
-        ], cwd=self.quickstarts_dir, capture_output=False)
-        
-        return result.returncode == 0
+        print(f"Running validation for {quickstart_path.name} in current env...")
+        return self._run_all_validations(quickstart_path)
     
     def validate_all(self, specific_quickstart: Optional[str] = None) -> bool:
         """Validate all quickstarts or a specific one."""
@@ -142,7 +229,7 @@ class QuickstartValidator:
                     time.sleep(1)
                     
             except KeyboardInterrupt:
-                print(f"\n⚠️  Validation interrupted by user")
+                print("⚠️  Validation interrupted by user")
                 return False
             except Exception as e:
                 print(f"❌ Unexpected error validating {quickstart}: {e}")
@@ -153,7 +240,7 @@ class QuickstartValidator:
             print(f"\n❌ Validation failed for: {', '.join(failed_quickstarts)}")
             return False
         else:
-            print(f"\n🎉 All quickstart validations completed successfully!")
+            print("🎉 All quickstart validations completed successfully!")
             return True
 
 

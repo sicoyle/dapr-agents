@@ -8,7 +8,6 @@ Note: Streaming functionality (converse_stream_alpha1) is currently in developme
 and will be available in future versions of the Python SDK.
 """
 
-import os
 import time
 from dotenv import load_dotenv
 from colorama import init, Fore, Style
@@ -58,7 +57,7 @@ def main():
         print(f"\n{Fore.MAGENTA}✅ Conversation completed!{Style.RESET_ALL}")
         print(f"{Fore.CYAN}📊 Stats:{Style.RESET_ALL}")
         print(f"   • Response time: {end_time - start_time:.2f} seconds")
-        print(f"   • Component used: echo")
+        print("   • Component used: echo")
         
     except Exception as e:
         print(f"\n{Fore.RED}❌ Error during conversation: {e}{Style.RESET_ALL}")
@@ -107,10 +106,10 @@ def main():
     # Show what's coming
     print(f"\n{Fore.CYAN}🚀 Coming Soon: Streaming Support{Style.RESET_ALL}")
     print(f"{Fore.YELLOW}When streaming is available, you'll be able to:{Style.RESET_ALL}")
-    print(f"   • See responses as they're generated in real-time")
-    print(f"   • Get faster perceived response times")
-    print(f"   • Build more interactive chat experiences")
-    print(f"   • Monitor token usage in real-time")
+    print("   • See responses as they're generated in real-time")
+    print("   • Get faster perceived response times")
+    print("   • Build more interactive chat experiences")
+    print("   • Monitor token usage in real-time")
     
     print(f"\n{Fore.GREEN}✅ Example completed! Try the OpenAI example for more advanced features.{Style.RESET_ALL}")
 

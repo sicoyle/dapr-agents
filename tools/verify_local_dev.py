@@ -27,7 +27,7 @@ def main():
             import pkg_resources
             try:
                 version = pkg_resources.get_distribution('dapr-dev').version
-            except:
+            except Exception:
                 version = 'unknown'
         
         print(f'📦 Dapr SDK Version: {version}')
@@ -88,8 +88,8 @@ def main():
                 print('⚠️  Echo Component: Not found')
         else:
             print('⚠️  Could not retrieve component metadata')
-    except:
-        pass  # Dapr not running, already reported above
+    except Exception as e:
+        print(f"An error occurred: {e}")
     
     print()
     if success:

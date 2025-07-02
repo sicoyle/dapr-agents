@@ -10,8 +10,6 @@ This example demonstrates:
 """
 
 import asyncio
-import time
-from typing import Any
 
 from src.smolagents.dapr_workflow_agent import DaprWorkflowAgent
 from src.smolagents.models import OpenAIServerModel
@@ -35,11 +33,11 @@ def calculate_math(expression: str) -> str:
         allowed_chars = set('0123456789+-*/.() ')
         if all(c in allowed_chars for c in expression):
             result = eval(expression)
-            return f"The result of {expression} is {result}"
+            return "The result of {} is {}".format(expression, result)
         else:
-            return f"Invalid expression: {expression}. Only basic math operations allowed."
+            return "Invalid expression: {}. Only basic math operations allowed.".format(expression)
     except Exception as e:
-        return f"Error calculating {expression}: {str(e)}"
+        return "Error calculating {}: {}".format(expression, str(e))
 
 
 @tool
@@ -52,7 +50,7 @@ def get_current_time() -> str:
     """
     import datetime
     now = datetime.datetime.now()
-    return f"Current time: {now.strftime('%Y-%m-%d %H:%M:%S')}"
+    return "Current time: {}".format(now.strftime('%Y-%m-%d %H:%M:%S'))
 
 
 @tool
@@ -68,7 +66,7 @@ def simulate_work(duration: int) -> str:
     """
     import time
     time.sleep(min(duration, 10))  # Cap at 10 seconds for safety
-    return f"Completed {duration} seconds of simulated work"
+    return "Completed {} seconds of simulated work".format(duration)
 
 
 def create_agent() -> DaprWorkflowAgent:
@@ -98,16 +96,16 @@ def test_basic_functionality():
     try:
         agent = create_agent()
         
-        print(f"✅ Agent created successfully")
-        print(f"   - Workflow name: {agent.workflow_name}")
-        print(f"   - Number of tools: {len(agent.tools)}")
-        print(f"   - Tool names: {[t.name for t in agent.tools]}")
-        print(f"   - Has workflow runtime: {agent.workflow_runtime is not None}")
-        print(f"   - Has workflow client: {agent.workflow_client is not None}")
+        print("✅ Agent created successfully")
+        print("   - Workflow name: {}".format(agent.workflow_name))
+        print("   - Number of tools: {}".format(len(agent.tools)))
+        print("   - Tool names: {}".format([t.name for t in agent.tools]))
+        print("   - Has workflow runtime: {}".format(agent.workflow_runtime is not None))
+        print("   - Has workflow client: {}".format(agent.workflow_client is not None))
         
         # Test system prompt
         system_prompt = agent.initialize_system_prompt()
-        print(f"   - System prompt length: {len(system_prompt)} characters")
+        print("   - System prompt length: {} characters".format(len(system_prompt)))
         
         # Test workflow registration
         print("\n🔄 Testing workflow registration...")
@@ -118,7 +116,7 @@ def test_basic_functionality():
         return agent
         
     except Exception as e:
-        print(f"❌ Error in basic functionality test: {e}")
+        print("❌ Error in basic functionality test: {}".format(e))
         import traceback
         traceback.print_exc()
         return None
@@ -131,14 +129,14 @@ def test_context_manager(agent: DaprWorkflowAgent):
     
     try:
         with agent as ctx_agent:
-            print(f"✅ Context manager entered successfully")
-            print(f"   - Context agent workflow name: {ctx_agent.workflow_name}")
-            print(f"   - Runtime is active: {ctx_agent.workflow_runtime is not None}")
+            print("✅ Context manager entered successfully")
+            print("   - Context agent workflow name: {}".format(ctx_agent.workflow_name))
+            print("   - Runtime is active: {}".format(ctx_agent.workflow_runtime is not None))
         
         print("✅ Context manager exited successfully")
         
     except Exception as e:
-        print(f"❌ Error in context manager test: {e}")
+        print("❌ Error in context manager test: {}".format(e))
         import traceback
         traceback.print_exc()
 
@@ -151,14 +149,14 @@ def test_workflow_monitoring(agent: DaprWorkflowAgent):
     try:
         # Test workflow status (would work with actual workflows)
         print("📊 Workflow monitoring methods available:")
-        print(f"   - get_workflow_status: {hasattr(agent, 'get_workflow_status')}")
-        print(f"   - terminate_workflow: {hasattr(agent, 'terminate_workflow')}")
-        print(f"   - run_as_workflow: {hasattr(agent, 'run_as_workflow')}")
+        print("   - get_workflow_status: {}".format(hasattr(agent, 'get_workflow_status')))
+        print("   - terminate_workflow: {}".format(hasattr(agent, 'terminate_workflow')))
+        print("   - run_as_workflow: {}".format(hasattr(agent, 'run_as_workflow')))
         
         print("✅ Workflow monitoring capabilities verified")
         
     except Exception as e:
-        print(f"❌ Error in workflow monitoring test: {e}")
+        print("❌ Error in workflow monitoring test: {}".format(e))
 
 
 async def test_async_functionality(agent: DaprWorkflowAgent):
@@ -173,11 +171,11 @@ async def test_async_functionality(agent: DaprWorkflowAgent):
             if method.startswith('a') and callable(getattr(agent, method))
         ]
         
-        print(f"📊 Available async-like methods: {async_methods}")
+        print("📊 Available async-like methods: {}".format(async_methods))
         print("✅ Async functionality check completed")
         
     except Exception as e:
-        print(f"❌ Error in async functionality test: {e}")
+        print("❌ Error in async functionality test: {}".format(e))
 
 
 def main():

@@ -192,13 +192,19 @@ def main():
             print("-" * 60)
     
     # Interactive mode
+    print(f"{Fore.CYAN}💬 Interactive Tool Calling Mode{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}Try these examples:{Style.RESET_ALL}")
+    print("   • 'What time is it?'")
+    print("   • 'Calculate 25 * 4 + 10'")
+    print("   • 'Analyze this text: Hello world!'")
+    print("   • 'Give me a random fact'")
     print(f"\n{Fore.CYAN}💬 Interactive Tool Calling Mode{Style.RESET_ALL}")
     print(f"{Fore.YELLOW}Try asking questions that might use the available tools:{Style.RESET_ALL}")
-    print(f"   • 'What time is it?'")
-    print(f"   • 'Calculate 25 * 4 + 10'")
-    print(f"   • 'Analyze this text: Hello world!'")
-    print(f"   • 'Give me a random fact'")
-    print(f"   • Type 'quit' to exit\n")
+    print("   • 'What time is it?'")
+    print("   • 'Calculate 25 * 4 + 10'")
+    print("   • 'Analyze this text: Hello world!'")
+    print("   • 'Give me a random fact'")
+    print("   • Type 'quit' to exit\n")
     
     while True:
         try:

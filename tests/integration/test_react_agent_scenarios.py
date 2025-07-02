@@ -11,7 +11,7 @@ This test suite validates React (Reasoning-Action) agents working with Dapr conv
 
 import pytest
 import asyncio
-from typing import List, Dict, Any
+from dapr_agents.agent.patterns.react import ReactAgent
 from dapr_agents import ReActAgent, tool
 from dapr_agents.llm.dapr import DaprChatClient
 

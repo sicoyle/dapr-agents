@@ -14,8 +14,6 @@ Updated: The circular import between utils modules has been resolved by changing
 """
 
 import pytest
-import json
-from typing import Optional
 from pydantic import BaseModel, Field
 
 # NOTE: Imports may still fail due to Dapr SDK issues, but circular import is fixed
@@ -250,15 +248,5 @@ class TestDirectDaprClientUsage:
         #         assert any(hasattr(chunk, 'result') for chunk in chunks)
 
     def test_direct_vs_dapr_agents_comparison(self, dapr_runtime):
-        """Test comparison between direct client and DaprChatClient."""
-        pytest.skip("To be implemented when SDK is working - preserves client comparison patterns")
-        
-        # TODO: Implement when SDK working - comparison pattern from manual helpers:
-        # This test validates that both direct client and DaprChatClient produce
-        # consistent results for the same input, preserving the debugging methodology
-        pass
-
-
-@pytest.mark.integration
-@pytest.mark.skipif(not IMPORTS_AVAILABLE, reason=f"Imports not available: {IMPORT_ERROR if not IMPORTS_AVAILABLE else 'N/A'}")
-class TestToolNamingConventions: 
+        """Compare direct Dapr client vs. Dapr Agents abstractions."""
+        pytest.skip("To be implemented when SDK is working")

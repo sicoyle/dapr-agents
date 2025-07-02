@@ -13,15 +13,10 @@ Provider-specific behaviors:
 - OpenAI: Should work with all scenarios (requires API key)
 """
 
-import asyncio
-import json
 import pytest
-import time
 from typing import List, Dict, Any
 from dapr.clients import DaprClient
 from dapr.clients.grpc._response import ConversationResponse
-from dapr.clients.exceptions import DaprInternalError
-from dapr_agents.llm.dapr import DaprChatClient
 from dapr_agents.tool import tool
 
 
@@ -171,7 +166,7 @@ class TestChatScenarios:
             
             try:
                 # Test 1: Non-streaming chat
-                print(f"    💬 Testing non-streaming chat...")
+                print("    💬 Testing non-streaming chat...")
                 response = self.dapr_client.invoke_conversation(
                     name=provider,
                     inputs=[{"role": "user", "content": "Hello! What is 2+2?"}]
@@ -180,10 +175,10 @@ class TestChatScenarios:
                 if response:
                     self.validate_non_streaming_response(response)
                     results[provider]["non_streaming_chat"] = "✅ Working"
-                    print(f"      ✅ Non-streaming chat successful")
+                    print("      ✅ Non-streaming chat successful")
                 else:
                     results[provider]["non_streaming_chat"] = "❌ Failed"
-                    print(f"      ❌ Non-streaming chat failed")
+                    print("      ❌ Non-streaming chat failed")
                     
             except Exception as e:
                 results[provider]["non_streaming_chat"] = f"❌ Error: {str(e)}"
@@ -191,7 +186,7 @@ class TestChatScenarios:
 
             try:
                 # Test 2: Streaming chat
-                print(f"    🌊 Testing streaming chat...")
+                print("    🌊 Testing streaming chat...")
                 chunks = []
                 stream_response = self.dapr_client.invoke_conversation(
                     name=provider,
@@ -209,7 +204,7 @@ class TestChatScenarios:
                     print(f"      ✅ Streaming chat successful ({len(chunks)} chunks)")
                 else:
                     results[provider]["streaming_chat"] = "❌ Failed"
-                    print(f"      ❌ Streaming chat failed")
+                    print("      ❌ Streaming chat failed")
                     
             except Exception as e:
                 results[provider]["streaming_chat"] = f"❌ Error: {str(e)}"
@@ -217,7 +212,7 @@ class TestChatScenarios:
 
             try:
                 # Test 3: Tool calling non-streaming
-                print(f"    🔧 Testing tool calling (non-streaming)...")
+                print("    🔧 Testing tool calling (non-streaming)...")
                 tool_response = self.dapr_client.invoke_conversation(
                     name=provider,
                     inputs=[{"role": "user", "content": "What's the weather in Boston? Use the weather tool."}],
@@ -226,10 +221,10 @@ class TestChatScenarios:
                 
                 if tool_response and self.validate_tool_calls(tool_response, is_streaming=False, provider=provider):
                     results[provider]["tool_calling_non_streaming"] = "✅ Working"
-                    print(f"      ✅ Tool calling successful")
+                    print("      ✅ Tool calling successful")
                 else:
                     results[provider]["tool_calling_non_streaming"] = "❌ Failed"
-                    print(f"      ❌ Tool calling failed")
+                    print("      ❌ Tool calling failed")
                     
             except Exception as e:
                 results[provider]["tool_calling_non_streaming"] = f"❌ Error: {str(e)}"
@@ -237,7 +232,7 @@ class TestChatScenarios:
 
             try:
                 # Test 4: Tool calling with streaming
-                print(f"    🔧🌊 Testing tool calling with streaming...")
+                print("    🔧🌊 Testing tool calling with streaming...")
                 tool_chunks = []
                 tool_stream_response = self.dapr_client.invoke_conversation(
                     name=provider,
@@ -255,15 +250,15 @@ class TestChatScenarios:
                     print(f"      ✅ Tool calling + streaming successful ({len(tool_chunks)} chunks)")
                 else:
                     results[provider]["tool_calling_streaming"] = "❌ Failed"
-                    print(f"      ❌ Tool calling + streaming failed")
+                    print("      ❌ Tool calling + streaming failed")
                     
             except Exception as e:
                 results[provider]["tool_calling_streaming"] = f"❌ Error: {str(e)}"
                 print(f"      ❌ Tool calling + streaming error: {e}")
 
         # Print comprehensive results matrix
-        print(f"\n📊 COMPREHENSIVE TEST RESULTS MATRIX")
-        print(f"=" * 80)
+        print("\n📊 COMPREHENSIVE TEST RESULTS MATRIX")
+        print("=" * 80)
         
         scenarios = [
             "non_streaming_chat",
@@ -286,7 +281,7 @@ class TestChatScenarios:
                 row += f" {display_status:<15}"
             print(row)
         
-        print(f"=" * 80)
+        print("=" * 80)
         
         # Count successes
         total_tests = len(providers) * len(scenarios)

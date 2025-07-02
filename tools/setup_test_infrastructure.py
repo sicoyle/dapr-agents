@@ -6,13 +6,11 @@ This script automates the setup of the complete test infrastructure for Dapr Age
 including Dapr initialization, environment validation, and component verification.
 """
 
-import os
 import sys
 import subprocess
 import time
-import json
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List
 
 class Colors:
     """ANSI color codes for terminal output"""

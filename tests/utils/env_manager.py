@@ -273,7 +273,7 @@ class EnvManager:
             import subprocess
             result = subprocess.run(["make", "--version"], capture_output=True, timeout=5)
             return result.returncode == 0
-        except:
+        except Exception:
             return False
     
     def _check_docker_available(self) -> bool:
@@ -282,7 +282,7 @@ class EnvManager:
             import subprocess
             result = subprocess.run(["docker", "--version"], capture_output=True, timeout=5)
             return result.returncode == 0
-        except:
+        except Exception:
             return False
     
     def _check_git_available(self) -> bool:
@@ -291,7 +291,7 @@ class EnvManager:
             import subprocess
             result = subprocess.run(["git", "--version"], capture_output=True, timeout=5)
             return result.returncode == 0
-        except:
+        except Exception:
             return False
     
     def create_test_env_template(self) -> None:

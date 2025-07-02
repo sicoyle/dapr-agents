@@ -1,9 +1,7 @@
 """Dapr runtime lifecycle management for testing."""
 
-import os
 import subprocess
 import time
-import signal
 from pathlib import Path
 from typing import Dict, Optional, List
 import logging
@@ -308,7 +306,7 @@ class DaprManager:
     
     def get_status_summary(self) -> str:
         """Get formatted status summary."""
-        summary = f"Dapr Manager Status:\n"
+        summary = "Dapr Manager Status:\n"
         summary += f"  App ID: {self.app_id or 'Not set'}\n"
         summary += f"  Components Dir: {self.components_dir or 'Not set'}\n"
         
@@ -319,7 +317,7 @@ class DaprManager:
             else:
                 summary += f"  Process: Stopped (Exit code: {self.dapr_process.poll()})\n"
         else:
-            summary += f"  Process: Not started\n"
+            summary += "  Process: Not started\n"
         
         # Health status
         is_healthy = self._check_dapr_health()

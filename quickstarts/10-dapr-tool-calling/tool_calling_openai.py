@@ -6,7 +6,6 @@ This example demonstrates real tool calling with OpenAI GPT models via Dapr.
 """
 
 import os
-import json
 import time
 import math
 from datetime import datetime

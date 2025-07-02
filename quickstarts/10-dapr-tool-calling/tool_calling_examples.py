@@ -18,7 +18,6 @@ Prerequisites:
 import os
 import json
 from pathlib import Path
-from typing import List, Optional
 from dapr_agents.llm.dapr import DaprChatClient
 from dapr_agents.tool import tool
 from colorama import init, Fore, Style

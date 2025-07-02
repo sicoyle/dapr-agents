@@ -135,7 +135,7 @@ def build_daprd():
     """Build the daprd binary."""
     print("🔨 Building daprd binary...")
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["make", "build"], 
             cwd=DAPR_REPO, 
             check=True,
@@ -237,7 +237,7 @@ def run_daprd(args):
         "--metrics-port", "9091"
     ]
     
-    print(f"🚀 Starting Dapr sidecar...")
+    print("🚀 Starting Dapr sidecar...")
     print(f"   Binary: {binary_path}")
     print(f"   App ID: {args.app_id}")
     print(f"   HTTP Port: {args.port}")

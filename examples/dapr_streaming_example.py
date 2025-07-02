@@ -10,7 +10,6 @@ Prerequisites:
 - Set DAPR_LLM_COMPONENT_DEFAULT environment variable
 """
 
-import asyncio
 import os
 from dapr_agents.llm.dapr import DaprChatClient
 
