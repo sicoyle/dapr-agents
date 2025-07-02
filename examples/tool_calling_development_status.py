@@ -6,7 +6,7 @@ This example demonstrates the current state of tool calling implementation in da
 showing what works, what's blocked, and the path to full functionality.
 
 Located in examples/ because it's a comprehensive demonstration of:
-1. ✅ What's currently working  
+1. ✅ What's currently working
 2. ❌ What's blocked and why
 3. 🛠️ What needs to be fixed
 4. 🚀 How it will work once fixed
@@ -142,7 +142,7 @@ def show_future_implementation():
 # 1. Tools will be sent through ConversationInput.tools
 conv_input = ConversationInput(
     content="What's the weather in San Francisco?",
-    role="user", 
+    role="user",
     tools=[weather_tool]  # ← This will actually be sent!
 )
 
@@ -154,15 +154,15 @@ if response.outputs[0].tool_calls:
     for tool_call in response.outputs[0].tool_calls:
         # Execute the tool
         result = execute_tool(tool_call.function.name, tool_call.function.arguments)
-        
+
         # Send result back
         tool_result = ConversationInput(
             content=result,
             role="tool",
             tool_call_id=tool_call.id,
-            name=tool_call.function.name
+            name=tool_call.function.name,
         )
-        
+
         # Get final response
         final_response = client.converse_alpha1(name="openai", inputs=[tool_result])
 
@@ -181,10 +181,10 @@ def show_required_changes():
         """
 message ConversationInput {
   string content = 1;
-  optional string role = 2;  
+  optional string role = 2;
   optional bool scrubPII = 3;
   repeated Tool tools = 4;           // ← ADD THIS
-  optional string tool_call_id = 5;  // ← ADD THIS  
+  optional string tool_call_id = 5;  // ← ADD THIS
   optional string name = 6;          // ← ADD THIS
 }
 
@@ -218,7 +218,7 @@ class DaprInferenceClientBase(LLMClientBase):
 inputs_pb = [
     api_v1.ConversationInput(
         content=inp.content,
-        role=inp.role, 
+        role=inp.role,
         scrubPII=inp.scrub_pii,
         tools=inp.tools,           # ← ADD THIS
         tool_call_id=inp.tool_call_id,  # ← ADD THIS

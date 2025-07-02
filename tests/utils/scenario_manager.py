@@ -36,7 +36,7 @@ class ScenarioManager:
             return DevelopmentScenario.LOCAL_FULL
         elif development_repos.get("python_sdk", False):
             return DevelopmentScenario.LOCAL_PARTIAL
-        elif only_agents_local := all(
+        elif all(
             not development_repos[repo]
             for repo in ["dapr", "python_sdk", "components_contrib"]
         ):

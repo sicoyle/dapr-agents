@@ -4,7 +4,7 @@
 Dapr Conversation Example with Echo Component
 This example demonstrates basic LLM conversation using the echo component.
 
-Note: Streaming functionality (converse_stream_alpha1) is currently in development 
+Note: Streaming functionality (converse_stream_alpha1) is currently in development
 and will be available in future versions of the Python SDK.
 """
 

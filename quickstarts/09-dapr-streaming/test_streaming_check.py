@@ -51,7 +51,7 @@ def test_streaming_availability():
                     if hasattr(chunk, "usage") and chunk.usage:
                         print(f"📊 Usage: {chunk.usage.total_tokens} tokens")
 
-                print(f"\n✅ Streaming test successful!")
+                print("\n✅ Streaming test successful!")
                 print(f"   • Received {chunks_received} chunks")
                 print(f"   • Full content: {''.join(content_parts)}")
 

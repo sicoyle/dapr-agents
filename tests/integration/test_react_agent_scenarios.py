@@ -3,7 +3,7 @@ React Agent Integration Tests with Dapr
 
 This test suite validates React (Reasoning-Action) agents working with Dapr conversation API:
 1. Simple reasoning tasks (no tools)
-2. Single tool execution 
+2. Single tool execution
 3. Multi-tool workflows
 4. Complex reasoning chains
 5. Error handling and recovery

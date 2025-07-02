@@ -250,7 +250,7 @@ class EnvManager:
                 ["dapr", "--version"], capture_output=True, timeout=5
             )
             return result.returncode == 0
-        except:
+        except Exception:
             return False
 
     def _check_released_python_sdk(self) -> bool:
@@ -269,7 +269,7 @@ class EnvManager:
 
             result = subprocess.run(["go", "version"], capture_output=True, timeout=5)
             return result.returncode == 0
-        except:
+        except Exception:
             return False
 
     def _check_python_dev_tools(self) -> bool:
@@ -336,7 +336,7 @@ class EnvManager:
 # OpenAI API Key
 OPENAI_API_KEY=your_openai_api_key_here
 
-# Anthropic API Key  
+# Anthropic API Key
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
 # Google Gemini API Key

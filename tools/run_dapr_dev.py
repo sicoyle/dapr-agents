@@ -11,7 +11,7 @@ Usage:
 
 Options:
     --build         Build daprd binary before running
-    --port          HTTP port for sidecar (default: 3500)  
+    --port          HTTP port for sidecar (default: 3500)
     --grpc-port     gRPC port for sidecar (default: 50001)
     --app-id        Application ID (default: test-app)
     --log-level     Log level (default: info)

@@ -213,7 +213,7 @@ def check_environment_file() -> bool:
     print_warning(".env file not found, creating template...")
 
     env_template = """# Dapr Agents Environment Configuration
-# 
+#
 # Required for real provider testing (optional for echo testing)
 OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here

@@ -3,13 +3,13 @@ Integration tests for tool execution flows and patterns.
 
 This file preserves valuable testing patterns from archived tests, focusing on:
 - Function-based tool testing with different patterns
-- Complete tool execution workflows  
+- Complete tool execution workflows
 - Tool parameter debugging patterns
 - Multi-tool execution scenarios
 
-NOTE: Circular import issue has been RESOLVED! ✅ 
+NOTE: Circular import issue has been RESOLVED! ✅
   Tests may still be limited by Dapr SDK compatibility issues but the circular import is fixed.
-  
+
 Updated: The circular import between utils modules has been resolved by changing absolute imports to relative imports.
 """
 

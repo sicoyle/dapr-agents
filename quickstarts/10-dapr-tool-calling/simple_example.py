@@ -285,7 +285,7 @@ def main():
     if args.class_tools:
         tools_desc = """
 • GetTimeZone - Get time zone information for a location
-• ConvertCurrency - Convert amounts between currencies  
+• ConvertCurrency - Convert amounts between currencies
 • GeneratePassword - Generate secure random passwords"""
     else:
         tools_desc = """
@@ -296,7 +296,7 @@ def main():
         f"""
 🔧 Simple Tool Calling Example
 
-This example demonstrates both function-based and class-based tool calling 
+This example demonstrates both function-based and class-based tool calling
 with Dapr conversation components.
 
 Provider: {args.provider}

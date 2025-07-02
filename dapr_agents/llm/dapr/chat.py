@@ -21,7 +21,6 @@ from pydantic import BaseModel
 from pathlib import Path
 import logging
 import os
-import time
 import json
 
 logger = logging.getLogger(__name__)
@@ -59,7 +58,6 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
         Returns:
             DaprChatClient: An instance of DaprChatClient configured with the model settings from the Prompty source.
         """
-        from dapr_agents.prompt.prompty import Prompty
 
         # Load the Prompty instance from the provided source
         prompty_instance = Prompty.load(prompty_source)

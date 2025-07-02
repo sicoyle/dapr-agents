@@ -8,7 +8,7 @@ This replaces the complex bash logic that was in the Makefile.
 
 Usage:
     python tools/validate_quickstarts.py [--isolated] [--quickstart <name>]
-    
+
 Options:
     --isolated    Create isolated virtual environments for each quickstart
     --quickstart  Validate only a specific quickstart

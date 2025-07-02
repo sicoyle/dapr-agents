@@ -420,7 +420,7 @@ def print_usage_examples():
 
 1. {Fore.YELLOW}Create .env file at repo root:{Style.RESET_ALL}
    Create a file named '.env' in the root directory with your API keys:
-   
+
    ```
    OPENAI_API_KEY=your-openai-api-key-here
    ANTHROPIC_API_KEY=your-anthropic-api-key-here
@@ -434,7 +434,7 @@ def print_usage_examples():
    python tools/run_dapr_dev.py --app-id tool-calling-demo --components ./components
 
 4. {Fore.YELLOW}Component Configuration Examples:{Style.RESET_ALL}
-   
+
    Echo (components/echo-tools.yaml):
    ```yaml
    apiVersion: dapr.io/v1alpha1
@@ -445,7 +445,7 @@ def print_usage_examples():
      type: conversation.echo
      version: v1
    ```
-   
+
    OpenAI (components/openai.yaml):
    ```yaml
    apiVersion: dapr.io/v1alpha1

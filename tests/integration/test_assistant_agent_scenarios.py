@@ -3,7 +3,7 @@ AssistantAgent Integration Tests with Dapr Workflows
 
 This test suite validates AssistantAgent workflow functionality including:
 1. Basic workflow execution and state management
-2. Tool calling within workflows  
+2. Tool calling within workflows
 3. Multi-iteration workflows with memory
 4. Error handling and recovery
 5. Multi-agent communication (if infrastructure available)

@@ -5,11 +5,10 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
+from utils import ScenarioManager, EnvManager, VersionManager
 
 # Add the tests directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent))
-
-from utils import ScenarioManager, EnvManager, VersionManager
 
 
 def run_command(cmd: list, description: str) -> bool:
@@ -18,7 +17,7 @@ def run_command(cmd: list, description: str) -> bool:
     print(f"Command: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True)
         print(f"✅ {description} - SUCCESS")
         return True
     except subprocess.CalledProcessError as e:

@@ -35,7 +35,7 @@ def test_openai_conversation():
     )
     print("-" * 60)
 
-    prompt = """Write a short, engaging story about an AI assistant that discovers it can dream. 
+    prompt = """Write a short, engaging story about an AI assistant that discovers it can dream.
     Make it thoughtful and imaginative, around 200 words."""
 
     print(f"{Fore.GREEN}📝 Creative Writing Prompt:{Style.RESET_ALL}")
