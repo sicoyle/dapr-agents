@@ -9,10 +9,11 @@ import asyncio
 import sys
 from pathlib import Path
 
+from dapr_agents.memory.daprstatestore import ConversationDaprStateMemory
+
+
 # Add the parent directory to the path so we can import dapr_agents
 sys.path.append(str(Path(__file__).parent.parent.parent))
-
-from dapr_agents.memory.daprstatestore import ConversationDaprStateMemory
 
 
 async def check_conversation_memory(session_id: str = "demo-session"):

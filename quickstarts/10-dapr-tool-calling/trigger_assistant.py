@@ -39,7 +39,7 @@ async def trigger_assistant_via_http(message: str, port: int = 8002):
             async with session.post(url, json=payload) as response:
                 if response.status in [200, 202]:  # 202 = Accepted (workflow started)
                     result = await response.json()
-                    print(f"✅ Workflow started successfully!")
+                    print("✅ Workflow started successfully!")
                     print(
                         f"   Instance ID: {result.get('workflow_instance_id', 'N/A')}"
                     )
@@ -76,7 +76,7 @@ async def check_chat_history(port: int = 8002, session_id: str = "demo-session")
             async with session.post(url, json=payload) as response:
                 if response.status == 200:
                     result = await response.json()
-                    print(f"📜 Chat History:")
+                    print("📜 Chat History:")
                     for i, msg in enumerate(result.get("messages", []), 1):
                         role = msg.get("role", "unknown")
                         content = msg.get("content", "")
@@ -149,7 +149,7 @@ async def main():
     # Method 2: Dapr workflow trigger (proper way)
     print("⚙️  Method 2: Dapr Workflow Trigger (proper way)")
     result2 = await trigger_assistant_via_dapr_workflow()
-    print()
+    print(result2)
 
     # Instructions
     print("📋 Instructions:")

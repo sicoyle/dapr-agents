@@ -271,7 +271,7 @@ class DaprInferenceClient:
 
                 # Handle completion chunk (chunk.complete with tool calls and usage)
                 elif hasattr(chunk, "complete") and chunk.complete:
-                    logger.debug(f"   • Complete chunk received")
+                    logger.debug("   • Complete chunk received")
                     complete = chunk.complete
 
                     # Check for tool calls in complete chunk
@@ -369,7 +369,7 @@ class DaprInferenceClient:
                     yield context_chunk
 
                 else:
-                    logger.debug(f"   • Unknown chunk type, skipping")
+                    logger.debug("   • Unknown chunk type, skipping")
 
             logger.info(f"✅ Streaming completed, processed {chunk_count} chunks")
 

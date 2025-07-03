@@ -84,7 +84,7 @@ async def test_dapr_client_tools():
             choice = response.choices[0]
             message = choice.message
 
-            print(f"\n📋 Response Details:")
+            print("\n📋 Response Details:")
             print(f"   Finish reason: {choice.finish_reason}")
             print(f"   Content: {message.content}")
 

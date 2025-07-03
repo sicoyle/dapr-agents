@@ -92,7 +92,7 @@ async def main():
 
 This example shows the simplest way to use tool calling with Dapr agents:
 • Enhanced DaprChatClient for tool calling
-• Simple Agent configuration 
+• Simple Agent configuration
 • Automatic tool execution
 • Provider: {args.provider}
 

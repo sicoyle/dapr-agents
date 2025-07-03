@@ -237,7 +237,7 @@ def check_provider_requirements(provider: str):
                 f"❌ Error: {requirements[provider]} not found in environment variables or .env file"
             )
             print(f"   Provider '{provider}' requires an API key for tool calling")
-            print(f"   Set the environment variable or add to .env file")
+            print("   Set the environment variable or add to .env file")
             return False
         else:
             print(f"✅ API key found for provider '{provider}'")
@@ -268,19 +268,9 @@ async def run_assistant_agent_example(
     if use_class_tools:
         # Use class-based tools
         tools = [CurrencyConverter(), TaskManager()]
-        initial_messages = [
-            "Add a task: 'Buy groceries'",
-            "Convert 100 USD to EUR",
-            "List all tasks",
-        ]
     else:
         # Use function-based tools
         tools = [get_weather, calculate, get_time_zone]
-        initial_messages = [
-            "What's the weather like in San Francisco?",
-            "Calculate 15 * 8 + 7",
-            "What's the time zone in Tokyo?",
-        ]
 
     try:
         # Initialize AssistantAgent
@@ -324,13 +314,13 @@ async def run_assistant_agent_example(
         print("   • Use the agent's REST API endpoints")
         print("   • Integrate with other Dapr services")
 
-        print(f"\n🔗 Available tools:")
-        for tool in tools:
-            if hasattr(tool, "name"):
-                print(f"   • {tool.name}: {tool.description}")
+        print("\n🔗 Available tools:")
+        for t in tools:
+            if hasattr(t, "name"):
+                print(f"   • {t.name}: {t.description}")
             else:
                 print(
-                    f"   • {tool.__name__}: {tool.__doc__.split('.')[0] if tool.__doc__ else 'No description'}"
+                    f"   • {t.__name__}: {t.__doc__.split('.')[0] if t.__doc__ else 'No description'}"
                 )
 
         print("\n⏳ Service is running... Press Ctrl+C to stop")

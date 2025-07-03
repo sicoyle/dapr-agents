@@ -77,19 +77,19 @@ def execute_tool_call(tool_call, available_tools):
     print(f"   🔧 Executing: {tool_name}({tool_args})")
 
     # Find the tool by name - check both the tool.name and function name
-    for tool in available_tools:
+    for t in available_tools:
         # Check AgentTool.name (capitalized) or function name
         tool_matches = False
-        if hasattr(tool, "name") and tool.name == tool_name:
+        if hasattr(t, "name") and t.name == tool_name:
             tool_matches = True
-        elif hasattr(tool, "__name__") and tool.__name__ == tool_name:
+        elif hasattr(t, "__name__") and t.__name__ == tool_name:
             tool_matches = True
-        elif hasattr(tool, "__name__") and tool.__name__.lower() == tool_name.lower():
+        elif hasattr(t, "__name__") and t.__name__.lower() == tool_name.lower():
             tool_matches = True
 
         if tool_matches:
             try:
-                result = tool(**tool_args)
+                result = t(**tool_args)
                 print(f"   ✅ Result: {result}")
                 return ToolMessage(
                     tool_call_id=tool_call.get("id", f"call_{tool_name}"),
@@ -107,11 +107,11 @@ def execute_tool_call(tool_call, available_tools):
 
     # Tool not found
     available_names = []
-    for tool in available_tools:
-        if hasattr(tool, "name"):
-            available_names.append(f"tool.name='{tool.name}'")
-        if hasattr(tool, "__name__"):
-            available_names.append(f"__name__='{tool.__name__}'")
+    for t in available_tools:
+        if hasattr(t, "name"):
+            available_names.append(f"tool.name='{t.name}'")
+        if hasattr(t, "__name__"):
+            available_names.append(f"__name__='{t.__name__}'")
 
     error_msg = f"Tool {tool_name} not found. Available: {available_names}"
     print(f"   ❌ {error_msg}")
@@ -306,7 +306,7 @@ This example demonstrates the COMPLETE tool calling workflow using
 the ENHANCED DaprChatClient that now supports:
 
 • Assistant messages with tool_calls using parts format
-• Tool result messages using ToolResultContent  
+• Tool result messages using ToolResultContent
 • Raw response access for proper conversation building
 • Multi-turn conversations with proper message flow
 
