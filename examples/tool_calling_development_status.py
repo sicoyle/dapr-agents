@@ -67,9 +67,7 @@ def demonstrate_current_state():
     # ❌ 3. ConversationInput doesn't accept tools yet
     print("\n❌ 3. ConversationInput Doesn't Accept Tools")
     print("   ConversationInput constructor doesn't have 'tools' parameter")
-    ConversationInput(
-        content="What's the weather in San Francisco?", role="user"
-    )
+    ConversationInput(content="What's the weather in San Francisco?", role="user")
     print("   ConversationInput created without tools")
 
     # ❌ 4. But gRPC doesn't send them
