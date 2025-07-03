@@ -1,4 +1,3 @@
-import pytest
 from dapr_agents.document.embedder.sentence import SentenceTransformerEmbedder
 
 

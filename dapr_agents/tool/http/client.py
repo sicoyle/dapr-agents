@@ -6,7 +6,6 @@ import requests
 
 from pydantic import BaseModel, Field, PrivateAttr
 from dapr_agents.types import ToolError
-from dapr_agents import tool
 from urllib.parse import urlparse
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry import trace

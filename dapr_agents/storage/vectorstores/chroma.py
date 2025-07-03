@@ -1,5 +1,4 @@
 from dapr_agents.storage.vectorstores import VectorStoreBase
-from dapr_agents.document.embedder import SentenceTransformerEmbedder
 from dapr_agents.document.embedder.base import EmbedderBase
 from typing import List, Dict, Optional, Iterable, Union, Any
 from pydantic import Field, ConfigDict

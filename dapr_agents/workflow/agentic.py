@@ -6,7 +6,6 @@ import signal
 import tempfile
 import threading
 import inspect
-import yaml
 from fastapi import status, Request
 from fastapi.responses import JSONResponse
 from cloudevents.http.conversion import from_http
@@ -23,7 +22,7 @@ from typing import (
     Type,
     Union,
 )
-from pydantic import BaseModel, Field, ValidationError, PrivateAttr, model_validator
+from pydantic import BaseModel, Field, ValidationError, PrivateAttr
 from dapr.clients import DaprClient
 from dapr_agents.memory import (
     ConversationListMemory,

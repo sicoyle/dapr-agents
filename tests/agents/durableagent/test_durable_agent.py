@@ -5,8 +5,8 @@
 import pytest
 import asyncio
 import os
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from typing import List, Dict, Any, Optional
+from unittest.mock import Mock, AsyncMock, patch
+from typing import Any
 
 from dapr_agents.agents.durableagent.agent import DurableAgent
 from dapr_agents.agents.durableagent.schemas import (

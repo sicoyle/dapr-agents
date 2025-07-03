@@ -1,11 +1,9 @@
 from dapr_agents import tool
 from dapr_agents import DurableAgent
 from pydantic import BaseModel, Field
-from dapr_agents import Agent
 from dotenv import load_dotenv
 import logging
 import asyncio
-import os
 
 
 class AddSchema(BaseModel):

@@ -9,11 +9,9 @@ from dapr_agents.types import (
     MessageContent,
     MessagePlaceHolder,
     BaseMessage,
-    ChatCompletion,
 )
 from dapr_agents.tool.executor import AgentToolExecutor
 from dapr_agents.prompt.base import PromptTemplateBase
-from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.prompt import ChatPromptTemplate
 from dapr_agents.tool.base import AgentTool
 from typing import (
@@ -24,16 +22,11 @@ from typing import (
     Union,
     Callable,
     Literal,
-    Iterator,
-    Type,
-    Iterable,
-    Sequence,
 )
 from pydantic import BaseModel, Field, PrivateAttr, model_validator, ConfigDict
 from abc import ABC, abstractmethod
 from datetime import datetime
 import logging
-import os
 import asyncio
 import signal
 from dapr_agents.llm.openai import OpenAIChatClient

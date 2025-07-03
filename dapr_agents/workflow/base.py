@@ -30,7 +30,6 @@ from dapr_agents.types.workflow import DaprWorkflowStatus
 from dapr_agents.workflow.task import WorkflowTask
 from dapr_agents.workflow.utils import get_decorated_methods
 from dapr_agents.agents.base import ChatClientType
-from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.llm.openai import OpenAIChatClient
 
 logger = logging.getLogger(__name__)

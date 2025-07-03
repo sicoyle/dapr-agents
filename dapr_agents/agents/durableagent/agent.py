@@ -1,18 +1,16 @@
 import json
 import logging
-import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, Iterator
+from typing import Any, Dict, List, Optional, Union
 from dapr_agents.agents.base import AgentBase
 from dapr_agents.workflow.agentic import AgenticWorkflow
-from pydantic import Field, model_validator, PrivateAttr
+from pydantic import Field, model_validator
 
 
 from dapr.ext.workflow import DaprWorkflowContext  # type: ignore
 
 from dapr_agents.types import (
     AgentError,
-    ChatCompletion,
     ToolMessage,
 )
 from .schemas import (

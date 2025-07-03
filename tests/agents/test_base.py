@@ -1,20 +1,16 @@
 import pytest
 import asyncio
 import signal
-import os
-from unittest.mock import Mock, patch, MagicMock
-from typing import List, Dict, Any
+from unittest.mock import Mock, patch
 
 from dapr_agents.agents.base import AgentBase
-from dapr_agents.memory import ConversationListMemory, ConversationVectorMemory
+from dapr_agents.memory import ConversationListMemory
 from dapr_agents.llm import OpenAIChatClient
 from dapr_agents.prompt import ChatPromptTemplate
 from dapr_agents.tool.base import AgentTool
 from dapr_agents.types import MessageContent, MessagePlaceHolder
-from dapr_agents.storage import VectorStoreBase
 from .mocks.llm_client import MockLLMClient
 from .mocks.vectorstore import MockVectorStore
-from pydantic import PrivateAttr
 
 
 class TestAgentBase(AgentBase):
