@@ -56,6 +56,11 @@ def main():
         if hasattr(response, "choices") and response.choices:
             content = response.choices[0].message.content
             print(content)
+        elif isinstance(response, dict) and "outputs" in response:
+            # Handle the raw response format from echo component
+            output = response["outputs"][0]
+            content = output.get("result", "No content found")
+            print(content)
         else:
             print("Response received but format is unexpected")
             print(f"Response type: {type(response)}")
@@ -106,6 +111,11 @@ def main():
         # Extract and display the response
         if hasattr(response, "choices") and response.choices:
             content = response.choices[0].message.content
+            print(content)
+        elif isinstance(response, dict) and "outputs" in response:
+            # Handle the raw response format from echo component
+            output = response["outputs"][0]
+            content = output.get("result", "No content found")
             print(content)
 
         print(f"\n{Fore.MAGENTA}✅ Context conversation completed!{Style.RESET_ALL}")

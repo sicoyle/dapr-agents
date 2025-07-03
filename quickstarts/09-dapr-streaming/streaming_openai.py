@@ -62,11 +62,11 @@ def test_openai_conversation():
             ):
                 # Handle streaming content chunks
                 if (
-                    hasattr(chunk, "result")
-                    and chunk.result
-                    and hasattr(chunk.result, "result")
+                    hasattr(chunk, "chunk")
+                    and chunk.chunk
+                    and hasattr(chunk.chunk, "content")
                 ):
-                    chunk_content = chunk.result.result
+                    chunk_content = chunk.chunk.content
                     content_parts.append(chunk_content)
                     print(
                         f"{Fore.YELLOW}{chunk_content}{Style.RESET_ALL}",
@@ -75,8 +75,8 @@ def test_openai_conversation():
                     )
 
                 # Handle usage information in final chunk
-                if hasattr(chunk, "usage") and chunk.usage:
-                    final_usage = chunk.usage
+                if hasattr(chunk, "complete") and chunk.complete and hasattr(chunk.complete, "usage"):
+                    final_usage = chunk.complete.usage
 
             content = "".join(content_parts)
 

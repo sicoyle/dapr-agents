@@ -1,28 +1,34 @@
-# 10 - Dapr Tool Calling (In Development)
+# 10 - Dapr Tool Calling
 
-This quickstart demonstrates tool calling capabilities using Dapr agents. **Tool calling functionality is currently in active development** and will be available in future releases.
+This quickstart demonstrates tool calling capabilities using Dapr agents with two different approaches:
 
-## 🚧 Current Status
+1. **Direct Tool Calling** - Using `DaprChatClient` for immediate tool execution
+2. **AssistantAgent** - Using workflow-based agents for advanced tool calling with memory and state management
 
-- ✅ **Tool Definition**: `@tool` decorator works perfectly
+## ✅ Current Status
+
+- ✅ **Tool Definition**: `@tool` decorator and `AgentTool` classes work perfectly
 - ✅ **Tool Registration**: Tools are properly registered in dapr-agents
 - ✅ **Basic LLM Conversation**: Full support via Dapr components
-- 🚧 **Tool Calling Integration**: gRPC protocol support in development
-- 🚧 **Streaming + Tools**: Coming with streaming support
+- ✅ **Tool Calling Integration**: Working with improved Python SDK
+- ✅ **Streaming + Tools**: Streaming tool calling supported
+- ✅ **AssistantAgent**: Workflow-based agents with persistent memory
 
 ## What You'll Learn
 
-- How to define tools using the `@tool` decorator
+- How to define tools using the `@tool` decorator and `AgentTool` classes
+- Direct tool calling with `DaprChatClient`
+- Workflow-based tool calling with `AssistantAgent`
+- Streaming tool calling capabilities
+- Memory and state management in agents
 - Tool function signatures and documentation
-- **Preview**: How tool calling will work when available
-- Current architecture and development progress
-- Future capabilities and roadmap
 
 ## Prerequisites
 
 - Dapr CLI installed
 - Python 3.9+
-- OpenAI API key (for when tool calling becomes available)
+- Redis (for AssistantAgent state storage)
+- Optional: OpenAI/Anthropic API keys for real LLM providers
 
 ## Quick Start
 
@@ -32,18 +38,114 @@ This quickstart demonstrates tool calling capabilities using Dapr agents. **Tool
 pip install -r requirements.txt
 ```
 
-### 2. Start Dapr Sidecar
+### 2. Start Dapr with Components
 
 ```bash
-# From the quickstarts/10-dapr-tool-calling directory
+# Option A: Use the development helper (recommended)
+python ../../tools/run_dapr_dev.py --components ../../tests/components/local_dev
+
+# Option B: Manual Dapr start (from quickstarts/10-dapr-tool-calling directory)
 dapr run --app-id test-app --dapr-http-port 3500 --dapr-grpc-port 50001 --components-path ./components
 ```
 
-### 3. Explore Tool Definitions
+### 3. Try the Examples
 
+#### Direct Tool Calling (Simple)
 ```bash
-python tool_calling_openai.py
+# Basic tool calling with echo provider
+python simple_example.py
+
+# With OpenAI (requires API key)
+python simple_example.py --provider openai
+
+# With streaming
+python simple_example.py --provider openai --streaming
 ```
+
+#### AssistantAgent (Advanced)
+```bash
+# Workflow-based agent with memory
+python assistant_agent_example.py
+
+# With real LLM provider
+python assistant_agent_example.py --provider openai
+
+# Demo mode
+python assistant_agent_example.py --demo
+```
+
+## Two Approaches to Tool Calling
+
+### 🔧 Direct Tool Calling (`simple_example.py`)
+
+**Best for**: Simple tool execution, quick prototyping, stateless operations
+
+**Features**:
+- Immediate tool execution with `DaprChatClient`
+- Function-based (`@tool`) and class-based (`AgentTool`) tools
+- Streaming support
+- Minimal setup required
+
+**Example**:
+```python
+from dapr_agents.llm.dapr import DaprChatClient
+from dapr_agents.tool import tool
+
+@tool
+def get_weather(location: str) -> str:
+    return f"Weather in {location}: 72°F, sunny"
+
+client = DaprChatClient()
+response = client.generate(
+    messages=[{"role": "user", "content": "What's the weather in SF?"}],
+    tools=[get_weather],
+    llm_component="openai"
+)
+```
+
+### 🤖 AssistantAgent (`assistant_agent_example.py`)
+
+**Best for**: Complex workflows, persistent memory, multi-agent systems
+
+**Features**:
+- Workflow-based execution with Dapr Workflows
+- Persistent memory across conversations
+- Automatic tool calling iteration (up to max_iterations)
+- State management and recovery
+- Multi-agent communication
+- Service-based architecture
+
+**Example**:
+```python
+from dapr_agents import AssistantAgent
+from dapr_agents.memory import ConversationDaprStateMemory
+
+assistant = AssistantAgent(
+    name="ToolAssistant",
+    tools=[get_weather, calculate],
+    memory=ConversationDaprStateMemory(
+        store_name="conversationstore",
+        session_id="my-session"
+    ),
+    max_iterations=5
+)
+
+assistant.as_service(port=8002)
+await assistant.start()
+```
+
+### When to Use Which?
+
+| Feature | Direct Tool Calling | AssistantAgent |
+|---------|-------------------|----------------|
+| **Setup Complexity** | Low | Medium |
+| **Memory** | None | Persistent |
+| **State Management** | Manual | Automatic |
+| **Multi-iteration** | Manual | Automatic |
+| **Service Architecture** | Optional | Built-in |
+| **Agent Communication** | No | Yes |
+| **Workflow Support** | No | Yes |
+| **Best For** | Quick tasks | Complex workflows |
 
 ## Tool Definition Examples
 
@@ -117,87 +219,107 @@ def text_analysis(text: str) -> str:
     return f"Text Analysis: {json.dumps(analysis, indent=2)}"
 ```
 
-## 🚀 Coming Soon: Full Tool Calling
-
-When tool calling becomes available, you'll be able to:
+## ✅ Tool Calling in Action
 
 ### Intelligent Tool Selection
 ```python
-# Future tool calling API (in development)
-from dapr_agents.llm import DaprChatClient
+# Working tool calling API
+from dapr_agents.llm.dapr import DaprChatClient
 
-llm = DaprChatClient()
+client = DaprChatClient()
 
-response = llm.generate(
+response = client.generate(
     messages=[{"role": "user", "content": "What time is it and calculate 25 * 4?"}],
-    tools=[get_current_time, calculate_math],  # This will work soon!
+    tools=[get_current_time, calculate_math],
     llm_component="openai"
 )
 
-# The LLM will automatically choose and execute the right tools
+# The LLM automatically chooses and executes the right tools
 ```
 
 ### Streaming with Tool Calling
 ```python
-# Future streaming + tool calling (in development)
-response_stream = llm.generate(
+# Streaming + tool calling working now!
+response_stream = client.generate(
     messages=[{"role": "user", "content": "Analyze this text and tell me the time"}],
     tools=[text_analysis, get_current_time],
-    stream=True,  # Both streaming AND tool calling!
+    stream=True,
     llm_component="openai"
 )
 
 for chunk in response_stream:
-    if chunk.get("type") == "content":
-        print(chunk["data"], end='', flush=True)
-    elif chunk.get("type") == "tool_call":
-        print(f"\n[Using tool: {chunk['data']['name']}]")
-    elif chunk.get("type") == "tool_result":
-        print(f"[Tool completed: {chunk['data']}]")
+    if hasattr(chunk, 'chunk') and chunk.chunk:
+        print(chunk.chunk.content, end='', flush=True)
+    elif hasattr(chunk, 'complete'):
+        print(f"\n✅ Completed: {chunk.complete.usage}")
 ```
 
-## Current Architecture
+## Architecture Overview
 
-### How Tools Work Today ✅
-1. **Tool Definition**: `@tool` decorator registers functions
-2. **Tool Registry**: Tools are collected and formatted
-3. **OpenAI Format**: Tools convert to proper OpenAI tool format
-4. **Local Execution**: Tools execute in dapr-agents applications
+### How Tools Work ✅
+1. **Tool Definition**: `@tool` decorator and `AgentTool` classes register functions
+2. **Tool Registry**: Tools are collected and formatted for LLMs
+3. **OpenAI Format**: Tools convert to proper OpenAI tool calling format
+4. **Execution**: Tools execute locally in dapr-agents applications
+5. **Integration**: Works with improved Python SDK for Dapr
 
-### What's Missing 🚧
-1. **gRPC Protocol**: Tool transport from Python SDK to Dapr Runtime
-2. **LLM Integration**: Tools need to reach OpenAI/other LLM components
-3. **Response Handling**: Tool results need to flow back through the system
-4. **Streaming Support**: Real-time tool calling with streaming responses
+### Direct Tool Calling Flow
+1. Define tools with `@tool` or `AgentTool`
+2. Pass tools to `DaprChatClient.generate()`
+3. LLM decides which tools to call
+4. Tools execute and return results
+5. LLM incorporates results into response
 
-## Development Progress
+### AssistantAgent Workflow Flow
+1. Define tools and create AssistantAgent
+2. Agent runs as Dapr workflow
+3. Automatic tool calling iteration
+4. Persistent state and memory management
+5. Multi-agent communication support
 
-### Phase 1: Foundation ✅
+## Complete Feature Set ✅
+
+### Core Features
 - [x] `@tool` decorator implementation
+- [x] `AgentTool` class-based tools
 - [x] Tool registry and management
 - [x] OpenAI format conversion
 - [x] Local tool execution
+- [x] Direct tool calling via `DaprChatClient`
+- [x] Streaming + tool calling
+- [x] AssistantAgent workflow-based execution
+- [x] Persistent memory and state
+- [x] Multi-iteration tool workflows
+- [x] Error handling and recovery
 
-### Phase 2: Transport Layer 🚧
-- [ ] gRPC protocol update for tools
-- [ ] Python SDK tool serialization
-- [ ] Dapr Runtime tool forwarding
-- [ ] LLM component tool integration
+### Advanced Features
+- [x] Function-based and class-based tools
+- [x] Tool parameter validation
+- [x] Async tool execution support
+- [x] Tool execution history
+- [x] Memory integration
+- [x] Multi-agent communication
+- [x] Workflow state management
 
-### Phase 3: Advanced Features 📋
-- [ ] Streaming + tool calling
-- [ ] Multi-step tool workflows
-- [ ] Tool calling with context
-- [ ] Error handling and retries
+## Testing the Implementation
 
-## Testing Current Implementation
-
-You can test the tool definition and formatting:
+Both approaches are fully functional:
 
 ```python
-# This works today - tool definition and conversion
+# Test direct tool calling
+from dapr_agents.llm.dapr import DaprChatClient
 from dapr_agents.tool import tool
-from dapr_agents.agent.utils.factory import AgentFactory
+
+@tool
+def example_tool(message: str) -> str:
+    return f"Processed: {message}"
+
+client = DaprChatClient()
+response = client.generate(
+    messages=[{"role": "user", "content": "Use the example tool"}],
+    tools=[example_tool],
+    llm_component="echo"
+)
 
 @tool
 def my_tool(param: str) -> str:

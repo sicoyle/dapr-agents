@@ -235,16 +235,10 @@ def run_simple_example(
                 tools=tools,
                 stream=True,
             ):
-                if chunk.get("choices") and chunk["choices"]:
-                    choice = chunk["choices"][0]
-                    if choice.get("delta", {}).get("content"):
-                        print(choice["delta"]["content"], end="", flush=True)
-                    elif choice.get("delta", {}).get("tool_calls"):
-                        print(
-                            f"\n🔧 Tool calls: {json.dumps(choice['delta']['tool_calls'], indent=2)}"
-                        )
-                    elif choice.get("finish_reason"):
-                        print(f"\n✅ Finished: {choice['finish_reason']}")
+                if hasattr(chunk, "chunk") and chunk.chunk and hasattr(chunk.chunk, "content"):
+                    print(chunk.chunk.content, end="", flush=True)
+                elif hasattr(chunk, "complete") and chunk.complete:
+                    print(f"\n✅ Completed with usage: {chunk.complete.usage}")
 
         else:
             # Non-streaming response
@@ -255,10 +249,21 @@ def run_simple_example(
                 stream=False,
             )
 
-            print(json.dumps(response, indent=2))
+            if hasattr(response, "choices") and response.choices:
+                content = response.choices[0].message.content
+                print(content)
+            elif isinstance(response, dict) and "outputs" in response:
+                # Handle the raw response format
+                output = response["outputs"][0]
+                content = output.get("result", "No content found")
+                print(content)
+            else:
+                print(json.dumps(response, indent=2, default=str))
 
     except Exception as e:
         print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def main():

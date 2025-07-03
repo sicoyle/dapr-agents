@@ -4,7 +4,7 @@ from dapr_agents.prompt.prompty import Prompty
 from dapr_agents.types.message import BaseMessage
 from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.tool import AgentTool
-from dapr.clients.grpc._request import ConversationInput, Tool, ToolFunction
+from dapr.clients.grpc._request import ConversationInput, Tool
 from typing import (
     Union,
     Optional,
@@ -100,17 +100,13 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             # Use the original tool name directly
             tool_name = func_def["name"]
 
-            # Create ToolFunction with JSON string parameters
-            tool_function = ToolFunction(
+            # Create Tool using the correct constructor format
+            sdk_tool = Tool(
+                type="function",
                 name=tool_name,
                 description=func_def["description"],
-                parameters=json.dumps(
-                    func_def["parameters"]
-                ),  # Convert dict to JSON string
+                parameters=json.dumps(func_def["parameters"]),  # Convert dict to JSON string
             )
-
-            # Create Tool
-            sdk_tool = Tool(type="function", function=tool_function)
 
             sdk_tools.append(sdk_tool)
 

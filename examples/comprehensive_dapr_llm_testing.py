@@ -68,8 +68,9 @@ def test_echo_component():
     try:
         with DaprClient() as client:
             inputs = [
-                ConversationInput(
-                    content="Hello from the echo component test!", role="user"
+                ConversationInput.from_text(
+                    text="Hello from the echo component test!",
+                    role="user"
                 )
             ]
 
@@ -85,15 +86,18 @@ def test_echo_component():
 
             # Streaming test
             print("\n📡 Testing streaming...")
-            inputs[0].content = "This is a streaming test with echo!"
+            inputs = [ConversationInput.from_text(
+                text="This is a streaming test with echo!",
+                role="user"
+            )]
             print("📤 Streaming: This is a streaming test with echo!")
             print("📥 Streamed response: ", end="", flush=True)
 
             for chunk in client.converse_stream_alpha1(
                 name="echo", inputs=inputs, context_id="echo-stream-456"
             ):
-                if chunk.result and chunk.result.result:
-                    print(chunk.result.result, end="", flush=True)
+                if chunk.chunk and chunk.chunk.content:
+                    print(chunk.chunk.content, end="", flush=True)
 
             print("\n✅ Echo component test completed successfully")
             return True
@@ -121,8 +125,9 @@ def test_openai_component():
     try:
         with DaprClient() as client:
             inputs = [
-                ConversationInput(
-                    content="Write a haiku about programming", role="user"
+                ConversationInput.from_text(
+                    text="Write a haiku about programming",
+                    role="user"
                 )
             ]
 
@@ -143,7 +148,10 @@ def test_openai_component():
 
             # Streaming test
             print("\n📡 Testing streaming...")
-            inputs[0].content = "Tell me a short joke about AI"
+            inputs = [ConversationInput.from_text(
+                text="Tell me a short joke about AI",
+                role="user"
+            )]
             print("📤 Streaming: Tell me a short joke about AI")
             print("📥 Streamed response: ", end="", flush=True)
 
@@ -154,10 +162,10 @@ def test_openai_component():
                 temperature=0.8,
                 context_id="openai-stream-456",
             ):
-                if chunk.result and chunk.result.result:
-                    print(chunk.result.result, end="", flush=True)
-                if chunk.usage:
-                    total_tokens = chunk.usage.total_tokens
+                if chunk.chunk and chunk.chunk.content:
+                    print(chunk.chunk.content, end="", flush=True)
+                if chunk.complete and chunk.complete.usage:
+                    total_tokens = chunk.complete.usage.total_tokens
 
             if total_tokens:
                 print(f"\n📊 Total tokens used: {total_tokens}")
@@ -190,8 +198,9 @@ def test_anthropic_component():
     try:
         with DaprClient() as client:
             inputs = [
-                ConversationInput(
-                    content="Explain quantum computing in simple terms", role="user"
+                ConversationInput.from_text(
+                    text="Explain quantum computing in simple terms",
+                    role="user"
                 )
             ]
 
@@ -202,33 +211,34 @@ def test_anthropic_component():
             response = client.converse_alpha1(
                 name="anthropic",
                 inputs=inputs,
-                temperature=0.6,
+                temperature=0.7,
                 context_id="anthropic-test-123",
             )
 
-            print(f"📥 Response: {response.outputs[0].result[:200]}...")
+            print(f"📥 Response: {response.outputs[0].result}")
             if response.usage:
                 print(f"📊 Usage: {response.usage.total_tokens} tokens")
 
             # Streaming test
             print("\n📡 Testing streaming...")
-            inputs[0].content = "What's the difference between AI and machine learning?"
-            print(
-                "📤 Streaming: What's the difference between AI and machine learning?"
-            )
+            inputs = [ConversationInput.from_text(
+                text="What are three benefits of renewable energy?",
+                role="user"
+            )]
+            print("📤 Streaming: What are three benefits of renewable energy?")
             print("📥 Streamed response: ", end="", flush=True)
 
             total_tokens = 0
             for chunk in client.converse_stream_alpha1(
                 name="anthropic",
                 inputs=inputs,
-                temperature=0.7,
+                temperature=0.8,
                 context_id="anthropic-stream-456",
             ):
-                if chunk.result and chunk.result.result:
-                    print(chunk.result.result, end="", flush=True)
-                if chunk.usage:
-                    total_tokens = chunk.usage.total_tokens
+                if chunk.chunk and chunk.chunk.content:
+                    print(chunk.chunk.content, end="", flush=True)
+                if chunk.complete and chunk.complete.usage:
+                    total_tokens = chunk.complete.usage.total_tokens
 
             if total_tokens:
                 print(f"\n📊 Total tokens used: {total_tokens}")
@@ -242,128 +252,175 @@ def test_anthropic_component():
         return False
 
 
+def create_echo_component():
+    """Create echo component configuration."""
+    component_dir = Path("components")
+    component_dir.mkdir(exist_ok=True)
+
+    echo_config = """apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: echo
+spec:
+  type: conversation.echo
+  version: v1
+  metadata: []
+"""
+
+    echo_file = component_dir / "echo-conversation.yaml"
+    with open(echo_file, "w") as f:
+        f.write(echo_config)
+
+    print(f"✅ Created echo component: {echo_file}")
+
+
+def create_openai_component():
+    """Create OpenAI component configuration."""
+    component_dir = Path("components")
+    component_dir.mkdir(exist_ok=True)
+
+    openai_config = """apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: openai
+spec:
+  type: conversation.openai
+  version: v1
+  metadata:
+  - name: apiKey
+    value: "{openai_api_key}"
+  - name: model
+    value: "gpt-3.5-turbo"
+""".format(
+        openai_api_key=os.getenv("OPENAI_API_KEY", "your_openai_api_key_here")
+    )
+
+    openai_file = component_dir / "openai-conversation.yaml"
+    with open(openai_file, "w") as f:
+        f.write(openai_config)
+
+    print(f"✅ Created OpenAI component: {openai_file}")
+
+
 def create_anthropic_component():
-    """Create Anthropic component configuration if it doesn't exist."""
-    components_dir = Path("components")
-    anthropic_file = components_dir / "anthropic-conversation.yaml"
+    """Create Anthropic component configuration."""
+    component_dir = Path("components")
+    component_dir.mkdir(exist_ok=True)
 
-    if not anthropic_file.exists():
-        print("📝 Creating Anthropic component configuration...")
-        components_dir.mkdir(exist_ok=True)
-
-        config = """apiVersion: dapr.io/v1alpha1
+    anthropic_config = """apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
   name: anthropic
 spec:
   type: conversation.anthropic
+  version: v1
   metadata:
-    - name: key
-      value: "${ANTHROPIC_API_KEY}"
-    - name: model
-      value: "claude-3-haiku-20240307"
-    - name: cacheTTL
-      value: "10m"
-    - name: temperature
-      value: "0.7"
-    - name: maxTokens
-      value: "1000"
-"""
-        anthropic_file.write_text(config)
-        print(f"✅ Created: {anthropic_file}")
-    else:
-        print(f"✅ Anthropic component already exists: {anthropic_file}")
+  - name: apiKey
+    value: "{anthropic_api_key}"
+  - name: model
+    value: "claude-3-haiku-20240307"
+""".format(
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", "your_anthropic_api_key_here")
+    )
+
+    anthropic_file = component_dir / "anthropic-conversation.yaml"
+    with open(anthropic_file, "w") as f:
+        f.write(anthropic_config)
+
+    print(f"✅ Created Anthropic component: {anthropic_file}")
 
 
 def show_component_configurations():
-    """Show the current component configurations."""
-    print("\n📋 Component Configurations")
-    print("=" * 40)
+    """Show available component configurations."""
+    print("\n📋 Component Configuration Examples")
+    print("=" * 50)
 
-    components_dir = Path("components")
-    if not components_dir.exists():
-        print("❌ Components directory not found")
-        return
+    print("\n🔊 Echo Component (echo-conversation.yaml):")
+    print("- No API key required")
+    print("- Useful for testing")
+    print("- Simply echoes back the input")
 
-    for yaml_file in components_dir.glob("*-conversation.yaml"):
-        print(f"\n📄 {yaml_file.name}:")
-        try:
-            content = yaml_file.read_text()
-            # Extract component name and type
-            lines = content.split("\n")
-            name = next(
-                (line.split(":")[1].strip() for line in lines if "name:" in line),
-                "unknown",
-            )
-            comp_type = next(
-                (line.split(":")[1].strip() for line in lines if "type:" in line),
-                "unknown",
-            )
-            print(f"   Name: {name}")
-            print(f"   Type: {comp_type}")
-        except Exception as e:
-            print(f"   Error reading file: {e}")
+    print("\n🤖 OpenAI Component (openai-conversation.yaml):")
+    print("- Requires OPENAI_API_KEY environment variable")
+    print("- Uses gpt-3.5-turbo model")
+    print("- Supports streaming and non-streaming")
+
+    print("\n🧠 Anthropic Component (anthropic-conversation.yaml):")
+    print("- Requires ANTHROPIC_API_KEY environment variable")
+    print("- Uses claude-3-haiku-20240307 model")
+    print("- Supports streaming and non-streaming")
+
+    print("\n💡 Auto-create components with:")
+    print("   python comprehensive_dapr_llm_testing.py --create-components")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Test Dapr LLM components")
+    """Main function."""
+    parser = argparse.ArgumentParser(description="Comprehensive Dapr LLM Testing")
     parser.add_argument(
         "--component",
-        choices=["echo", "openai", "anthropic", "all"],
-        default="all",
-        help="Which component to test (default: all)",
+        choices=["echo", "openai", "anthropic"],
+        help="Test specific component",
     )
     parser.add_argument(
         "--show-config", action="store_true", help="Show component configurations"
     )
+    parser.add_argument(
+        "--create-components",
+        action="store_true",
+        help="Create component configuration files",
+    )
 
     args = parser.parse_args()
 
-    print("🚀 Dapr LLM Components Test Suite")
+    print("🧪 Comprehensive Dapr LLM Testing Suite")
     print("=" * 50)
 
     if args.show_config:
         show_component_configurations()
         return
 
-    # Check prerequisites
+    if args.create_components:
+        print("📁 Creating component configurations...")
+        create_echo_component()
+        create_openai_component()
+        create_anthropic_component()
+        print("\n✅ All components created!")
+        return
+
     if not check_prerequisites():
         sys.exit(1)
 
-    # Create Anthropic component if needed
-    create_anthropic_component()
+    # Test specific component or all
+    results = {}
 
-    # Show available components
-    show_component_configurations()
+    if args.component == "echo" or not args.component:
+        results["echo"] = test_echo_component()
 
-    # Run tests based on selection
-    success = True
+    if args.component == "openai" or not args.component:
+        results["openai"] = test_openai_component()
 
-    if args.component == "all" or args.component == "echo":
-        success &= test_echo_component()
+    if args.component == "anthropic" or not args.component:
+        results["anthropic"] = test_anthropic_component()
 
-    if args.component == "all" or args.component == "openai":
-        success &= test_openai_component()
-
-    if args.component == "all" or args.component == "anthropic":
-        success &= test_anthropic_component()
-
+    # Summary
     print("\n" + "=" * 50)
-    if success:
-        print("🎉 All tests completed successfully!")
-        print("\n💡 Next steps:")
-        print("   - Try the dapr-agents examples in quickstarts/")
-        print("   - Build your own agents with tool calling")
-        print("   - Explore streaming capabilities")
-    else:
-        print("❌ Some tests failed")
-        print("\n🔧 Troubleshooting:")
-        print("   - Check API keys are set correctly")
-        print("   - Verify component configurations")
-        print("   - Ensure Dapr sidecar is running")
+    print("📊 Test Results Summary")
+    print("=" * 50)
 
-    return 0 if success else 1
+    for component, success in results.items():
+        status = "✅ PASSED" if success else "❌ FAILED"
+        print(f"{component.upper()}: {status}")
+
+    total_tests = len(results)
+    passed_tests = sum(results.values())
+    print(f"\nOverall: {passed_tests}/{total_tests} tests passed")
+
+    if passed_tests == total_tests:
+        print("🎉 All tests passed!")
+    else:
+        print("⚠️  Some tests failed - check configuration and API keys")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

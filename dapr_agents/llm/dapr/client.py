@@ -53,12 +53,29 @@ class DaprInferenceClient:
         temperature: float | None = None,
         parameters: Optional[Dict[str, Any]] = None,
     ) -> Any:
+        # Extract tools from ConversationInput objects for request-level tools parameter
+        tools = []
+        for conv_input in conversation_inputs:
+            if hasattr(conv_input, 'tools') and conv_input.tools:
+                tools.extend(conv_input.tools)
+                # Clear tools from ConversationInput since we're passing them at request level
+                conv_input.tools = None
+        
+        # Remove duplicates while preserving order
+        unique_tools = []
+        seen_names = set()
+        for tool in tools:
+            if tool.name not in seen_names:
+                unique_tools.append(tool)
+                seen_names.add(tool.name)
+        
         response = self.dapr_client.converse_alpha1(
             name=llm,
             inputs=conversation_inputs,
             scrub_pii=scrub_pii,
             temperature=temperature,
             parameters=parameters,
+            tools=unique_tools if unique_tools else None,  # Pass tools at request level
         )
         output = self.translate_to_json(response)
 
@@ -88,8 +105,27 @@ class DaprInferenceClient:
         """
         logger.info(f"Starting streaming conversation with LLM component: {llm}")
 
+        # Extract tools from ConversationInput objects for request-level tools parameter
+        tools = []
+        for conv_input in conversation_inputs:
+            if hasattr(conv_input, 'tools') and conv_input.tools:
+                tools.extend(conv_input.tools)
+                # Clear tools from ConversationInput since we're passing them at request level
+                conv_input.tools = None
+        
+        # Remove duplicates while preserving order
+        unique_tools = []
+        seen_names = set()
+        for tool in tools:
+            if tool.name not in seen_names:
+                unique_tools.append(tool)
+                seen_names.add(tool.name)
+
+        logger.info(f"🔧 Extracted {len(unique_tools)} unique tools for request level")
+
         try:
             # Use converse_stream_alpha1 and transform to JSON format
+            chunk_count = 0
             for chunk in self.dapr_client.converse_stream_alpha1(
                 name=llm,
                 inputs=conversation_inputs,
@@ -97,67 +133,183 @@ class DaprInferenceClient:
                 scrub_pii=scrub_pii,
                 temperature=temperature,
                 parameters=parameters,
+                tools=unique_tools if unique_tools else None,  # Pass tools at request level
             ):
-                # Transform the chunk to JSON format compatible with common LLM APIs
-                chunk_dict = {
-                    "choices": [],
-                    "context_id": None,
-                    "usage": None,
-                }
+                chunk_count += 1
+                logger.debug(f"📦 Received chunk {chunk_count}: type={type(chunk)}")
+                logger.debug(f"   • Has chunk attr: {hasattr(chunk, 'chunk')}")
+                logger.debug(f"   • Has complete attr: {hasattr(chunk, 'complete')}")
+                logger.debug(f"   • Has context_id attr: {hasattr(chunk, 'context_id')}")
+                
+                # Debug chunk content
+                if hasattr(chunk, 'chunk'):
+                    logger.debug(f"   • chunk.chunk: {chunk.chunk}")
+                    if chunk.chunk and hasattr(chunk.chunk, 'content'):
+                        logger.debug(f"   • chunk.chunk.content: {repr(chunk.chunk.content)}")
+                
+                if hasattr(chunk, 'complete'):
+                    logger.debug(f"   • chunk.complete: {chunk.complete}")
+                    if chunk.complete:
+                        logger.debug(f"   • complete has tool_calls: {hasattr(chunk.complete, 'tool_calls')}")
+                        logger.debug(f"   • complete has usage: {hasattr(chunk.complete, 'usage')}")
+                        if hasattr(chunk.complete, 'tool_calls') and chunk.complete.tool_calls:
+                            logger.debug(f"   • tool_calls count: {len(chunk.complete.tool_calls)}")
 
-                # Handle streaming result chunks
-                if hasattr(chunk, "result") and chunk.result:
-                    choice_dict = {"delta": {}, "index": 0, "finish_reason": None}
-
-                    # Handle content
-                    if hasattr(chunk.result, "result") and chunk.result.result:
-                        choice_dict["delta"]["content"] = chunk.result.result
-                        choice_dict["delta"]["role"] = "assistant"
-
-                    # Handle tool calls in streaming
-                    if hasattr(chunk.result, "tool_calls") and chunk.result.tool_calls:
-                        tool_calls = []
-                        for tool_call in chunk.result.tool_calls:
-                            tool_call_dict = {
-                                "id": tool_call.id,
-                                "type": tool_call.type,
-                                "function": {
-                                    "name": tool_call.function.name,
-                                    "arguments": tool_call.function.arguments,
+                # Handle streaming chunks (content or tool calls)
+                if hasattr(chunk, "chunk") and chunk.chunk:
+                    chunk_obj = chunk.chunk
+                    
+                    # Handle text content
+                    if hasattr(chunk_obj, "content") and chunk_obj.content:
+                        chunk_content = chunk_obj.content
+                        logger.debug(f"   • Streaming content: '{str(chunk_content)[:50]}...'")
+                        
+                        chunk_dict = {
+                            "choices": [{
+                                "delta": {
+                                    "content": chunk_content,
+                                    "role": "assistant"
                                 },
+                                "index": 0,
+                                "finish_reason": None
+                            }],
+                            "context_id": getattr(chunk, "context_id", None),
+                            "usage": None,
+                        }
+                        yield chunk_dict
+                    
+                    # Handle tool calls in chunk.chunk.parts
+                    elif hasattr(chunk_obj, "parts") and chunk_obj.parts:
+                        logger.debug(f"   • Found {len(chunk_obj.parts)} parts in chunk")
+                        
+                        for part in chunk_obj.parts:
+                            if hasattr(part, "tool_call") and part.tool_call:
+                                tool_call = part.tool_call
+                                logger.info(f"🔧 Found tool call: {tool_call.name}")
+                                
+                                tool_call_chunk = {
+                                    "choices": [{
+                                        "delta": {
+                                            "tool_calls": [{
+                                                "id": tool_call.id,
+                                                "type": tool_call.type,
+                                                "function": {
+                                                    "name": tool_call.name,
+                                                    "arguments": tool_call.arguments,
+                                                },
+                                            }]
+                                        },
+                                        "index": 0,
+                                        "finish_reason": None
+                                    }],
+                                    "context_id": getattr(chunk, "context_id", None),
+                                    "usage": None,
+                                }
+                                yield tool_call_chunk
+                        
+                        # Send finish reason for tool calls
+                        if hasattr(chunk_obj, "finish_reason") and chunk_obj.finish_reason == "tool_calls":
+                            final_tool_chunk = {
+                                "choices": [{
+                                    "delta": {},
+                                    "index": 0,
+                                    "finish_reason": "tool_calls"
+                                }],
+                                "context_id": getattr(chunk, "context_id", None),
+                                "usage": None,
                             }
-                            tool_calls.append(tool_call_dict)
-                        choice_dict["delta"]["tool_calls"] = tool_calls
+                            yield final_tool_chunk
 
-                    # Handle finish reason
-                    if (
-                        hasattr(chunk.result, "finish_reason")
-                        and chunk.result.finish_reason
-                    ):
-                        choice_dict["finish_reason"] = chunk.result.finish_reason
+                # Handle completion chunk (chunk.complete with tool calls and usage)
+                elif hasattr(chunk, "complete") and chunk.complete:
+                    logger.debug(f"   • Complete chunk received")
+                    complete = chunk.complete
+                    
+                    # Check for tool calls in complete chunk
+                    if hasattr(complete, "tool_calls") and complete.tool_calls:
+                        logger.info(f"🔧 Found {len(complete.tool_calls)} tool calls in complete chunk")
+                        
+                        # Send tool calls as separate chunks (OpenAI-compatible streaming)
+                        for i, tool_call in enumerate(complete.tool_calls):
+                            logger.debug(f"   • Tool call {i+1}: {tool_call.function.name}")
+                            
+                            tool_call_chunk = {
+                                "choices": [{
+                                    "delta": {
+                                        "tool_calls": [{
+                                            "id": tool_call.id,
+                                            "type": tool_call.type,
+                                            "function": {
+                                                "name": tool_call.function.name,
+                                                "arguments": tool_call.function.arguments,
+                                            },
+                                        }]
+                                    },
+                                    "index": 0,
+                                    "finish_reason": None
+                                }],
+                                "context_id": getattr(chunk, "context_id", None),
+                                "usage": None,
+                            }
+                            yield tool_call_chunk
+                        
+                        # Send final chunk with finish_reason for tool calls
+                        final_tool_chunk = {
+                            "choices": [{
+                                "delta": {},
+                                "index": 0,
+                                "finish_reason": "tool_calls"
+                            }],
+                            "context_id": getattr(chunk, "context_id", None),
+                            "usage": None,
+                        }
+                        yield final_tool_chunk
 
-                    # Only add choice if there's actual content
-                    if choice_dict["delta"] or choice_dict["finish_reason"]:
-                        chunk_dict["choices"] = [choice_dict]
+                    # Handle usage information
+                    if hasattr(complete, "usage") and complete.usage:
+                        logger.debug(f"   • Usage info: {complete.usage}")
+                        
+                        usage_chunk = {
+                            "choices": [],
+                            "context_id": getattr(chunk, "context_id", None),
+                            "usage": {
+                                "prompt_tokens": getattr(complete.usage, "prompt_tokens", 0),
+                                "completion_tokens": getattr(complete.usage, "completion_tokens", 0),
+                                "total_tokens": getattr(complete.usage, "total_tokens", 0),
+                            }
+                        }
+                        yield usage_chunk
 
-                # Handle context ID
-                if hasattr(chunk, "context_id") and chunk.context_id:
-                    chunk_dict["context_id"] = chunk.context_id
+                    # If no tool calls, send normal completion
+                    if not (hasattr(complete, "tool_calls") and complete.tool_calls):
+                        finish_chunk = {
+                            "choices": [{
+                                "delta": {},
+                                "index": 0,
+                                "finish_reason": getattr(complete, "finish_reason", "stop")
+                            }],
+                            "context_id": getattr(chunk, "context_id", None),
+                            "usage": None,
+                        }
+                        yield finish_chunk
 
-                # Handle usage information (typically in the final chunk)
-                if hasattr(chunk, "usage") and chunk.usage:
-                    chunk_dict["usage"] = {
-                        "prompt_tokens": getattr(chunk.usage, "prompt_tokens", 0),
-                        "completion_tokens": getattr(
-                            chunk.usage, "completion_tokens", 0
-                        ),
-                        "total_tokens": getattr(chunk.usage, "total_tokens", 0),
+                # Handle context ID updates
+                elif hasattr(chunk, "context_id") and chunk.context_id:
+                    logger.debug(f"   • Context ID: {chunk.context_id}")
+                    context_chunk = {
+                        "choices": [],
+                        "context_id": chunk.context_id,
+                        "usage": None,
                     }
+                    yield context_chunk
 
-                yield chunk_dict
+                else:
+                    logger.debug(f"   • Unknown chunk type, skipping")
+
+            logger.info(f"✅ Streaming completed, processed {chunk_count} chunks")
 
         except Exception as e:
-            logger.error(f"Error during streaming conversation: {e}")
+            logger.error(f"❌ Error during streaming conversation: {e}")
             raise
 
 

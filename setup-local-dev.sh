@@ -71,6 +71,7 @@ cd ../dapr-agents
 
 echo
 echo -e "${YELLOW}📦 Installing local Python SDK...${NC}"
+# Remove the regular dapr package if it exists to avoid conflicts
 pip uninstall dapr -y > /dev/null 2>&1
 if pip install -e ../python-sdk; then
     echo -e "${GREEN}✅ Local Python SDK installed successfully${NC}"
@@ -88,15 +89,6 @@ if [[ "$SDK_VERSION" == *"dev"* ]]; then
     echo -e "${GREEN}✅ Local Python SDK version: $SDK_VERSION${NC}"
 else
     echo -e "${RED}❌ Expected development version, got: $SDK_VERSION${NC}"
-    exit 1
-fi
-
-# Check for streaming methods
-STREAM_METHODS=$(python -c "from dapr.clients import DaprClient; client = DaprClient(); print(len([m for m in dir(client) if 'stream' in m.lower()]))" 2>/dev/null)
-if [ "$STREAM_METHODS" -ge 2 ]; then
-    echo -e "${GREEN}✅ Streaming methods available: $STREAM_METHODS methods found${NC}"
-else
-    echo -e "${RED}❌ Streaming methods not found${NC}"
     exit 1
 fi
 

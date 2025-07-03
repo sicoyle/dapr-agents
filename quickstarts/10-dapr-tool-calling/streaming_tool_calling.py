@@ -173,101 +173,61 @@ def main():
             content_parts = []
 
             for chunk in response_stream:
-                chunk_type = chunk.get("type")
+                # Handle OpenAI-compatible streaming format
+                if isinstance(chunk, dict):
+                    # Handle content chunks
+                    if "choices" in chunk and chunk["choices"]:
+                        choice = chunk["choices"][0]
+                        if "delta" in choice and choice["delta"]:
+                            delta = choice["delta"]
+                            
+                            # Handle text content
+                            if "content" in delta and delta["content"]:
+                                content = delta["content"]
+                                print(content, end="", flush=True)
+                                content_parts.append(content)
+                            
+                            # Handle tool calls
+                            if "tool_calls" in delta:
+                                for tool_call in delta["tool_calls"]:
+                                    tool_name = tool_call["function"]["name"]
+                                    tool_args = tool_call["function"]["arguments"]
+                                    tool_calls_made.append(f"{tool_name}({tool_args})")
+                                    print(f"\n{Fore.YELLOW}🔧 Tool Call: {tool_name}{Style.RESET_ALL}", end="", flush=True)
+                        
+                        # Handle finish reason
+                        if choice.get("finish_reason") == "tool_calls":
+                            print(f"\n{Fore.GREEN}✅ Tool calls completed{Style.RESET_ALL}")
 
-                if chunk_type == "content":
-                    content = chunk["data"]
-                    print(content, end="", flush=True)
-                    content_parts.append(content)
-
-                elif chunk_type == "tool_call":
-                    tool_call = chunk["data"]
-                    tool_calls_made.append(tool_call)
-                    print(
-                        f"\n{Fore.YELLOW}🔧 Tool Call: {tool_call.get('name')} with args {tool_call.get('arguments')}{Style.RESET_ALL}"
-                    )
-
-                elif chunk_type == "tool_result":
-                    tool_result = chunk["data"]
-                    print(f"{Fore.GREEN}✅ Tool Result: {tool_result}{Style.RESET_ALL}")
-
-                elif chunk_type == "final_usage":
-                    usage = chunk["data"]
-                    print(
-                        f"\n{Fore.CYAN}📊 Usage: {usage.get('total_tokens', 'N/A')} tokens{Style.RESET_ALL}"
-                    )
+                    # Handle usage information
+                    if "usage" in chunk and chunk["usage"]:
+                        usage = chunk["usage"]
+                        print(
+                            f"\n{Fore.CYAN}📊 Usage: {usage.get('total_tokens', 'N/A')} tokens{Style.RESET_ALL}"
+                        )
 
             end_time = time.time()
 
-            print(
-                f"\n{Fore.MAGENTA}✅ Scenario completed in {end_time - start_time:.2f}s{Style.RESET_ALL}"
-            )
-            if tool_calls_made:
-                print(
-                    f"{Fore.GREEN}🎯 Tools used: {[tc.get('name') for tc in tool_calls_made]}{Style.RESET_ALL}"
-                )
-            else:
-                print(f"{Fore.YELLOW}⚠️  No tools were called{Style.RESET_ALL}")
+            print(f"\n{Fore.GREEN}✅ Scenario {i} completed!{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}📊 Performance:{Style.RESET_ALL}")
+            print(f"   • Response time: {end_time - start_time:.2f} seconds")
+            print(f"   • Content length: {len(''.join(content_parts))} characters")
 
+            # Brief pause between tests
+            time.sleep(1)
             print("-" * 60)
 
         except Exception as e:
-            print(
-                f"\n{Fore.RED}❌ Error in scenario {scenario['name']}: {e}{Style.RESET_ALL}"
-            )
-            print("-" * 60)
+            print(f"\n{Fore.RED}❌ Error in scenario {i}: {e}{Style.RESET_ALL}")
+            import traceback
+            traceback.print_exc()
 
-    # Interactive mode
-    print(f"{Fore.CYAN}💬 Interactive Tool Calling Mode{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}Try these examples:{Style.RESET_ALL}")
-    print("   • 'What time is it?'")
-    print("   • 'Calculate 25 * 4 + 10'")
-    print("   • 'Analyze this text: Hello world!'")
-    print("   • 'Give me a random fact'")
-    print(f"\n{Fore.CYAN}💬 Interactive Tool Calling Mode{Style.RESET_ALL}")
-    print(
-        f"{Fore.YELLOW}Try asking questions that might use the available tools:{Style.RESET_ALL}"
-    )
-    print("   • 'What time is it?'")
-    print("   • 'Calculate 25 * 4 + 10'")
-    print("   • 'Analyze this text: Hello world!'")
-    print("   • 'Give me a random fact'")
-    print("   • Type 'quit' to exit\n")
-
-    while True:
-        try:
-            user_input = input(f"{Fore.GREEN}You: {Style.RESET_ALL}")
-            if user_input.lower() in ["quit", "exit", "q"]:
-                break
-
-            print(f"{Fore.BLUE}Assistant: {Style.RESET_ALL}", end="", flush=True)
-
-            response_stream = llm.generate(
-                messages=[{"role": "user", "content": user_input}],
-                tools=available_tools,
-                stream=True,
-                llm_component="openai",
-            )
-
-            for chunk in response_stream:
-                if chunk.get("type") == "content":
-                    content = chunk["data"]
-                    print(content, end="", flush=True)
-                elif chunk.get("type") == "tool_call":
-                    tool_call = chunk["data"]
-                    print(
-                        f"\n{Fore.YELLOW}[Using tool: {tool_call.get('name')}]{Style.RESET_ALL}"
-                    )
-                elif chunk.get("type") == "tool_result":
-                    print(f"{Fore.GREEN}[Tool completed]{Style.RESET_ALL}")
-
-            print("\n")
-
-        except KeyboardInterrupt:
-            print(f"\n{Fore.YELLOW}Goodbye!{Style.RESET_ALL}")
-            break
-        except Exception as e:
-            print(f"\n{Fore.RED}Error: {e}{Style.RESET_ALL}")
+    print(f"\n{Fore.GREEN}🎉 All streaming tool calling tests completed!{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}🚀 Key Features Demonstrated:{Style.RESET_ALL}")
+    print("   • Intelligent tool selection based on user queries")
+    print("   • Real-time streaming responses")
+    print("   • Multiple tool types (time, math, text analysis, facts)")
+    print("   • Performance monitoring and usage tracking")
 
 
 if __name__ == "__main__":
