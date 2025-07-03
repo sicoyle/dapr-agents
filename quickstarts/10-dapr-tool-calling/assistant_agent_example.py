@@ -215,6 +215,14 @@ class TaskManager(AgentTool):
 
 def check_provider_requirements(provider: str):
     """Check if the required API keys are available for the provider."""
+    
+    # Echo provider is not supported for AssistantAgent
+    if provider == "echo":
+        print("❌ Echo provider is not supported for AssistantAgent!")
+        print("   Echo doesn't support tool calling - use 'openai' or 'anthropic'")
+        print("   For testing without API keys, use Simple Agent approach instead")
+        return False
+    
     requirements = {
         "openai": "OPENAI_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
@@ -226,20 +234,21 @@ def check_provider_requirements(provider: str):
         api_key = os.getenv(requirements[provider])
         if not api_key:
             print(
-                f"⚠️  Warning: {requirements[provider]} not found in environment variables or .env file"
+                f"❌ Error: {requirements[provider]} not found in environment variables or .env file"
             )
-            print(f"⚠️  Provider '{provider}' may not work without the API key")
+            print(f"   Provider '{provider}' requires an API key for tool calling")
+            print(f"   Set the environment variable or add to .env file")
             return False
         else:
             print(f"✅ API key found for provider '{provider}'")
             return True
     else:
-        print(f"✅ Provider '{provider}' doesn't require an API key")
+        print(f"⚠️  Unknown provider '{provider}' - proceeding anyway")
         return True
 
 
 async def run_assistant_agent_example(
-    provider: str = "echo",
+    provider: str = "openai",
     use_class_tools: bool = False,
     session_id: str = "demo-session",
 ):
@@ -251,7 +260,9 @@ async def run_assistant_agent_example(
     print("=" * 60)
 
     # Check provider requirements
-    check_provider_requirements(provider)
+    if not check_provider_requirements(provider):
+        print("\n❌ Provider requirements not met. Exiting...")
+        return
 
     # Choose tools based on the flag
     if use_class_tools:
@@ -284,7 +295,7 @@ async def run_assistant_agent_example(
                 "Be friendly and professional",
             ],
             tools=tools,
-            llm=DaprChatClient(component=provider),
+            llm=DaprChatClient(component_name=provider),
             message_bus_name="messagepubsub",
             state_store_name="workflowstatestore",
             state_key="assistant_workflow_state",
@@ -361,7 +372,7 @@ async def run_interactive_demo(
                 "Be helpful and clear",
             ],
             tools=tools,
-            llm=DaprChatClient(component=provider),
+            llm=DaprChatClient(component_name=provider),
             message_bus_name="messagepubsub",
             state_store_name="workflowstatestore",
             state_key="demo_workflow_state",
@@ -404,8 +415,8 @@ def main():
     parser = argparse.ArgumentParser(description="AssistantAgent Tool Calling Example")
     parser.add_argument(
         "--provider",
-        default="echo",
-        help="Dapr conversation provider (echo, openai, anthropic, etc.)",
+        default="openai",
+        help="Dapr conversation provider (openai, anthropic, gemini) - echo not supported",
     )
     parser.add_argument(
         "--class-tools",

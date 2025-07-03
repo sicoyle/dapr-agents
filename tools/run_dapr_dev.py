@@ -301,6 +301,12 @@ def run_daprd(args):
         "9091",
     ]
 
+    # check if dapr-config.yaml exists in the components directory, if it is we will add --config to the command
+    if (components_dir / "dapr-config.yaml").exists():
+        cmd.append("--config")
+        cmd.append(str(components_dir / "dapr-config.yaml"))
+
+
     print("🚀 Starting Dapr sidecar...")
     print(f"   Binary: {binary_path}")
     print(f"   App ID: {args.app_id}")

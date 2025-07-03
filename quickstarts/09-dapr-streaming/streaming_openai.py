@@ -4,7 +4,6 @@
 Dapr Conversation Example with OpenAI - Streaming Preparation
 This example demonstrates AI conversation with OpenAI GPT models via Dapr.
 
-✅ REAL STREAMING ENABLED!
 This example demonstrates actual real-time streaming AI conversation with OpenAI GPT models via Dapr.
 Using the converse_stream_alpha1 method for true token-by-token streaming.
 """

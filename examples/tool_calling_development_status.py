@@ -58,20 +58,19 @@ def demonstrate_current_state():
     print("\n✅ 2. Python SDK Data Structures")
     sdk_tool = Tool(
         type="function",
-        function=ToolFunction(
-            name=openai_format["function"]["name"],
-            description=openai_format["function"]["description"],
-            parameters=json.dumps(openai_format["function"]["parameters"]),
-        ),
+        name=openai_format["function"]["name"],
+        description=openai_format["function"]["description"],
+        parameters=json.dumps(openai_format["function"]["parameters"]),
     )
-    print(f"   SDK Tool created: {sdk_tool.function.name}")
+    print(f"   SDK Tool created: {sdk_tool.name}")
 
-    # ✅ 3. ConversationInput accepts tools
-    print("\n✅ 3. ConversationInput Accepts Tools")
+    # ❌ 3. ConversationInput doesn't accept tools yet
+    print("\n❌ 3. ConversationInput Doesn't Accept Tools")
+    print("   ConversationInput constructor doesn't have 'tools' parameter")
     conv_input = ConversationInput(
-        content="What's the weather in San Francisco?", role="user", tools=[sdk_tool]
+        content="What's the weather in San Francisco?", role="user"
     )
-    print(f"   ConversationInput.tools: {len(conv_input.tools)} tool(s)")
+    print(f"   ConversationInput created without tools")
 
     # ❌ 4. But gRPC doesn't send them
     print("\n❌ 4. gRPC Protocol Issue")

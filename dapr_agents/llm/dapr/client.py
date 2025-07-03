@@ -23,18 +23,37 @@ class DaprInferenceClient:
                 "result": output.result,
             }
 
-            # Add tool calls if present
-            if hasattr(output, "tool_calls") and output.tool_calls:
+            # Add tool calls if present - use get_tool_calls() method
+            tool_calls = None
+            if hasattr(output, "get_tool_calls"):
+                tool_calls = output.get_tool_calls()
+            elif hasattr(output, "tool_calls") and output.tool_calls:
+                tool_calls = output.tool_calls
+            
+            if tool_calls:
                 output_dict["tool_calls"] = []
-                for tool_call in output.tool_calls:
-                    tool_call_dict = {
-                        "id": tool_call.id,
-                        "type": tool_call.type,
-                        "function": {
-                            "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments,
-                        },
-                    }
+                for tool_call in tool_calls:
+                    # Handle different tool call structures
+                    if hasattr(tool_call, 'function'):
+                        # OpenAI-style structure with nested function
+                        tool_call_dict = {
+                            "id": tool_call.id,
+                            "type": tool_call.type,
+                            "function": {
+                                "name": tool_call.function.name,
+                                "arguments": tool_call.function.arguments,
+                            },
+                        }
+                    else:
+                        # Dapr SDK structure with direct name/arguments
+                        tool_call_dict = {
+                            "id": tool_call.id,
+                            "type": tool_call.type,
+                            "function": {
+                                "name": tool_call.name,
+                                "arguments": tool_call.arguments,
+                            },
+                        }
                     output_dict["tool_calls"].append(tool_call_dict)
 
             # Add finish reason if present
