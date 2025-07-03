@@ -180,24 +180,30 @@ def main():
                         choice = chunk["choices"][0]
                         if "delta" in choice and choice["delta"]:
                             delta = choice["delta"]
-                            
+
                             # Handle text content
                             if "content" in delta and delta["content"]:
                                 content = delta["content"]
                                 print(content, end="", flush=True)
                                 content_parts.append(content)
-                            
+
                             # Handle tool calls
                             if "tool_calls" in delta:
                                 for tool_call in delta["tool_calls"]:
                                     tool_name = tool_call["function"]["name"]
                                     tool_args = tool_call["function"]["arguments"]
                                     tool_calls_made.append(f"{tool_name}({tool_args})")
-                                    print(f"\n{Fore.YELLOW}🔧 Tool Call: {tool_name}{Style.RESET_ALL}", end="", flush=True)
-                        
+                                    print(
+                                        f"\n{Fore.YELLOW}🔧 Tool Call: {tool_name}{Style.RESET_ALL}",
+                                        end="",
+                                        flush=True,
+                                    )
+
                         # Handle finish reason
                         if choice.get("finish_reason") == "tool_calls":
-                            print(f"\n{Fore.GREEN}✅ Tool calls completed{Style.RESET_ALL}")
+                            print(
+                                f"\n{Fore.GREEN}✅ Tool calls completed{Style.RESET_ALL}"
+                            )
 
                     # Handle usage information
                     if "usage" in chunk and chunk["usage"]:
@@ -220,9 +226,12 @@ def main():
         except Exception as e:
             print(f"\n{Fore.RED}❌ Error in scenario {i}: {e}{Style.RESET_ALL}")
             import traceback
+
             traceback.print_exc()
 
-    print(f"\n{Fore.GREEN}🎉 All streaming tool calling tests completed!{Style.RESET_ALL}")
+    print(
+        f"\n{Fore.GREEN}🎉 All streaming tool calling tests completed!{Style.RESET_ALL}"
+    )
     print(f"{Fore.MAGENTA}🚀 Key Features Demonstrated:{Style.RESET_ALL}")
     print("   • Intelligent tool selection based on user queries")
     print("   • Real-time streaming responses")

@@ -26,8 +26,7 @@ def streaming_example():
     # Create conversation input using the proper dataclass
     inputs = [
         ConversationInput.from_text(
-            text="Tell me a story about a robot learning to paint",
-            role="user"
+            text="Tell me a story about a robot learning to paint", role="user"
         )
     ]
 
@@ -38,17 +37,17 @@ def streaming_example():
         # Generate streaming response
         full_content = ""
         total_tokens = 0
-        
+
         for chunk in client.converse_stream_alpha1(
             name=os.getenv("DAPR_LLM_COMPONENT_DEFAULT", "echo"),
             inputs=inputs,
             temperature=0.7,
-            context_id="streaming-example-123"
+            context_id="streaming-example-123",
         ):
             if chunk.chunk and chunk.chunk.content:
                 print(chunk.chunk.content, end="", flush=True)
                 full_content += chunk.chunk.content
-            
+
             if chunk.complete and chunk.complete.usage:
                 total_tokens = chunk.complete.usage.total_tokens
 
@@ -79,10 +78,7 @@ def non_streaming_example():
 
     # Create conversation input using the proper dataclass
     inputs = [
-        ConversationInput.from_text(
-            text="What is the capital of France?",
-            role="user"
-        )
+        ConversationInput.from_text(text="What is the capital of France?", role="user")
     ]
 
     print("\n📞 Making non-streaming request...")
@@ -93,11 +89,11 @@ def non_streaming_example():
             name=os.getenv("DAPR_LLM_COMPONENT_DEFAULT", "echo"),
             inputs=inputs,
             temperature=0.3,
-            context_id="non-streaming-example-456"
+            context_id="non-streaming-example-456",
         )
 
         print(f"🤖 Assistant: {response.outputs[0].result}")
-        
+
         if response.usage:
             print(f"💰 Usage: {response.usage.total_tokens} tokens")
 
@@ -110,48 +106,49 @@ def non_streaming_example():
 def tool_calling_example():
     """Example of tool calling with streaming."""
     print("\n🔧 Tool Calling with Streaming Example")
-    
+
     # Create proper Tool using the correct dataclass structure
     weather_tool = Tool(
         type="function",
         name="get_weather",
         description="Get current weather for a location",
-        parameters=json.dumps({
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "The city and state, e.g. San Francisco, CA"
-                }
-            },
-            "required": ["location"]
-        })
+        parameters=json.dumps(
+            {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA",
+                    }
+                },
+                "required": ["location"],
+            }
+        ),
     )
-    
+
     client = DaprClient()
-    
+
     inputs = [
         ConversationInput.from_text(
-            text="What's the weather like in San Francisco?",
-            role="user"
+            text="What's the weather like in San Francisco?", role="user"
         )
     ]
-    
+
     print("\n📞 Making tool calling request...")
-    
+
     try:
         response = client.converse_alpha1(
             name=os.getenv("DAPR_LLM_COMPONENT_DEFAULT", "echo-tools"),
             inputs=inputs,
             tools=[weather_tool],
-            context_id="tool-calling-example-789"
+            context_id="tool-calling-example-789",
         )
-        
+
         print(f"🤖 Assistant: {response.outputs[0].result}")
-        
+
         if response.usage:
             print(f"💰 Usage: {response.usage.total_tokens} tokens")
-            
+
     except Exception as e:
         print(f"❌ Error: {e}")
         print("💡 Make sure you have a tool-calling capable component configured")
@@ -172,7 +169,7 @@ def main():
         print("   Setting default to 'echo' for demo purposes")
         os.environ["DAPR_LLM_COMPONENT_DEFAULT"] = "echo"
         component_name = "echo"
-    
+
     print(f"🎯 Using component: {component_name}")
 
     # Run streaming example
@@ -180,7 +177,7 @@ def main():
 
     # Run non-streaming example for comparison
     non_streaming_example()
-    
+
     # Run tool calling example
     tool_calling_example()
 

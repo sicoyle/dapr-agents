@@ -69,8 +69,7 @@ def test_echo_component():
         with DaprClient() as client:
             inputs = [
                 ConversationInput.from_text(
-                    text="Hello from the echo component test!",
-                    role="user"
+                    text="Hello from the echo component test!", role="user"
                 )
             ]
 
@@ -86,10 +85,11 @@ def test_echo_component():
 
             # Streaming test
             print("\n📡 Testing streaming...")
-            inputs = [ConversationInput.from_text(
-                text="This is a streaming test with echo!",
-                role="user"
-            )]
+            inputs = [
+                ConversationInput.from_text(
+                    text="This is a streaming test with echo!", role="user"
+                )
+            ]
             print("📤 Streaming: This is a streaming test with echo!")
             print("📥 Streamed response: ", end="", flush=True)
 
@@ -126,8 +126,7 @@ def test_openai_component():
         with DaprClient() as client:
             inputs = [
                 ConversationInput.from_text(
-                    text="Write a haiku about programming",
-                    role="user"
+                    text="Write a haiku about programming", role="user"
                 )
             ]
 
@@ -148,10 +147,11 @@ def test_openai_component():
 
             # Streaming test
             print("\n📡 Testing streaming...")
-            inputs = [ConversationInput.from_text(
-                text="Tell me a short joke about AI",
-                role="user"
-            )]
+            inputs = [
+                ConversationInput.from_text(
+                    text="Tell me a short joke about AI", role="user"
+                )
+            ]
             print("📤 Streaming: Tell me a short joke about AI")
             print("📥 Streamed response: ", end="", flush=True)
 
@@ -199,8 +199,7 @@ def test_anthropic_component():
         with DaprClient() as client:
             inputs = [
                 ConversationInput.from_text(
-                    text="Explain quantum computing in simple terms",
-                    role="user"
+                    text="Explain quantum computing in simple terms", role="user"
                 )
             ]
 
@@ -221,10 +220,11 @@ def test_anthropic_component():
 
             # Streaming test
             print("\n📡 Testing streaming...")
-            inputs = [ConversationInput.from_text(
-                text="What are three benefits of renewable energy?",
-                role="user"
-            )]
+            inputs = [
+                ConversationInput.from_text(
+                    text="What are three benefits of renewable energy?", role="user"
+                )
+            ]
             print("📤 Streaming: What are three benefits of renewable energy?")
             print("📥 Streamed response: ", end="", flush=True)
 
@@ -291,9 +291,7 @@ spec:
     value: "{openai_api_key}"
   - name: model
     value: "gpt-3.5-turbo"
-""".format(
-        openai_api_key=os.getenv("OPENAI_API_KEY", "your_openai_api_key_here")
-    )
+""".format(openai_api_key=os.getenv("OPENAI_API_KEY", "your_openai_api_key_here"))
 
     openai_file = component_dir / "openai-conversation.yaml"
     with open(openai_file, "w") as f:

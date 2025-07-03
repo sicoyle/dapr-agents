@@ -75,7 +75,11 @@ def test_openai_conversation():
                     )
 
                 # Handle usage information in final chunk
-                if hasattr(chunk, "complete") and chunk.complete and hasattr(chunk.complete, "usage"):
+                if (
+                    hasattr(chunk, "complete")
+                    and chunk.complete
+                    and hasattr(chunk.complete, "usage")
+                ):
                     final_usage = chunk.complete.usage
 
             content = "".join(content_parts)

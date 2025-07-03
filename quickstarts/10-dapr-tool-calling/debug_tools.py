@@ -17,6 +17,7 @@ def load_env_file():
     if env_file.exists():
         try:
             from dotenv import load_dotenv
+
             load_dotenv(env_file)
         except ImportError:
             pass
@@ -32,20 +33,22 @@ def test_tool_calling():
     """Test tool calling with debug output."""
     print("🔍 Debugging Tool Calling")
     print("=" * 40)
-    
+
     load_env_file()
-    
+
     client = DaprChatClient()
     tools = [simple_tool]
-    
-    print(f"📋 Tools to pass: {[getattr(tool, 'name', getattr(tool, '__name__', str(tool))) for tool in tools]}")
-    
+
+    print(
+        f"📋 Tools to pass: {[getattr(tool, 'name', getattr(tool, '__name__', str(tool))) for tool in tools]}"
+    )
+
     # Test message that should trigger tool use
     message = "Please use the simple_tool with the message 'Hello World'"
-    
+
     print(f"📝 User message: {message}")
     print()
-    
+
     # Test with OpenAI
     print("🧪 Testing with OpenAI...")
     try:
@@ -55,27 +58,27 @@ def test_tool_calling():
             tools=tools,
             stream=False,
         )
-        
+
         print("📤 Full OpenAI response:")
         print(json.dumps(response, indent=2, default=str))
         print()
-        
+
         # Check if tools were called
-        if hasattr(response, 'choices') and response.choices:
+        if hasattr(response, "choices") and response.choices:
             choice = response.choices[0]
-            if hasattr(choice.message, 'tool_calls') and choice.message.tool_calls:
+            if hasattr(choice.message, "tool_calls") and choice.message.tool_calls:
                 print("✅ Tool calls found in OpenAI response!")
                 for tool_call in choice.message.tool_calls:
                     print(f"   Tool: {tool_call.function.name}")
                     print(f"   Args: {tool_call.function.arguments}")
             else:
                 print("❌ No tool calls found in OpenAI response")
-        
+
     except Exception as e:
         print(f"❌ OpenAI error: {e}")
-    
+
     print()
-    
+
     # Test with echo-tools
     print("🧪 Testing with echo-tools...")
     try:
@@ -85,27 +88,27 @@ def test_tool_calling():
             tools=tools,
             stream=False,
         )
-        
+
         print("📤 Full echo-tools response:")
         print(json.dumps(response, indent=2, default=str))
         print()
-        
+
         # Check if tools were called
-        if hasattr(response, 'choices') and response.choices:
+        if hasattr(response, "choices") and response.choices:
             choice = response.choices[0]
-            if hasattr(choice.message, 'tool_calls') and choice.message.tool_calls:
+            if hasattr(choice.message, "tool_calls") and choice.message.tool_calls:
                 print("✅ Tool calls found in echo-tools response!")
                 for tool_call in choice.message.tool_calls:
                     print(f"   Tool: {tool_call.function.name}")
                     print(f"   Args: {tool_call.function.arguments}")
             else:
                 print("❌ No tool calls found in echo-tools response")
-        
+
     except Exception as e:
         print(f"❌ echo-tools error: {e}")
-    
+
     print()
-    
+
     # Test with Anthropic
     print("🧪 Testing with Anthropic...")
     try:
@@ -115,25 +118,25 @@ def test_tool_calling():
             tools=tools,
             stream=False,
         )
-        
+
         print("📤 Full Anthropic response:")
         print(json.dumps(response, indent=2, default=str))
         print()
-        
+
         # Check if tools were called
-        if hasattr(response, 'choices') and response.choices:
+        if hasattr(response, "choices") and response.choices:
             choice = response.choices[0]
-            if hasattr(choice.message, 'tool_calls') and choice.message.tool_calls:
+            if hasattr(choice.message, "tool_calls") and choice.message.tool_calls:
                 print("✅ Tool calls found in Anthropic response!")
                 for tool_call in choice.message.tool_calls:
                     print(f"   Tool: {tool_call.function.name}")
                     print(f"   Args: {tool_call.function.arguments}")
             else:
                 print("❌ No tool calls found in Anthropic response")
-        
+
     except Exception as e:
         print(f"❌ Anthropic error: {e}")
 
 
 if __name__ == "__main__":
-    test_tool_calling() 
+    test_tool_calling()

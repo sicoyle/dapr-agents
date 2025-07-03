@@ -90,10 +90,7 @@ def get_weather(location: str) -> WeatherInfo:
         Current weather information
     """
     return WeatherInfo(
-        location=location,
-        temperature="72°F",
-        conditions="sunny",
-        wind="light breeze"
+        location=location, temperature="72°F", conditions="sunny", wind="light breeze"
     )
 
 
@@ -109,15 +106,9 @@ def calculate(expression: str) -> CalculationResult:
     """
     try:
         result = eval(expression)
-        return CalculationResult(
-            expression=expression,
-            result=str(result)
-        )
+        return CalculationResult(expression=expression, result=str(result))
     except Exception as e:
-        return CalculationResult(
-            expression=expression,
-            result=f"Error: {str(e)}"
-        )
+        return CalculationResult(expression=expression, result=f"Error: {str(e)}")
 
 
 @tool
@@ -142,11 +133,8 @@ def get_time_zone(location: str) -> TimeZoneInfo:
 
     location_key = location.lower().split(",")[0].strip()
     timezone = time_zones.get(location_key, "Unknown timezone")
-    
-    return TimeZoneInfo(
-        location=location,
-        timezone=timezone
-    )
+
+    return TimeZoneInfo(location=location, timezone=timezone)
 
 
 # Define class-based tools inheriting from AgentTool
@@ -203,7 +191,9 @@ class TaskManager(AgentTool):
             task: The task description (required for 'add' and 'complete')
         """
         if action == "add" and task:
-            self.tasks.append({"id": len(self.tasks) + 1, "task": task, "completed": False})
+            self.tasks.append(
+                {"id": len(self.tasks) + 1, "task": task, "completed": False}
+            )
             return f"Added task: {task}"
         elif action == "list":
             if not self.tasks:
@@ -249,7 +239,9 @@ def check_provider_requirements(provider: str):
 
 
 async def run_assistant_agent_example(
-    provider: str = "echo", use_class_tools: bool = False, session_id: str = "demo-session"
+    provider: str = "echo",
+    use_class_tools: bool = False,
+    session_id: str = "demo-session",
 ):
     """Run the AssistantAgent tool calling example."""
 
@@ -299,8 +291,7 @@ async def run_assistant_agent_example(
             agents_registry_store_name="registrystatestore",
             agents_registry_key="agents_registry",
             memory=ConversationDaprStateMemory(
-                store_name="conversationstore", 
-                session_id=session_id
+                store_name="conversationstore", session_id=session_id
             ),
             max_iterations=5,  # Allow multiple tool calling iterations
         )
@@ -316,21 +307,23 @@ async def run_assistant_agent_example(
         print("   • Remember conversation history")
         print("   • Iterate on complex tasks")
         print("   • Manage state persistently")
-        
+
         print("\n📝 To interact with the agent:")
         print("   • Send messages via Dapr workflow triggers")
         print("   • Use the agent's REST API endpoints")
         print("   • Integrate with other Dapr services")
-        
+
         print(f"\n🔗 Available tools:")
         for tool in tools:
-            if hasattr(tool, 'name'):
+            if hasattr(tool, "name"):
                 print(f"   • {tool.name}: {tool.description}")
             else:
-                print(f"   • {tool.__name__}: {tool.__doc__.split('.')[0] if tool.__doc__ else 'No description'}")
+                print(
+                    f"   • {tool.__name__}: {tool.__doc__.split('.')[0] if tool.__doc__ else 'No description'}"
+                )
 
         print("\n⏳ Service is running... Press Ctrl+C to stop")
-        
+
         # Keep the service running
         try:
             while True:
@@ -341,18 +334,21 @@ async def run_assistant_agent_example(
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
 
 
-async def run_interactive_demo(provider: str = "echo", session_id: str = "demo-session"):
+async def run_interactive_demo(
+    provider: str = "echo", session_id: str = "demo-session"
+):
     """Run an interactive demo showing AssistantAgent capabilities."""
-    
+
     print("🎮 Interactive AssistantAgent Demo")
     print("=" * 40)
-    
+
     # Simple tools for demo
     tools = [get_weather, calculate]
-    
+
     try:
         # Initialize AssistantAgent
         assistant = AssistantAgent(
@@ -372,24 +368,23 @@ async def run_interactive_demo(provider: str = "echo", session_id: str = "demo-s
             agents_registry_store_name="registrystatestore",
             agents_registry_key="agents_registry",
             memory=ConversationDaprStateMemory(
-                store_name="conversationstore", 
-                session_id=session_id
+                store_name="conversationstore", session_id=session_id
             ),
         )
 
         print("🚀 Starting demo agent...")
         assistant.as_service(port=8003)
         await assistant.start()
-        
+
         print("✅ Demo agent is ready!")
         print("\nThis demonstrates AssistantAgent with:")
         print("• Persistent memory across conversations")
         print("• Automatic tool calling workflows")
         print("• State management via Dapr")
         print("• Multi-iteration task processing")
-        
+
         print("\n⏳ Demo service running... Press Ctrl+C to stop")
-        
+
         # Keep running
         try:
             while True:
@@ -400,6 +395,7 @@ async def run_interactive_demo(provider: str = "echo", session_id: str = "demo-s
     except Exception as e:
         print(f"❌ Demo error: {e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -476,7 +472,11 @@ Make sure to run: python tools/run_dapr_dev.py --components ./tests/components/l
     if args.demo:
         asyncio.run(run_interactive_demo(args.provider, args.session_id))
     else:
-        asyncio.run(run_assistant_agent_example(args.provider, args.class_tools, args.session_id))
+        asyncio.run(
+            run_assistant_agent_example(
+                args.provider, args.class_tools, args.session_id
+            )
+        )
 
 
 if __name__ == "__main__":

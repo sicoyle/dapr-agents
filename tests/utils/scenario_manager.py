@@ -132,7 +132,7 @@ class ScenarioManager:
     def _check_python_sdk(self) -> bool:
         """Check if Python SDK is available."""
         try:
-            import dapr 
+            import dapr
 
             return True
         except ImportError:

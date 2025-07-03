@@ -105,7 +105,9 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
                 type="function",
                 name=tool_name,
                 description=func_def["description"],
-                parameters=json.dumps(func_def["parameters"]),  # Convert dict to JSON string
+                parameters=json.dumps(
+                    func_def["parameters"]
+                ),  # Convert dict to JSON string
             )
 
             sdk_tools.append(sdk_tool)

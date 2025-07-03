@@ -34,7 +34,9 @@ REPO_ROOT = SCRIPT_DIR.parent
 DAPR_REPO = REPO_ROOT.parent / "dapr"
 if not DAPR_REPO.exists():
     print(f"❌ Error: Dapr repository not found at {DAPR_REPO}")
-    print("Please clone the dapr repository at ../dapr relative to python-sdk and dapr-agents")
+    print(
+        "Please clone the dapr repository at ../dapr relative to python-sdk and dapr-agents"
+    )
     sys.exit(1)
 
 
@@ -76,7 +78,7 @@ def load_env_file():
         "GEMINI": ["GOOGLE", "GOOGLE_AI", "GEMINI"],
     }
 
-        # show what LLM providers we have keys for (don't show the keys)
+    # show what LLM providers we have keys for (don't show the keys)
     print("🔑 LLM Providers with keys:")
     for provider in providers:
         key = get_provider_key(provider, env_vars, providers_alt_keys)
@@ -86,6 +88,7 @@ def load_env_file():
             print(f"   - {provider} (not found in .env or environment)")
 
     return env_vars
+
 
 def get_provider_key(provider, env_vars, providers_alt_keys):
     """Get the API key for a provider."""

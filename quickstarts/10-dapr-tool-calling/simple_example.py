@@ -235,7 +235,11 @@ def run_simple_example(
                 tools=tools,
                 stream=True,
             ):
-                if hasattr(chunk, "chunk") and chunk.chunk and hasattr(chunk.chunk, "content"):
+                if (
+                    hasattr(chunk, "chunk")
+                    and chunk.chunk
+                    and hasattr(chunk.chunk, "content")
+                ):
                     print(chunk.chunk.content, end="", flush=True)
                 elif hasattr(chunk, "complete") and chunk.complete:
                     print(f"\n✅ Completed with usage: {chunk.complete.usage}")
@@ -263,6 +267,7 @@ def run_simple_example(
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
 
 
