@@ -4,8 +4,21 @@ from dapr_agents.prompt.prompty import Prompty
 from dapr_agents.types.message import BaseMessage
 from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.tool import AgentTool
-from dapr_agents.types import ChatCompletion, Choice, MessageContent, ToolCall, FunctionCall
-from dapr.clients.grpc._request import ConversationInput, Tool, ContentPart, TextContent, ToolCallContent, ToolResultContent
+from dapr_agents.types import (
+    ChatCompletion,
+    Choice,
+    MessageContent,
+    ToolCall,
+    FunctionCall,
+)
+from dapr.clients.grpc._request import (
+    ConversationInput,
+    Tool,
+    ContentPart,
+    TextContent,
+    ToolCallContent,
+    ToolResultContent,
+)
 from typing import (
     Union,
     Optional,
@@ -35,51 +48,48 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
     """
 
     SUPPORTED_STRUCTURED_MODES: ClassVar[set] = {"function_call"}
-    
+
     # Public component name attribute
     component_name: Optional[str] = None
 
     def _convert_dict_to_chat_completion(self, response_dict: dict) -> ChatCompletion:
         """
         Convert our dict response to a proper ChatCompletion object for Agent compatibility.
-        
+
         Args:
             response_dict: Dict with keys like 'content', 'tool_calls', 'finish_reason'
-            
+
         Returns:
             ChatCompletion object that Agent can work with
         """
         # Convert tool calls to proper ToolCall objects
         tool_calls = None
-        if response_dict.get('tool_calls'):
+        if response_dict.get("tool_calls"):
             tool_calls = []
-            for tc in response_dict['tool_calls']:
+            for tc in response_dict["tool_calls"]:
                 function_call = FunctionCall(
-                    name=tc['function']['name'],
-                    arguments=tc['function']['arguments']
+                    name=tc["function"]["name"], arguments=tc["function"]["arguments"]
                 )
                 tool_call = ToolCall(
-                    id=tc['id'],
-                    type=tc['type'],
-                    function=function_call
+                    id=tc["id"], type=tc["type"], function=function_call
                 )
                 tool_calls.append(tool_call)
-        
+
         # Create MessageContent
         message_content = MessageContent(
-            content=response_dict.get('content'),
-            role='assistant',
-            tool_calls=tool_calls
+            content=response_dict.get("content"),
+            role="assistant",
+            tool_calls=tool_calls,
         )
-        
+
         # Create Choice
         choice = Choice(
-            finish_reason=response_dict.get('finish_reason', 'stop'),
+            finish_reason=response_dict.get("finish_reason", "stop"),
             index=0,
             message=message_content,
-            logprobs=None
+            logprobs=None,
         )
-        
+
         # Create ChatCompletion
         chat_completion = ChatCompletion(
             choices=[choice],
@@ -87,9 +97,9 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             id=f"dapr-{int(time.time())}",
             model="dapr-llm",
             object="chat.completion",
-            usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         )
-        
+
         return chat_completion
 
     def model_post_init(self, __context: Any) -> None:
@@ -97,9 +107,8 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
         super().model_post_init(__context)
 
         # Set the default LLM component: component_name > environment variable > "echo"
-        self._llm_component = (
-            self.component_name or 
-            os.environ.get("DAPR_LLM_COMPONENT_DEFAULT", "echo")
+        self._llm_component = self.component_name or os.environ.get(
+            "DAPR_LLM_COMPONENT_DEFAULT", "echo"
         )
 
     @classmethod
@@ -197,12 +206,10 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
                 tool_call_id = item.get("tool_call_id")
                 name = item.get("name")
                 content = item.get("content")
-                
+
                 if tool_call_id and name and content:
                     conv_input = ConversationInput.from_tool_result_simple(
-                        tool_name=name,
-                        call_id=tool_call_id,
-                        result=content
+                        tool_name=name, call_id=tool_call_id, result=content
                     )
                 else:
                     # Fallback to old format if missing required fields
@@ -214,11 +221,11 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             elif item.get("role") == "assistant" and item.get("tool_calls"):
                 # Assistant message with tool_calls - use the new parts format
                 parts = []
-                
+
                 # Add text content if present
                 if item.get("content"):
                     parts.append(ContentPart(text=TextContent(text=item["content"])))
-                
+
                 # Add tool calls as parts
                 for tool_call in item["tool_calls"]:
                     # Handle the OpenAI-style tool call format
@@ -226,10 +233,10 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
                         id=tool_call["id"],
                         type=tool_call["type"],
                         name=tool_call["function"]["name"],
-                        arguments=tool_call["function"]["arguments"]
+                        arguments=tool_call["function"]["arguments"],
                     )
                     parts.append(ContentPart(tool_call=tool_call_content))
-                
+
                 conv_input = ConversationInput(
                     role="assistant",
                     parts=parts,
@@ -272,10 +279,10 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
     ):
         """
         Generate chat completions and return the raw response with parts.
-        
+
         This method returns the raw ConversationResponse which includes the parts
         needed for proper multi-turn tool calling conversations.
-        
+
         Returns:
             The raw ConversationResponse from the Python SDK
         """
@@ -477,23 +484,23 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
                 # ✅ SIMPLIFIED: Handle tool calls from response
                 if response and response.get("outputs"):
                     output = response["outputs"][0]
-                    
+
                     # Extract and return the relevant information
                     result_dict = {
                         "content": output.get("result"),
-                        "finish_reason": output.get("finish_reason", "stop")
+                        "finish_reason": output.get("finish_reason", "stop"),
                     }
-                    
+
                     # Check for tool calls in the response
                     if "tool_calls" in output and output["tool_calls"]:
                         result_dict["tool_calls"] = output["tool_calls"]
                         logger.info(f"Received {len(output['tool_calls'])} tool calls")
                         for i, tool_call in enumerate(output["tool_calls"]):
                             logger.info(f"Tool call {i+1}: {tool_call}")
-                    
+
                     # Convert to ChatCompletion for Agent compatibility
                     return self._convert_dict_to_chat_completion(result_dict)
-                
+
                 # Fallback for unexpected response format - try to convert anyway
                 fallback_dict = {"content": str(response), "finish_reason": "stop"}
                 return self._convert_dict_to_chat_completion(fallback_dict)

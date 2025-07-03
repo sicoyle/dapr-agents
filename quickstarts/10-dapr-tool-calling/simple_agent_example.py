@@ -41,10 +41,10 @@ def calculate(expression: str) -> str:
     """Calculate a mathematical expression."""
     try:
         # Simple safe evaluation for basic math
-        allowed_chars = set('0123456789+-*/.() ')
+        allowed_chars = set("0123456789+-*/.() ")
         if not all(c in allowed_chars for c in expression):
             return "Error: Invalid characters in expression"
-        
+
         result = eval(expression)
         return f"Result: {expression} = {result}"
     except Exception as e:
@@ -54,10 +54,10 @@ def calculate(expression: str) -> str:
 # Create the simple agent
 def create_weather_agent(provider: str = "echo"):
     """Create a simple weather agent with enhanced DaprChatClient."""
-    
+
     # Configure the enhanced DaprChatClient with the provider
     llm_client = DaprChatClient(component_name=provider)
-    
+
     # Create agent with tools and LLM client
     agent = Agent(
         name="WeatherBot",
@@ -66,12 +66,12 @@ def create_weather_agent(provider: str = "echo"):
         instructions=[
             "Get accurate weather information for any location",
             "Perform mathematical calculations when requested",
-            "Be helpful and friendly in your responses"
+            "Be helpful and friendly in your responses",
         ],
         tools=[get_weather, calculate],
-        llm=llm_client
+        llm=llm_client,
     )
-    
+
     return agent
 
 
@@ -81,12 +81,13 @@ async def main():
     parser.add_argument(
         "--provider",
         default="echo",
-        help="Dapr conversation provider (echo, openai, anthropic, etc.)"
+        help="Dapr conversation provider (echo, openai, anthropic, etc.)",
     )
-    
+
     args = parser.parse_args()
-    
-    print(f"""
+
+    print(
+        f"""
 🤖 Simple Agent Tool Calling
 
 This example shows the simplest way to use tool calling with Dapr agents:
@@ -96,28 +97,29 @@ This example shows the simplest way to use tool calling with Dapr agents:
 • Provider: {args.provider}
 
 Make sure Dapr is running with your components configured!
-""")
+"""
+    )
 
     # Load environment variables
     load_env_file()
-    
+
     # Create the agent
     agent = create_weather_agent(args.provider)
-    
+
     # Simple tool calling examples
     print("🌤️  Example 1: Weather query")
     await agent.run("What's the weather like in San Francisco?")
-    
-    print("\n" + "="*50)
+
+    print("\n" + "=" * 50)
     print("🧮 Example 2: Math calculation")
     await agent.run("Calculate 15 * 8 + 7")
-    
-    print("\n" + "="*50)
+
+    print("\n" + "=" * 50)
     print("🔧 Example 3: Multiple tools")
     await agent.run("Get the weather in Tokyo and calculate 25 * 4")
-    
+
     print("\n✅ Simple tool calling examples completed!")
 
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

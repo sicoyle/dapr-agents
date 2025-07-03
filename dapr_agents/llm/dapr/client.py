@@ -29,12 +29,12 @@ class DaprInferenceClient:
                 tool_calls = output.get_tool_calls()
             elif hasattr(output, "tool_calls") and output.tool_calls:
                 tool_calls = output.tool_calls
-            
+
             if tool_calls:
                 output_dict["tool_calls"] = []
                 for tool_call in tool_calls:
                     # Handle different tool call structures
-                    if hasattr(tool_call, 'function'):
+                    if hasattr(tool_call, "function"):
                         # OpenAI-style structure with nested function
                         tool_call_dict = {
                             "id": tool_call.id,

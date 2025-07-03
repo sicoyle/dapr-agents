@@ -201,9 +201,9 @@ class ChatCompletion(BaseModel):
         """
         if not self.choices:
             return None
-        
+
         message = self.choices[0].message
-        tool_calls = getattr(message, 'tool_calls', None)
+        tool_calls = getattr(message, "tool_calls", None)
         return tool_calls if tool_calls else None
 
     def get_content(self) -> Optional[str]:

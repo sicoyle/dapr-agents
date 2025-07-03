@@ -306,7 +306,6 @@ def run_daprd(args):
         cmd.append("--config")
         cmd.append(str(components_dir / "dapr-config.yaml"))
 
-
     print("🚀 Starting Dapr sidecar...")
     print(f"   Binary: {binary_path}")
     print(f"   App ID: {args.app_id}")

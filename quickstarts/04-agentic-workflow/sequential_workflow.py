@@ -40,12 +40,12 @@ def get_line(character: str) -> str:
 
 if __name__ == "__main__":
     wfapp = WorkflowApp()
-    
-    #Enhanced version with DaprChatClient for tool calling (remember to uncomment the import at the top):
-    
+
+    # Enhanced version with DaprChatClient for tool calling (remember to uncomment the import at the top):
+
     # # Configure DaprChatClient for specific provider
     # enhanced_client = DaprChatClient(component_name="openai")  # or "anthropic", "echo", etc.
-    
+
     # wfapp = WorkflowApp(
     #     llm=enhanced_client
     # )

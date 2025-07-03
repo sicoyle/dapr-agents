@@ -42,7 +42,8 @@ class AssistantAgent(AgentWorkflowBase):
     """
 
     tool_history: List[Union[Dict[str, Any], ToolMessage]] = Field(
-        default_factory=list, description="Tool calling conversation history (assistant messages with tool calls and tool results)."
+        default_factory=list,
+        description="Tool calling conversation history (assistant messages with tool calls and tool results).",
     )
     tool_choice: Optional[str] = Field(
         default=None,
@@ -241,12 +242,14 @@ class AssistantAgent(AgentWorkflowBase):
                 messages.append(tool_msg)
             else:
                 # Handle ToolMessage objects (tool results)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_msg.tool_call_id,
-                    "name": tool_msg.name,
-                    "content": tool_msg.content,
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_msg.tool_call_id,
+                        "name": tool_msg.name,
+                        "content": tool_msg.content,
+                    }
+                )
 
         # Generate Tool Calls
         response: ChatCompletion = self.llm.generate(

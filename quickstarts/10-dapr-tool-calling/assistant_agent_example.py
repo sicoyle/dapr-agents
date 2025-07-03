@@ -215,14 +215,14 @@ class TaskManager(AgentTool):
 
 def check_provider_requirements(provider: str):
     """Check if the required API keys are available for the provider."""
-    
+
     # Echo provider is not supported for AssistantAgent
     if provider == "echo":
         print("❌ Echo provider is not supported for AssistantAgent!")
         print("   Echo doesn't support tool calling - use 'openai' or 'anthropic'")
         print("   For testing without API keys, use Simple Agent approach instead")
         return False
-    
+
     requirements = {
         "openai": "OPENAI_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
