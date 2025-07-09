@@ -2,7 +2,7 @@ import asyncio
 import signal
 import platform
 import logging
-from typing import Callable, Any
+from typing import Callable, Any, Union
 
 logger = logging.getLogger(__name__)
 
@@ -27,16 +27,18 @@ def add_signal_handlers_cross_platform(
         # Windows uses traditional signal handlers
         for sig in signals:
             try:
-                signal.signal(sig, lambda s, f: asyncio.create_task(handler_func(s)))
+                def windows_handler(s: int, f: Any) -> None:
+                    asyncio.create_task(handler_func(s))
+                signal.signal(sig, windows_handler)
             except Exception as e:
                 logger.warning(f"Failed to register signal handler for {sig}: {e}")
     else:
         # Unix-like systems use asyncio signal handlers
         for sig in signals:
             try:
-                loop.add_signal_handler(
-                    sig, lambda s=sig: asyncio.create_task(handler_func(s))
-                )
+                def unix_handler() -> None:
+                    asyncio.create_task(handler_func(sig))
+                loop.add_signal_handler(sig, unix_handler)
             except NotImplementedError:
                 logger.warning(f"Signal {sig} not supported in this environment")
             except Exception as e:
