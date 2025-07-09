@@ -12,13 +12,11 @@ def test_add_signal_handlers_cross_platform():
     async def test_handler():
         pass
     
-    # Windows
     with patch('platform.system', return_value='Windows'):
         with patch('signal.signal') as mock_signal:
             add_signal_handlers_cross_platform(mock_loop, test_handler)
             assert mock_signal.call_count == 2, "Should register 2 signal handlers on Windows"
     
-    # Unix
     with patch('platform.system', return_value='Linux'):
         add_signal_handlers_cross_platform(mock_loop, test_handler)
         assert mock_loop.add_signal_handler.call_count == 2, "Should register 2 signal handlers on Unix"
