@@ -118,7 +118,7 @@ class TestToolNamingConventions:
         #     assert "function" in dapr_format
         #     assert "name" in dapr_format["function"]
 
-    def test_dapr_client_tool_conversion(self, test_tools, dapr_runtime):
+    def test_dapr_client_tool_conversion(self, test_tools):
         """Test tool conversion through DaprChatClient."""
         pytest.skip("Disabled due to circular import issue")
 
@@ -159,15 +159,15 @@ class TestToolExecutionFlows:
         return []
         # return [get_weather_info, calculator, get_current_time]
 
-    def test_single_tool_execution_flow(self, dapr_runtime, execution_tools):
+    def test_single_tool_execution_flow(self, execution_tools):
         """Test single tool execution with actual LLM interaction."""
         pytest.skip("Disabled due to circular import issue")
 
-    def test_multi_tool_execution_flow(self, dapr_runtime, execution_tools):
+    def test_multi_tool_execution_flow(self, execution_tools):
         """Test multi-tool execution workflow."""
         pytest.skip("Disabled due to circular import issue")
 
-    def test_tool_parameter_validation(self, dapr_runtime, execution_tools):
+    def test_tool_parameter_validation(self, execution_tools):
         """Test tool parameter processing and validation."""
         pytest.skip("Disabled due to circular import issue")
 
@@ -181,11 +181,11 @@ class TestToolExecutionFlows:
 class TestStreamingToolExecution:
     """Test streaming with tool execution."""
 
-    def test_streaming_tool_execution(self, dapr_runtime):
+    def test_streaming_tool_execution(self):
         """Test streaming responses with tool calling."""
         pytest.skip("Disabled due to circular import issue")
 
-    def test_non_streaming_vs_streaming_consistency(self, dapr_runtime):
+    def test_non_streaming_vs_streaming_consistency(self):
         """Test that streaming and non-streaming produce consistent results."""
         pytest.skip("Disabled due to circular import issue")
 
@@ -198,7 +198,7 @@ class TestStreamingToolExecution:
 class TestToolExecutionErrorHandling:
     """Test error handling in tool execution."""
 
-    def test_tool_execution_error_handling(self, dapr_runtime):
+    def test_tool_execution_error_handling(self):
         """Test handling of tool execution errors."""
         pytest.skip("Disabled due to circular import issue")
 
@@ -211,7 +211,7 @@ class TestToolExecutionErrorHandling:
 class TestDirectDaprClientUsage:
     """Test direct Dapr client usage patterns for low-level SDK testing."""
 
-    def test_direct_client_non_streaming(self, dapr_runtime):
+    def test_direct_client_non_streaming(self):
         """Test direct Dapr client non-streaming conversation."""
         pytest.skip(
             "To be implemented when SDK is working - preserves low-level client patterns"
@@ -238,7 +238,7 @@ class TestDirectDaprClientUsage:
         #         assert len(response.outputs) > 0
         #         assert response.outputs[0].result
 
-    def test_direct_client_streaming(self, dapr_runtime):
+    def test_direct_client_streaming(self):
         """Test direct Dapr client streaming conversation."""
         pytest.skip(
             "To be implemented when SDK is working - preserves streaming client patterns"
@@ -269,6 +269,6 @@ class TestDirectDaprClientUsage:
         #         # Validate chunk structure
         #         assert any(hasattr(chunk, 'result') for chunk in chunks)
 
-    def test_direct_vs_dapr_agents_comparison(self, dapr_runtime):
+    def test_direct_vs_dapr_agents_comparison(self):
         """Compare direct Dapr client vs. Dapr Agents abstractions."""
         pytest.skip("To be implemented when SDK is working")

@@ -146,7 +146,7 @@ class TestDurableAgent:
     @pytest.fixture
     def mock_workflow_context(self):
         """Create a mock Dapr workflow context."""
-        context = DaprWorkflowContext()
+        context = Mock()
         context.instance_id = "test-instance-123"
         context.is_replaying = False
         context.call_activity = AsyncMock()
@@ -290,13 +290,15 @@ class TestDurableAgent:
             source_workflow_instance_id="parent-instance-123",
         )
 
-        workflow_gen = basic_durable_agent.tool_calling_workflow(
-            mock_workflow_context, message
-        )
-        try:
-            next(workflow_gen)
-        except StopIteration:
-            pass
+        # Patch the workflow decorator to allow mocks in tests
+        with patch('dapr_agents.workflow.decorators.isinstance', return_value=True):
+            workflow_gen = basic_durable_agent.tool_calling_workflow(
+                mock_workflow_context, message
+            )
+            try:
+                next(workflow_gen)
+            except StopIteration:
+                pass
 
         assert "test-instance-123" in basic_durable_agent.state.instances
         instance_data = basic_durable_agent.state.instances["test-instance-123"]

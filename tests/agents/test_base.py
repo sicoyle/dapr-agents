@@ -12,8 +12,8 @@ from dapr_agents.types import MessageContent, MessagePlaceHolder
 from .mocks.llm_client import MockLLMClient
 from .mocks.vectorstore import MockVectorStore
 
-
-class TestAgentBase(AgentBase):
+# TODO: maybe in future use pytest.fixture instead?
+class ConcreteAgentBaseForTestingOnly(AgentBase):
     """Concrete implementation of AgentBase for testing."""
 
     def run(self, input_data):
@@ -32,7 +32,7 @@ class TestAgentBaseClass:
     @pytest.fixture
     def basic_agent(self, mock_llm_client):
         """Create a basic test agent."""
-        return TestAgentBase(
+        return ConcreteAgentBaseForTestingOnly(
             name="TestAgent",
             role="Test Role",
             goal="Test Goal",
@@ -43,12 +43,12 @@ class TestAgentBaseClass:
     @pytest.fixture
     def minimal_agent(self, mock_llm_client):
         """Create a minimal test agent with only required fields."""
-        return TestAgentBase(llm=mock_llm_client)
+        return ConcreteAgentBaseForTestingOnly(llm=mock_llm_client)
 
     @pytest.fixture
     def agent_with_system_prompt(self, mock_llm_client):
         """Create an agent with a custom system prompt."""
-        return TestAgentBase(
+        return ConcreteAgentBaseForTestingOnly(
             name="CustomAgent",
             system_prompt="You are a custom assistant. Help users with their questions.",
             llm=mock_llm_client,
@@ -59,13 +59,13 @@ class TestAgentBaseClass:
         """Create an agent with tools."""
         mock_tool = Mock(spec=AgentTool)
         mock_tool.name = "test_tool"
-        return TestAgentBase(name="ToolAgent", tools=[mock_tool], llm=mock_llm_client)
+        return ConcreteAgentBaseForTestingOnly(name="ToolAgent", tools=[mock_tool], llm=mock_llm_client)
 
     @pytest.fixture
     def agent_with_vector_store(self, mock_llm_client):
         """Create an agent with vector store."""
         mock_vector_store = MockVectorStore()
-        return TestAgentBase(
+        return ConcreteAgentBaseForTestingOnly(
             name="VectorAgent", vector_store=mock_vector_store, llm=mock_llm_client
         )
 
@@ -93,12 +93,12 @@ class TestAgentBaseClass:
 
     def test_name_set_from_role_when_not_provided(self, mock_llm_client):
         """Test that name is set from role when not provided."""
-        agent = TestAgentBase(role="Weather Expert", llm=mock_llm_client)
+        agent = ConcreteAgentBaseForTestingOnly(role="Weather Expert", llm=mock_llm_client)
         assert agent.name == "Weather Expert"
 
     def test_name_not_overwritten_when_provided(self, mock_llm_client):
         """Test that name is not overwritten when explicitly provided."""
-        agent = TestAgentBase(
+        agent = ConcreteAgentBaseForTestingOnly(
             name="CustomName", role="Weather Expert", llm=mock_llm_client
         )
         assert agent.name == "CustomName"
@@ -139,7 +139,7 @@ class TestAgentBaseClass:
 
     def test_system_prompt_without_instructions(self, mock_llm_client):
         """Test system prompt construction without instructions."""
-        agent = TestAgentBase(
+        agent = ConcreteAgentBaseForTestingOnly(
             name="TestAgent", role="Test Role", goal="Test Goal", llm=mock_llm_client
         )
         system_prompt = agent.construct_system_prompt()
@@ -246,7 +246,7 @@ class TestAgentBaseClass:
 
     def test_pre_fill_prompt_template_without_template(self, mock_llm_client):
         """Test pre-filling prompt template when template is not initialized."""
-        agent = TestAgentBase(llm=mock_llm_client)
+        agent = ConcreteAgentBaseForTestingOnly(llm=mock_llm_client)
         agent.prompt_template = None
 
         with pytest.raises(
@@ -263,7 +263,7 @@ class TestAgentBaseClass:
         mock_vector_store = MockVectorStore()
         mock_llm = MockLLMClient()
         memory = DummyVectorMemory(mock_vector_store)
-        agent = TestAgentBase(memory=memory, llm=mock_llm)
+        agent = ConcreteAgentBaseForTestingOnly(memory=memory, llm=mock_llm)
 
         # Access chat_history as a property
         result = agent.chat_history
@@ -273,7 +273,7 @@ class TestAgentBaseClass:
     def test_chat_history_with_regular_memory(self, mock_llm_client):
         """Test chat history retrieval with regular memory."""
         memory = ConversationListMemory()
-        agent = TestAgentBase(memory=memory, llm=mock_llm_client)
+        agent = ConcreteAgentBaseForTestingOnly(memory=memory, llm=mock_llm_client)
 
         with patch.object(
             ConversationListMemory,
@@ -292,7 +292,7 @@ class TestAgentBaseClass:
                 MessagePlaceHolder(variable_name="chat_history"),
             ]
         )
-        agent = TestAgentBase(
+        agent = ConcreteAgentBaseForTestingOnly(
             name="TestAgent",
             role="TestRole",
             goal="TestGoal",
@@ -318,7 +318,7 @@ class TestAgentBaseClass:
         with pytest.raises(
             openai.OpenAIError, match="api_key client option must be set"
         ):
-            TestAgentBase(llm=OpenAIChatClient())
+            ConcreteAgentBaseForTestingOnly(llm=OpenAIChatClient())
 
     def test_validate_memory_failure(self, mock_llm_client):
         """Test validation fails when memory initialization fails."""
@@ -327,7 +327,7 @@ class TestAgentBaseClass:
             side_effect=Exception("Memory error"),
         ):
             with pytest.raises(Exception, match="Memory error"):
-                TestAgentBase(llm=mock_llm_client)
+                ConcreteAgentBaseForTestingOnly(llm=mock_llm_client)
 
     def test_signal_handler_setup(self, basic_agent):
         """Test that signal handlers are set up."""
@@ -350,14 +350,14 @@ class TestAgentBaseClass:
         mock_prompt_template = ChatPromptTemplate.from_messages([("system", "test2")])
 
         with pytest.raises(ValueError, match="Conflicting prompt templates"):
-            TestAgentBase(llm=mock_llm, prompt_template=mock_prompt_template)
+            ConcreteAgentBaseForTestingOnly(llm=mock_llm, prompt_template=mock_prompt_template)
 
     def test_agent_with_custom_prompt_template(self, mock_llm_client):
         """Test agent with custom prompt template."""
         mock_prompt_template = ChatPromptTemplate.from_messages([("system", "test")])
         mock_llm = MockLLMClient()
         mock_llm.prompt_template = None
-        agent = TestAgentBase(llm=mock_llm, prompt_template=mock_prompt_template)
+        agent = ConcreteAgentBaseForTestingOnly(llm=mock_llm, prompt_template=mock_prompt_template)
         assert agent.prompt_template is not None
         assert agent.llm.prompt_template is not None
         assert agent.prompt_template.messages == agent.llm.prompt_template.messages
@@ -367,7 +367,7 @@ class TestAgentBaseClass:
         mock_prompt_template = ChatPromptTemplate.from_messages([("system", "test")])
         mock_llm = MockLLMClient()
         mock_llm.prompt_template = mock_prompt_template
-        agent = TestAgentBase(llm=mock_llm)
+        agent = ConcreteAgentBaseForTestingOnly(llm=mock_llm)
         assert agent.prompt_template is not None
         assert agent.llm.prompt_template is not None
         assert agent.prompt_template.messages == agent.llm.prompt_template.messages
@@ -389,7 +389,7 @@ class TestAgentBaseClass:
 
     def test_model_fields_set_detection(self, mock_llm_client):
         """Test that model_fields_set properly detects user-set attributes."""
-        agent = TestAgentBase(
+        agent = ConcreteAgentBaseForTestingOnly(
             name="TestName",  # User set
             role="TestRole",  # User set
             goal="TestGoal",  # User set
@@ -403,10 +403,10 @@ class TestAgentBaseClass:
 
     def test_template_format_validation(self, mock_llm_client):
         """Test template format validation."""
-        agent = TestAgentBase(template_format="f-string", llm=mock_llm_client)
+        agent = ConcreteAgentBaseForTestingOnly(template_format="f-string", llm=mock_llm_client)
         assert agent.template_format == "f-string"
 
-        agent = TestAgentBase(template_format="jinja2", llm=mock_llm_client)
+        agent = ConcreteAgentBaseForTestingOnly(template_format="jinja2", llm=mock_llm_client)
         assert agent.template_format == "jinja2"
 
     def test_max_iterations_default(self, minimal_agent):
@@ -415,5 +415,5 @@ class TestAgentBaseClass:
 
     def test_max_iterations_custom(self, mock_llm_client):
         """Test custom max iterations."""
-        agent = TestAgentBase(max_iterations=5, llm=mock_llm_client)
+        agent = ConcreteAgentBaseForTestingOnly(max_iterations=5, llm=mock_llm_client)
         assert agent.max_iterations == 5

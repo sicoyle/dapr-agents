@@ -69,6 +69,7 @@ class AgentTool(BaseModel):
         Handles post-initialization logic for both class-based and function-based tools.
         Ensures `name` formatting and infers `args_model` if necessary.
         """
+        # TODO(@Sicoyle): do we really want this????? We are updating tool names to PascalCase here.
         self.name = self.name.replace(" ", "_").title().replace("_", "")
 
         if self.func:

@@ -30,7 +30,7 @@ from dapr_agents.types.workflow import DaprWorkflowStatus
 from dapr_agents.workflow.task import WorkflowTask
 from dapr_agents.workflow.utils import get_decorated_methods
 from dapr_agents.agents.base import ChatClientType
-from dapr_agents.llm.openai import OpenAIChatClient
+from dapr_agents.llm.dapr import DaprChatClient
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +41,6 @@ class WorkflowApp(BaseModel):
     """
     A Pydantic-based class to encapsulate a Dapr Workflow runtime and manage workflows and tasks.
     """
-
-    llm: ChatClientType = Field(
-        default_factory=OpenAIChatClient,
-        description="The default LLM client for all LLM-based tasks.",
-    )
     # TODO: I think this should be within the wf client or wf runtime...?
     timeout: int = Field(
         default=300,
@@ -106,14 +101,16 @@ class WorkflowApp(BaseModel):
         """
         Encapsulate LLM selection logic.
           1. Use per-task override if provided on decorator.
-          2. Else if marked as explicitly requiring an LLM, fall back to default app LLM.
+          2. Else if marked as explicitly requiring an LLM, fall back to agent LLM if available.
           3. Otherwise, returns None.
         """
         per_task = getattr(method, "_task_llm", None)
         if per_task:
             return per_task
         if getattr(method, "_explicit_llm", False):
-            return self.llm
+            # Try to get LLM from agent if this is an agentic workflow
+            if hasattr(self, "llm"):
+                return self.llm
         return None
 
     def _discover_tasks(self) -> Dict[str, Callable]:

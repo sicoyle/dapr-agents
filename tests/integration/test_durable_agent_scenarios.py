@@ -1,19 +1,19 @@
 """
-AssistantAgent Integration Tests with Dapr Workflows
+DurableAgent Integration Tests with Dapr Workflows
 
-This test suite validates AssistantAgent workflow functionality including:
+This test suite validates DurableAgent workflow functionality including:
 1. Basic workflow execution and state management
 2. Tool calling within workflows
 3. Multi-iteration workflows with memory
 4. Error handling and recovery
 5. Multi-agent communication (if infrastructure available)
 
-Note: AssistantAgent requires Dapr Workflows runtime + Redis state store + pub/sub
+Note: DurableAgent requires Dapr Workflows runtime + Redis state store + pub/sub
 """
 
 import pytest
 from typing import Dict, Any
-from dapr_agents.workflow.agents.assistant import AssistantAgent
+from dapr_agents.agents.durableagent.agent import DurableAgent
 from dapr_agents.tool import tool
 from dapr_agents.llm.dapr import DaprChatClient
 from dapr_agents.memory import ConversationDaprStateMemory
@@ -51,13 +51,13 @@ def calculate(expression: str) -> str:
 
 
 @pytest.mark.integration
-class TestAssistantAgentScenarios:
-    """Test AssistantAgent workflow scenarios with Dapr."""
+class TestDurableAgentScenarios:
+    """Test DurableAgent workflow scenarios with Dapr."""
 
     @pytest.fixture
     def assistant_agent_basic(self):
-        """Create a basic AssistantAgent for testing."""
-        return AssistantAgent(
+        """Create a basic DurableAgent for testing."""
+        return DurableAgent(
             name="TestAssistant",
             role="Test Assistant",
             goal="Help with testing",
@@ -72,8 +72,8 @@ class TestAssistantAgentScenarios:
 
     @pytest.fixture
     def assistant_agent_with_tools(self):
-        """Create an AssistantAgent with tools for testing."""
-        return AssistantAgent(
+        """Create an DurableAgent with tools for testing."""
+        return DurableAgent(
             name="ToolAssistant",
             role="Tool-Using Assistant",
             goal="Help with weather and calculations",
@@ -92,8 +92,8 @@ class TestAssistantAgentScenarios:
 
     @pytest.fixture
     def assistant_agent_with_memory(self):
-        """Create an AssistantAgent with persistent memory."""
-        return AssistantAgent(
+        """Create an DurableAgent with persistent memory."""
+        return DurableAgent(
             name="MemoryAssistant",
             role="Assistant with Memory",
             goal="Remember conversation history",
@@ -114,7 +114,7 @@ class TestAssistantAgentScenarios:
         )
 
     def test_assistant_agent_initialization(self, assistant_agent_basic):
-        """Test that AssistantAgent initializes correctly."""
+        """Test that DurableAgent initializes correctly."""
         agent = assistant_agent_basic
 
         # Verify basic properties
@@ -129,26 +129,26 @@ class TestAssistantAgentScenarios:
         assert agent.state_store_name == "workflowstatestore"
         assert agent.agents_registry_store_name == "registrystatestore"
 
-        print("✅ AssistantAgent initialized correctly")
+        print("✅ DurableAgent initialized correctly")
 
     def test_assistant_agent_tool_configuration(self, assistant_agent_with_tools):
-        """Test that AssistantAgent configures tools correctly."""
+        """Test that DurableAgent configures tools correctly."""
         agent = assistant_agent_with_tools
 
         # Verify tool configuration
         assert len(agent.tools) == 2
         assert agent.tool_choice == "auto"  # Should be auto when tools provided
 
-        # Verify tool names
+        # Verify tool names (preserved as original function names)
         tool_names = [tool.name for tool in agent.tools]
         assert "get_weather" in tool_names
         assert "calculate" in tool_names
 
-        print("✅ AssistantAgent tools configured correctly")
+        print("✅ DurableAgent tools configured correctly")
 
     @pytest.mark.integration
     async def test_assistant_agent_workflow_runtime_setup(self, assistant_agent_basic):
-        """Test that AssistantAgent sets up workflow runtime correctly."""
+        """Test that DurableAgent sets up workflow runtime correctly."""
         agent = assistant_agent_basic
 
         # Verify workflow runtime components
@@ -172,7 +172,7 @@ class TestAssistantAgentScenarios:
         for task_name in expected_tasks:
             assert task_name in agent.tasks
 
-        print("✅ AssistantAgent workflow runtime setup correctly")
+        print("✅ DurableAgent workflow runtime setup correctly")
 
     @pytest.mark.integration
     async def test_assistant_agent_basic_workflow_execution(
@@ -205,7 +205,7 @@ class TestAssistantAgentScenarios:
             assert workflow_entry["input"] == "Hello, can you help me?"
             assert workflow_entry["output"] is not None
 
-            print("✅ Basic AssistantAgent workflow executed successfully")
+            print("✅ Basic DurableAgent workflow executed successfully")
 
         finally:
             agent.stop_runtime()
@@ -248,7 +248,7 @@ class TestAssistantAgentScenarios:
             assert "San Francisco" in tool_execution["function_args"]
             assert "sunny and 75°F" in tool_execution["content"]
 
-            print("✅ AssistantAgent tool calling workflow executed successfully")
+            print("✅ DurableAgent tool calling workflow executed successfully")
 
         finally:
             agent.stop_runtime()
@@ -291,7 +291,7 @@ class TestAssistantAgentScenarios:
             assert "get_weather" in function_names
             assert "calculate" in function_names
 
-            print("✅ AssistantAgent multi-iteration workflow executed successfully")
+            print("✅ DurableAgent multi-iteration workflow executed successfully")
 
         finally:
             agent.stop_runtime()
@@ -300,7 +300,7 @@ class TestAssistantAgentScenarios:
     async def test_assistant_agent_memory_persistence(
         self, assistant_agent_with_memory
     ):
-        """Test that AssistantAgent persists memory across workflow executions."""
+        """Test that DurableAgent persists memory across workflow executions."""
         agent = assistant_agent_with_memory
 
         # Start the workflow runtime
@@ -340,14 +340,14 @@ class TestAssistantAgentScenarios:
             assert len(weather_calls) > 0
             assert "Seattle" in weather_calls[0]["function_args"]
 
-            print("✅ AssistantAgent memory persistence working correctly")
+            print("✅ DurableAgent memory persistence working correctly")
 
         finally:
             agent.stop_runtime()
 
     @pytest.mark.integration
     async def test_assistant_agent_error_handling(self, assistant_agent_with_tools):
-        """Test AssistantAgent error handling in workflows."""
+        """Test DurableAgent error handling in workflows."""
         agent = assistant_agent_with_tools
 
         # Start the workflow runtime
@@ -384,13 +384,13 @@ class TestAssistantAgentScenarios:
                 if calc_tool:
                     assert "Error" in calc_tool["content"]
 
-            print("✅ AssistantAgent error handling working correctly")
+            print("✅ DurableAgent error handling working correctly")
 
         finally:
             agent.stop_runtime()
 
     def test_assistant_agent_state_management(self, assistant_agent_basic):
-        """Test AssistantAgent state management functionality."""
+        """Test DurableAgent state management functionality."""
         agent = assistant_agent_basic
 
         # Test initial state
@@ -417,7 +417,7 @@ class TestAssistantAgentScenarios:
         assert entry["messages"] == []
         assert entry["tool_history"] == []
 
-        print("✅ AssistantAgent state management working correctly")
+        print("✅ DurableAgent state management working correctly")
 
     def validate_workflow_response(self, response: Dict[str, Any]) -> None:
         """Validate the structure of workflow response."""

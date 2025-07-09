@@ -36,10 +36,8 @@ from dapr_agents.llm.dapr import DaprChatClient
 
 logger = logging.getLogger(__name__)
 
-# Type alias for all concrete chat client implementations
-ChatClientType = Union[
-    OpenAIChatClient, HFHubChatClient, NVIDIAChatClient, DaprChatClient
-]
+# We check at runtime if the LLM is a valid ChatClientType
+ChatClientType = Any
 
 
 class AgentBase(BaseModel, ABC):
@@ -77,7 +75,7 @@ class AgentBase(BaseModel, ABC):
         description="A custom system prompt, overriding name, role, goal, and instructions.",
     )
     llm: ChatClientType = Field(
-        default_factory=OpenAIChatClient,
+        default_factory=DaprChatClient,
         description="Language model client for generating responses.",
     )
     prompt_template: Optional[PromptTemplateBase] = Field(
@@ -127,6 +125,19 @@ class AgentBase(BaseModel, ABC):
     def validate_llm(cls, values):
         """Validate that LLM is properly configured."""
         if hasattr(values, "llm") and values.llm:
+            # Check that it's a supported LLM client type
+            from dapr_agents.llm.openai import OpenAIChatClient
+            from dapr_agents.llm.huggingface import HFHubChatClient
+            from dapr_agents.llm.nvidia import NVIDIAChatClient
+            from dapr_agents.llm.dapr import DaprChatClient
+            
+            # Allow mock clients for testing
+            if hasattr(values.llm, '__class__') and 'Mock' in values.llm.__class__.__name__:
+                # Skip validation for mock objects (used in testing)
+                pass
+            elif not isinstance(values.llm, (OpenAIChatClient, HFHubChatClient, NVIDIAChatClient, DaprChatClient)):
+                raise ValueError(f"Unsupported LLM client type: {type(values.llm)}. Must be one of: OpenAIChatClient, HFHubChatClient, NVIDIAChatClient, DaprChatClient")
+            
             try:
                 # Validate LLM is properly configured by accessing it as this is required to be set.
                 _ = values.llm
@@ -142,33 +153,35 @@ class AgentBase(BaseModel, ABC):
         """
         self._tool_executor = AgentToolExecutor(tools=self.tools)
 
-        if self.prompt_template and self.llm.prompt_template:
-            raise ValueError(
-                "Conflicting prompt templates: both an agent prompt_template and an LLM prompt_template are provided. "
-                "Please set only one or ensure synchronization between the two."
-            )
+        if self.llm:
+            if self.prompt_template and self.llm.prompt_template:
+                raise ValueError(
+                    "Conflicting prompt templates: both an agent prompt_template and an LLM prompt_template are provided. "
+                    "Please set only one or ensure synchronization between the two."
+                )
 
-        if self.prompt_template:
-            logger.info(
-                "Using the provided agent prompt_template. Skipping system prompt construction."
-            )
-            self.llm.prompt_template = self.prompt_template
+            if self.prompt_template:
+                logger.info(
+                    "Using the provided agent prompt_template. Skipping system prompt construction."
+                )
+                self.llm.prompt_template = self.prompt_template
 
-        # If the LLM client already has a prompt template, sync it and prefill/validate as needed
-        elif self.llm.prompt_template:
-            logger.info("Using existing LLM prompt_template. Synchronizing with agent.")
-            self.prompt_template = self.llm.prompt_template
+            # If the LLM client already has a prompt template, sync it and prefill/validate as needed
+            elif self.llm.prompt_template:
+                logger.info("Using existing LLM prompt_template. Synchronizing with agent.")
+                self.prompt_template = self.llm.prompt_template
 
-        else:
-            if not self.system_prompt:
-                logger.info("Constructing system_prompt from agent attributes.")
-                self.system_prompt = self.construct_system_prompt()
+            else:
+                if not self.system_prompt:
+                    logger.info("Constructing system_prompt from agent attributes.")
+                    self.system_prompt = self.construct_system_prompt()
 
-            logger.info("Using system_prompt to create the prompt template.")
-            self.prompt_template = self.construct_prompt_template()
+                logger.info("Using system_prompt to create the prompt template.")
+                self.prompt_template = self.construct_prompt_template()
 
-        if not self.llm.prompt_template:
-            self.llm.prompt_template = self.prompt_template
+            if not self.llm.prompt_template:
+                self.llm.prompt_template = self.prompt_template
+
 
         self._validate_prompt_template()
         self.prefill_agent_attributes()

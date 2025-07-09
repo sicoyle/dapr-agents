@@ -220,14 +220,14 @@ def get_daprd_binary():
         arch = "amd64"
     elif arch in ["arm64", "aarch64"]:
         arch = "arm64"
-
-    binary_path = DAPR_REPO / "dist" / f"{system}_{arch}" / "release" / "daprd"
+    DAPR_REPO = "/Users/samcoyle/go/src/github.com/forks/dapr/dapr"
+    binary_path = Path(DAPR_REPO) / "dist" / f"{system}_{arch}" / "release" / "daprd"
 
     if binary_path.exists():
         return binary_path
 
     # Fallback to root directory
-    fallback_path = DAPR_REPO / "daprd"
+    fallback_path = Path(DAPR_REPO) / "daprd"
     if fallback_path.exists():
         return fallback_path
 
