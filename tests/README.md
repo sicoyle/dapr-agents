@@ -98,7 +98,7 @@ ls ../dapr/dist/darwin_arm64/release/daprd  # or linux_amd64 for Linux
 ```bash
 # Run fast tests with no API keys required
 cd tests
-python -m pytest unit/ integration/test_basic_integration.py -v
+python -m pytest tests/unit/ tests/integration/test_basic_integration.py -v
 ```
 
 ### Complete Integration Tests

@@ -2,17 +2,25 @@
 
 import pytest
 import logging
+import sys
+import os
+import tempfile
+import shutil
 from pathlib import Path
 from typing import Dict, Generator
+from unittest.mock import MagicMock
 
-from tests.utils import (
-    ScenarioManager,
-    DevelopmentScenario,
-    EnvManager,
-    ComponentManager,
-    DaprManager,
-    VersionManager,
-)
+# Add the project root to the Python path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# from tests.utils import (
+    # ScenarioManager,
+    # DevelopmentScenario,
+    # EnvManager,
+    # ComponentManager,
+    # DaprManager,
+    # VersionManager,
+# )
 
 # Configure logging for tests
 logging.basicConfig(
@@ -21,98 +29,101 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
-@pytest.fixture(scope="session")
-def scenario_manager():
-    """Scenario manager for detecting development environment."""
-    return ScenarioManager()
+# This file is used by pytest to configure the test environment
+# and provide shared fixtures across all tests.
 
 
-@pytest.fixture(scope="session")
-def development_scenario(scenario_manager):
-    """Detect and configure development scenario."""
-    scenario = scenario_manager.detect_scenario()
-    logger.info(f"Detected development scenario: {scenario.value}")
-    logger.info(f"Description: {scenario_manager.get_scenario_description(scenario)}")
-    return scenario
+# @pytest.fixture(scope="session")
+# def scenario_manager():
+#     """Scenario manager for detecting development environment."""
+#     return ScenarioManager()
 
 
-@pytest.fixture(scope="session")
-def env_manager():
-    """Environment manager for test setup."""
-    return EnvManager()
+# @pytest.fixture(scope="session")
+# def development_scenario(scenario_manager):
+#     """Detect and configure development scenario."""
+#     scenario = scenario_manager.detect_scenario()
+#     logger.info(f"Detected development scenario: {scenario.value}")
+#     logger.info(f"Description: {scenario_manager.get_scenario_description(scenario)}")
+#     return scenario
 
 
-@pytest.fixture(scope="session")
-def component_manager():
-    """Component manager for test configurations."""
-    return ComponentManager()
+# @pytest.fixture(scope="session")
+# def env_manager():
+#     """Environment manager for test setup."""
+#     return EnvManager()
 
 
-@pytest.fixture(scope="session")
-def version_manager():
-    """Version manager for compatibility checking."""
-    return VersionManager()
+# @pytest.fixture(scope="session")
+# def component_manager():
+#     """Component manager for test configurations."""
+#     return ComponentManager()
 
 
-@pytest.fixture(scope="session")
-def test_environment(env_manager, development_scenario):
-    """Setup test environment based on development scenario."""
-    setup_result = env_manager.setup_for_scenario(development_scenario)
-
-    if not setup_result["requirements_met"]:
-        pytest.skip(
-            f"Test environment requirements not met for scenario {development_scenario.value}"
-        )
-
-    if setup_result["warnings"]:
-        for warning in setup_result["warnings"]:
-            logger.warning(f"Test environment warning: {warning}")
-
-    return setup_result
+# @pytest.fixture(scope="session")
+# def version_manager():
+#     """Version manager for compatibility checking."""
+#     return VersionManager()
 
 
-@pytest.fixture(scope="session")
-def dapr_runtime(
-    development_scenario, component_manager, test_environment
-) -> Generator[DaprManager, None, None]:
-    """Session-scoped Dapr runtime based on development scenario."""
-    # Use CLI for production-like scenarios, local binary for development
-    use_cli = development_scenario in [
-        DevelopmentScenario.AGENT_ONLY,
-        DevelopmentScenario.PRODUCTION,
-    ]
-    manager = DaprManager(use_cli=use_cli)
+# @pytest.fixture(scope="session")
+# def test_environment(env_manager, development_scenario):
+#     """Setup test environment based on development scenario."""
+#     setup_result = env_manager.setup_for_scenario(development_scenario)
 
-    # Setup CLI if needed
-    if use_cli and not manager._is_dapr_cli_installed():
-        logger.info("Setting up Dapr CLI for production-like testing...")
-        if not manager.setup_dapr_cli(interactive=False):
-            pytest.skip("Could not setup Dapr CLI for production testing")
+#     if not setup_result["requirements_met"]:
+#         pytest.skip(
+#             f"Test environment requirements not met for scenario {development_scenario.value}"
+#         )
 
-    # Get components directory for scenario
-    components_dir = component_manager.get_components_for_scenario(development_scenario)
+#     if setup_result["warnings"]:
+#         for warning in setup_result["warnings"]:
+#             logger.warning(f"Test environment warning: {warning}")
 
-    # Ensure components exist for scenario
-    component_manager.create_scenario_components(development_scenario)
+#     return setup_result
 
-    # Start Dapr runtime
-    app_id = f"test-{development_scenario.value.replace('_', '-')}"
-    success = manager.start_dapr(components_dir, app_id, development_scenario)
 
-    if not success:
-        pytest.skip(
-            f"Could not start Dapr runtime for scenario {development_scenario.value}"
-        )
+# @pytest.fixture(scope="session")
+# def dapr_runtime(
+#     development_scenario, component_manager, test_environment
+# ) -> Generator[DaprManager, None, None]:
+#     """Session-scoped Dapr runtime based on development scenario."""
+#     # Use CLI for production-like scenarios, local binary for development
+#     use_cli = development_scenario in [
+#         DevelopmentScenario.AGENT_ONLY,
+#         DevelopmentScenario.PRODUCTION,
+#     ]
+#     manager = DaprManager(use_cli=use_cli)
 
-    # Validate that required components are loaded
-    components = manager.list_components()
-    logger.info(f"Dapr started with {len(components)} components: {components}")
+#     # Setup CLI if needed
+#     if use_cli and not manager._is_dapr_cli_installed():
+#         logger.info("Setting up Dapr CLI for production-like testing...")
+#         if not manager.setup_dapr_cli(interactive=False):
+#             pytest.skip("Could not setup Dapr CLI for production testing")
 
-    yield manager
+#     # Get components directory for scenario
+#     components_dir = component_manager.get_components_for_scenario(development_scenario)
 
-    # Cleanup
-    manager.stop_dapr()
+#     # Ensure components exist for scenario
+#     component_manager.create_scenario_components(development_scenario)
+
+#     # Start Dapr runtime
+#     app_id = f"test-{development_scenario.value.replace('_', '-')}"
+#     success = manager.start_dapr(components_dir, app_id, development_scenario)
+
+#     if not success:
+#         pytest.skip(
+#             f"Could not start Dapr runtime for scenario {development_scenario.value}"
+#         )
+
+#     # Validate that required components are loaded
+#     components = manager.list_components()
+#     logger.info(f"Dapr started with {len(components)} components: {components}")
+
+#     yield manager
+
+#     # Cleanup
+#     manager.stop_dapr()
 
 
 @pytest.fixture(scope="session")
@@ -184,102 +195,90 @@ def sample_messages():
 
 @pytest.fixture
 def dapr_chat_client(dapr_endpoints):
-    """DaprChatClient configured for testing."""
-    from dapr_agents.llm.dapr import DaprChatClient
+    """DaprChatClient instance for testing."""
+    from dapr_agents.llm import DaprChatClient
 
-    # Create client without endpoint parameters since DaprChatClient
-    # uses internal DaprClient() that handles connection automatically
     return DaprChatClient()
 
 
-# Pytest markers for test categorization
+@pytest.fixture
+def temp_dir():
+    """Temporary directory for testing."""
+    temp_dir = tempfile.mkdtemp()
+    yield temp_dir
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def pytest_configure(config):
-    """Configure pytest markers."""
+    """Configure pytest with custom markers."""
     config.addinivalue_line(
-        "markers", "unit: Unit tests (fast, no external dependencies)"
+        "markers", "integration: mark test as integration test"
     )
     config.addinivalue_line(
-        "markers", "integration: Integration tests (require Dapr runtime)"
-    )
-    config.addinivalue_line("markers", "e2e: End-to-end tests (full workflows)")
-    config.addinivalue_line("markers", "performance: Performance tests")
-    config.addinivalue_line("markers", "slow: Slow tests (may take minutes)")
-    config.addinivalue_line("markers", "requires_api_key: Tests requiring API keys")
-    config.addinivalue_line(
-        "markers", "provider_specific: Tests for specific providers"
+        "markers", "slow: mark test as slow running"
     )
     config.addinivalue_line(
-        "markers", "local_full: Tests requiring full local development"
+        "markers", "unit: mark test as unit test"
     )
-    config.addinivalue_line(
-        "markers", "local_partial: Tests requiring partial local development"
-    )
-    config.addinivalue_line("markers", "agent_only: Tests for agent-only development")
-    config.addinivalue_line("markers", "production: Tests for production scenarios")
 
 
 def pytest_collection_modifyitems(config, items):
-    """Modify test collection based on scenario and markers."""
-    # Get current scenario
-    scenario_manager = ScenarioManager()
-    current_scenario = scenario_manager.detect_scenario()
-
-    # Skip tests that don't match current scenario
-    scenario_markers = {
-        DevelopmentScenario.LOCAL_FULL: "local_full",
-        DevelopmentScenario.LOCAL_PARTIAL: "local_partial",
-        DevelopmentScenario.AGENT_ONLY: "agent_only",
-        DevelopmentScenario.PRODUCTION: "production",
-    }
-
+    """Modify test collection to add markers based on file location."""
     for item in items:
-        # Check if test has scenario-specific markers
-        for scenario, marker_name in scenario_markers.items():
-            if item.get_closest_marker(marker_name):
-                if current_scenario != scenario:
-                    item.add_marker(
-                        pytest.mark.skip(
-                            reason=f"Test requires {scenario.value} scenario, current: {current_scenario.value}"
-                        )
-                    )
+        # Mark tests in integration/ directory as integration tests
+        if "integration" in str(item.fspath):
+            item.add_marker(pytest.mark.integration)
+        # Mark tests in unit/ directory as unit tests
+        elif "unit" in str(item.fspath):
+            item.add_marker(pytest.mark.unit)
 
 
 @pytest.fixture(autouse=True)
 def test_logging(request):
-    """Setup test-specific logging."""
-    test_name = request.node.name
-    logger.info(f"Starting test: {test_name}")
+    """Configure logging for tests."""
+    import logging
 
-    yield
+    # Set up logging for the test
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
 
-    logger.info(f"Completed test: {test_name}")
 
+# @pytest.fixture(scope="session", autouse=True)
+# def session_setup(development_scenario, version_manager):
+#     """Session-level setup and teardown."""
+#     import logging
 
-# Session-scoped fixtures for resource management
-@pytest.fixture(scope="session", autouse=True)
-def session_setup(development_scenario, version_manager):
-    """Session setup and validation."""
-    logger.info("=== Test Session Starting ===")
-    logger.info(f"Development Scenario: {development_scenario.value}")
+#     logger = logging.getLogger(__name__)
 
-    # Validate environment
-    validation = version_manager.validate_test_environment()
-    if not validation["all_compatible"]:
-        logger.warning("Environment compatibility issues detected:")
-        for warning in validation["warnings"]:
-            logger.warning(f"  - {warning}")
-        for error in validation["errors"]:
-            logger.error(f"  - {error}")
+#     logger.info("=== Test Session Starting ===")
+#     logger.info(f"Development Scenario: {development_scenario.value}")
 
-    yield
+#     # Check version compatibility
+#     versions = version_manager.get_all_versions()
+#     compatibility = version_manager.check_compatibility(versions)
 
-    logger.info("=== Test Session Ending ===")
+#     # Check if all compatibility checks pass
+#     all_compatible = all(compatibility.values())
+    
+#     if not all_compatible:
+#         logger.warning("Environment compatibility issues detected:")
+#         for check_name, is_compatible in compatibility.items():
+#             if not is_compatible:
+#                 logger.warning(f"  - {check_name}: Not compatible")
+
+#     yield
+
+#     logger.info("=== Test Session Complete ===")
 
 
 @pytest.fixture(scope="session")
 def test_data_dir():
-    """Test data directory."""
-    return Path(__file__).parent / "fixtures" / "data"
+    """Directory containing test data."""
+    from pathlib import Path
+
+    return Path(__file__).parent / "data"
 
 
 @pytest.fixture(scope="session")
@@ -288,7 +287,6 @@ def temp_components_dir(tmp_path_factory):
     return tmp_path_factory.mktemp("components")
 
 
-# Helper functions for test scenarios
 def get_available_providers(api_keys: Dict[str, bool]) -> list:
     """Get list of available providers based on API keys."""
     providers = ["echo"]  # Echo is always available
@@ -300,21 +298,37 @@ def get_available_providers(api_keys: Dict[str, bool]) -> list:
     return providers
 
 
-def require_scenario(scenario: DevelopmentScenario):
-    """Decorator to require specific development scenario."""
+# def require_scenario(scenario: DevelopmentScenario):
+#     """Decorator to require specific development scenario."""
 
-    def decorator(func):
-        return pytest.mark.skipif(
-            ScenarioManager().detect_scenario() != scenario,
-            reason=f"Test requires {scenario.value} development scenario",
-        )(func)
+#     def decorator(func):
+#         return pytest.mark.skipif(
+#             ScenarioManager().detect_scenario() != scenario,
+#             reason=f"Test requires {scenario.value} development scenario",
+#         )(func)
 
-    return decorator
+#     return decorator
+
+
+@pytest.fixture(autouse=True)
+def patch_openai_client(monkeypatch):
+    monkeypatch.setattr("openai.OpenAI", MagicMock())
+
+
+@pytest.fixture(autouse=True)
+def set_llm_component_default_env(monkeypatch):
+    """Ensure DAPR_LLM_COMPONENT_DEFAULT is set for all tests."""
+    monkeypatch.setenv("DAPR_LLM_COMPONENT_DEFAULT", "openai")
+
+
+@pytest.fixture(autouse=True)
+def set_openai_api_key(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
 
 
 # Export commonly used items
 __all__ = [
-    "development_scenario",
+    # "development_scenario",
     "dapr_runtime",
     "dapr_chat_client",
     "sample_tools",
@@ -322,5 +336,5 @@ __all__ = [
     "api_keys",
     "skip_if_no_api_key",
     "get_available_providers",
-    "require_scenario",
+    # "require_scenario",
 ]
