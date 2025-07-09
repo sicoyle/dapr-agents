@@ -1,3 +1,4 @@
+
 """
 DurableAgent Integration Tests with Dapr Workflows
 
@@ -139,7 +140,7 @@ class TestDurableAgentScenarios:
         assert len(agent.tools) == 2
         assert agent.tool_choice == "auto"  # Should be auto when tools provided
 
-        # Verify tool names (preserved as original function names)
+        # Verify tool names
         tool_names = [tool.name for tool in agent.tools]
         assert "get_weather" in tool_names
         assert "calculate" in tool_names
@@ -430,3 +431,4 @@ class TestDurableAgentScenarios:
         for field in required_fields:
             assert field in tool_execution
             assert tool_execution[field] is not None
+
