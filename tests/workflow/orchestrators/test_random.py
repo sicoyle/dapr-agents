@@ -14,6 +14,7 @@ def orchestrator_config():
         "agents_registry_store_name": "test-registry-store",
     }
 
+
 @pytest.mark.asyncio
 async def test_random_orchestrator_initialization(orchestrator_config):
     """Test that RandomOrchestrator can be initialized."""
