@@ -2,13 +2,14 @@ import asyncio
 import signal
 import platform
 import logging
+from typing import Callable, Any
 
 logger = logging.getLogger(__name__)
 
 
 def add_signal_handlers_cross_platform(
     loop: asyncio.AbstractEventLoop,
-    handler_func,
+    handler_func: Callable[[int], Any],
     signals=(signal.SIGINT, signal.SIGTERM),
 ):
     """
