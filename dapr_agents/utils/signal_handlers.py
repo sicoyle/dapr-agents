@@ -27,8 +27,10 @@ def add_signal_handlers_cross_platform(
         # Windows uses traditional signal handlers
         for sig in signals:
             try:
+
                 def windows_handler(s: int, f: Any) -> None:
                     asyncio.create_task(handler_func(s))
+
                 signal.signal(sig, windows_handler)
             except Exception as e:
                 logger.warning(f"Failed to register signal handler for {sig}: {e}")
@@ -36,8 +38,10 @@ def add_signal_handlers_cross_platform(
         # Unix-like systems use asyncio signal handlers
         for sig in signals:
             try:
+
                 def unix_handler() -> None:
                     asyncio.create_task(handler_func(sig))
+
                 loop.add_signal_handler(sig, unix_handler)
             except NotImplementedError:
                 logger.warning(f"Signal {sig} not supported in this environment")
