@@ -67,9 +67,8 @@ class WorkflowApp(BaseModel):
         """
         Initialize the Dapr workflow runtime and register tasks & workflows.
         """
-        # Check if Dapr is available before proceeding
         if not self._is_dapr_available():
-            self._raise_dapr_required_error()
+            logger.warning("This agent requires Dapr to be running because it uses stateful, durable workflows.\n\n")
 
         # Initialize clients and runtime
         self.wf_runtime = WorkflowRuntime()
@@ -208,6 +207,7 @@ class WorkflowApp(BaseModel):
             decorator = self.wf_runtime.workflow(name=wf_name)
             self.workflows[wf_name] = decorator(make_wrapped(method))
 
+# TODO: in future we need to have an env var from runtime to capture the host dapr is running on instead of assuming localhost.
     def _is_dapr_available(self) -> bool:
         """
         Check if Dapr is available by attempting to connect to the Dapr sidecar.
@@ -257,24 +257,6 @@ class WorkflowApp(BaseModel):
             return False
         except Exception:
             return False
-
-    def _raise_dapr_required_error(self):
-        """
-        Raise a helpful error message when Dapr is required but not available.
-
-        Raises:
-            RuntimeError: Always raised to indicate Dapr is required for this workflow.
-        """
-        error_msg = (
-            "🚫 Dapr Required for Durable Agent\n\n"
-            "This agent requires Dapr to be running because it uses stateful, durable workflows.\n\n"
-            "To run this agent, you need to:\n\n"
-            "1. Install Dapr CLI: https://docs.dapr.io/getting-started/install-dapr-cli/\n"
-            "2. Initialize Dapr: dapr init\n"
-            "3. Run with Dapr: dapr run --app-id your-app-id --app-port 8001 --resources-path components/ -- python your_script.py\n\n"
-            "For more information, see the README.md in the quickstart directory."
-        )
-        raise RuntimeError(error_msg)
 
     def resolve_task(self, task: Union[str, Callable]) -> Callable:
         """
