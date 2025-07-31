@@ -67,11 +67,6 @@ class WorkflowApp(BaseModel):
         """
         Initialize the Dapr workflow runtime and register tasks & workflows.
         """
-        if not self._is_dapr_available():
-            logger.warning(
-                "This agent requires Dapr to be running because it uses stateful, durable workflows.\n\n"
-            )
-
         # Initialize clients and runtime
         self.wf_runtime = WorkflowRuntime()
         self.wf_runtime_is_running = False
@@ -208,57 +203,6 @@ class WorkflowApp(BaseModel):
 
             decorator = self.wf_runtime.workflow(name=wf_name)
             self.workflows[wf_name] = decorator(make_wrapped(method))
-
-    # TODO: in future we need to have an env var from runtime to capture the host dapr is running on instead of assuming localhost.
-    def _is_dapr_available(self) -> bool:
-        """
-        Check if Dapr is available by attempting to connect to the Dapr sidecar.
-
-        This provides better developer experience for users who don't have Dapr running,
-        by providing a clear error message if Dapr is not available.
-
-        Returns:
-            bool: True if Dapr is available, False otherwise.
-        """
-        try:
-            import os
-            import socket
-
-            def check_tcp_port(port: int, timeout: int = 2) -> bool:
-                """
-                Check if a TCP port is open and accepting connections.
-
-                Args:
-                    port (int): The port number to check.
-                    timeout (int): Timeout in seconds for the connection attempt.
-
-                Returns:
-                    bool: True if the port is open, False otherwise.
-                """
-                try:
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(timeout)
-                    result = sock.connect_ex(("localhost", port))
-                    sock.close()
-                    return result == 0
-                except Exception:
-                    return False
-
-            ports_to_check = []
-            for env_var in ["DAPR_HTTP_PORT", "DAPR_GRPC_PORT"]:
-                port = os.environ.get(env_var)
-                if port:
-                    ports_to_check.append(int(port))
-
-            # Fallback ports
-            ports_to_check.extend([3500, 3501, 3502])
-            for port in ports_to_check:
-                if check_tcp_port(port):
-                    return True
-
-            return False
-        except Exception:
-            return False
 
     def resolve_task(self, task: Union[str, Callable]) -> Callable:
         """
