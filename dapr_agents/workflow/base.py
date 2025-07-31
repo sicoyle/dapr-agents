@@ -68,7 +68,9 @@ class WorkflowApp(BaseModel):
         Initialize the Dapr workflow runtime and register tasks & workflows.
         """
         if not self._is_dapr_available():
-            logger.warning("This agent requires Dapr to be running because it uses stateful, durable workflows.\n\n")
+            logger.warning(
+                "This agent requires Dapr to be running because it uses stateful, durable workflows.\n\n"
+            )
 
         # Initialize clients and runtime
         self.wf_runtime = WorkflowRuntime()
@@ -207,7 +209,7 @@ class WorkflowApp(BaseModel):
             decorator = self.wf_runtime.workflow(name=wf_name)
             self.workflows[wf_name] = decorator(make_wrapped(method))
 
-# TODO: in future we need to have an env var from runtime to capture the host dapr is running on instead of assuming localhost.
+    # TODO: in future we need to have an env var from runtime to capture the host dapr is running on instead of assuming localhost.
     def _is_dapr_available(self) -> bool:
         """
         Check if Dapr is available by attempting to connect to the Dapr sidecar.
