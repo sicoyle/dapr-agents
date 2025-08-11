@@ -209,6 +209,8 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                     # 🔴 If this was the last turn, stop here—even though there were tool calls
                     if turn == self.max_iterations:
                         final_message = response_message
+                        # Make sure content exists and is a string
+                        final_message["content"] = final_message.get("content") or ""
                         final_message[
                             "content"
                         ] += "\n\n⚠️ Stopped: reached max iterations."
@@ -223,6 +225,8 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
                 # 🔴 If it happened to be the last turn, banner it
                 if turn == self.max_iterations:
+                    # Again, ensure content is never None
+                    final_message["content"] = final_message.get("content") or ""
                     final_message["content"] += "\n\n⚠️ Stopped: reached max iterations."
 
                 break  # exit loop with final_message
