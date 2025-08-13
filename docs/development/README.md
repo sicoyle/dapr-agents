@@ -8,16 +8,26 @@ This project uses modern Python packaging with `pyproject.toml`. Dependencies ar
 - Test dependencies are in `[project.optional-dependencies.test]`
 - Development dependencies are in `[project.optional-dependencies.dev]`
 
+### Working within a virtual environment
+Create your python virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
 ### Generating Requirements Files
 
 If you need to generate requirements files (e.g., for deployment or specific environments):
 
 ```bash
+# Install dev tools
+pip install -e ".[dev]"
+
 # Generate requirements.txt
 pip-compile pyproject.toml
 
 # Generate dev-requirements.txt
-pip-compile pyproject.toml --extra dev
+pip-compile pyproject.toml # --extra dev
 ```
 
 ### Installing Dependencies
