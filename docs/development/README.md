@@ -19,6 +19,7 @@ source venv/bin/activate
 
 If you need to generate requirements files (e.g., for deployment or specific environments):
 
+#### Option 1 - Using pip-tools:
 ```bash
 # Install dev tools
 pip install -e ".[dev]"
@@ -30,8 +31,18 @@ pip-compile pyproject.toml
 pip-compile pyproject.toml # --extra dev
 ```
 
+#### Option 2 - Using uv:
+```bash
+# Generate lock file with all dependencies
+uv lock --all-extras
+
+# Install everything from lock file
+uv sync --all-extras
+```
+
 ### Installing Dependencies
 
+#### Option 1 - Using pip:
 ```bash
 # Install main package with test dependencies
 pip install -e ".[test]"
@@ -41,6 +52,21 @@ pip install -e ".[dev]"
 
 # Install main package with all optional dependencies
 pip install -e ".[test,dev]"
+```
+
+#### Option 2 - Using uv (Modern, faster approach - Recommended):
+```bash
+# Install main package with test dependencies
+uv sync --extra=test
+
+# Install main package with development dependencies
+uv sync --extra=dev
+
+# Install main package with all optional dependencies
+uv sync --all-extras
+
+# Install in editable mode with all extras
+uv sync --all-extras --editable
 ```
 
 ## Testing
@@ -75,9 +101,12 @@ tox -e type
 
 ## Development Workflow
 
+### Option 1 - Using pip:
 1. Install development dependencies:
    ```bash
    pip install -e ".[dev]"
+   # Alternatively, you can use uv with:
+   # uv sync --extra=dev
    ```
 
 2. Run tests before making changes:
