@@ -54,7 +54,7 @@ pip install -e ".[dev]"
 pip install -e ".[test,dev]"
 ```
 
-#### Option 2 - Using uv (Modern, faster approach - Recommended):
+#### Option 2 - Using uv:
 ```bash
 # Install main package with test dependencies
 uv sync --extra=test
@@ -68,6 +68,17 @@ uv sync --all-extras
 # Install in editable mode with all extras
 uv sync --all-extras --editable
 ```
+
+## Command Mapping
+
+| pip/pip-tools command | uv equivalent |
+|----------------------|---------------|
+| `pip-compile pyproject.toml` | `uv lock` |
+| `pip-compile --all-extras` | `uv lock` (automatic) |
+| `pip install -r requirements.txt` | `uv sync` |
+| `pip install -e .` | `uv sync --editable` |
+| `pip install -e ".[dev]"` | `uv sync --extra=dev` |
+| `pip install -e ".[test,dev]"` | `uv sync --all-extras` |
 
 ## Testing
 
