@@ -681,6 +681,7 @@ dependencies = [
     { name = "numpy", version = "2.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "openai" },
     { name = "openapi-pydantic" },
+    { name = "posthog" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
@@ -714,7 +715,6 @@ test = [
 ]
 vectorstore = [
     { name = "chromadb" },
-    { name = "posthog" },
     { name = "sentence-transformers" },
     { name = "torch" },
 ]
@@ -746,7 +746,7 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp", marker = "extra == 'observability'", specifier = ">=1.32.1,<1.35.0" },
     { name = "opentelemetry-instrumentation-requests", marker = "extra == 'observability'", specifier = ">=0.53b1,<0.56b0" },
     { name = "pip-tools", marker = "extra == 'dev'", specifier = ">=7.4.1,<8.0.0" },
-    { name = "posthog", marker = "extra == 'vectorstore'", specifier = "<6.0.0" },
+    { name = "posthog", specifier = "<6.0.0" },
     { name = "pydantic", specifier = ">=2.11.3,<3.0.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.0.0,<8.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.23.0,<1.0.0" },
