@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 # Wrap your async call
 async def main():
     from phoenix.otel import register
@@ -15,7 +16,7 @@ async def main():
         project_name="dapr-weather-durable-agent",
         protocol="http/protobuf",
     )
-    
+
     # Initialize Dapr Agents OpenTelemetry instrumentor
     try:
         instrumentor = DaprAgentsInstrumentor()
@@ -40,6 +41,7 @@ async def main():
     )
 
     await AIAgent.run("What is the weather in Virginia, New York and Washington DC?")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
