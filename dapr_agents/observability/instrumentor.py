@@ -135,7 +135,7 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
             **kwargs: Instrumentation configuration including:
                      - tracer_provider: Optional OpenTelemetry tracer provider
                      - Additional provider-specific configuration
-        """        
+        """
         # Validate required dependencies for instrumentation
         if not OPENTELEMETRY_AVAILABLE:
             logger.warning("OpenTelemetry not available - instrumentation disabled")
@@ -153,13 +153,13 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
 
         # Apply agent wrappers (Regular Agent class execution paths)
         self._apply_agent_wrappers()
-        
+
         # Register workflow instrumentation callback for lazy loading of wrappers.
         # This is needed for DurableAgent instrumentation,
         # because the WorkflowApp is not available immediately when the instrumentor is initialized,
         # so we must register the callback to properly instrument the WorkflowApp.
         self._register_workflow_instrumentation_callback()
-        
+
         # LLM provider integrations
         self._apply_llm_wrappers()
 
@@ -377,6 +377,7 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
         try:
             from dapr_agents.agents.agent.agent import Agent
             from dapr_agents.tool.executor import AgentToolExecutor
+
             # Main agent run wrapper (AGENT span - top level)
             wrap_function_wrapper(
                 target=Agent.run,
@@ -403,7 +404,6 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
         except Exception as e:
             logger.error(f"Error applying agent wrappers: {e}", exc_info=True)
 
-
     def _apply_workflow_wrappers(self) -> None:
         """
         Apply observability wrappers for workflow orchestration methods.
@@ -423,18 +423,22 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
             monitor_wrapper = WorkflowMonitorWrapper(self._tracer)
             run_wrapper = WorkflowRunWrapper(self._tracer)
             task_wrapper = WorkflowTaskWrapper(self._tracer)
+
             # Create wrapped versions that can be bound to instances
             def wrapped_run_and_monitor_workflow_async(self, *args, **kwargs):
                 return monitor_wrapper(original_run_and_monitor, self, args, kwargs)
-            
+
             def wrapped_run_workflow(self, *args, **kwargs):
                 return run_wrapper(original_run_workflow, self, args, kwargs)
-            
+
             def wrapped_task_call(self, *args, **kwargs):
                 return task_wrapper(original_task_call, self, args, kwargs)
+
             # Replace the methods on the classes with our wrapped versions
             # This is the only way to instrument Pydantic model methods
-            WorkflowApp.run_and_monitor_workflow_async = wrapped_run_and_monitor_workflow_async
+            WorkflowApp.run_and_monitor_workflow_async = (
+                wrapped_run_and_monitor_workflow_async
+            )
             WorkflowApp.run_workflow = wrapped_run_workflow
             WorkflowTask.__call__ = wrapped_task_call
         except Exception as e:
@@ -506,7 +510,7 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
     def _register_workflow_instrumentation_callback(self):
         """
         Register workflow instrumentation callback for lazy loading of wrappers.
-        
+
         This method registers a callback in the WorkflowApp class that will be
         invoked when start_runtime() is called. This ensures workflow wrappers
         are applied at the right time (when classes are fully loaded) while
@@ -514,11 +518,15 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
         """
         try:
             from dapr_agents.workflow.base import WorkflowApp
-            
+
             # Register the workflow wrapper application as a class method
             # This will be called when any WorkflowApp instance starts its runtime
-            setattr(WorkflowApp, WorkflowApp.INSTRUMENTATION_CALLBACK_ATTR, self._apply_workflow_wrappers)
-            
+            setattr(
+                WorkflowApp,
+                WorkflowApp.INSTRUMENTATION_CALLBACK_ATTR,
+                self._apply_workflow_wrappers,
+            )
+
         except ImportError as e:
             logger.warning(f"Could not register workflow instrumentation callback: {e}")
         except Exception as e:

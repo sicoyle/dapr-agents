@@ -30,7 +30,7 @@ class WorkflowApp(BaseModel):
     """
     A Pydantic-based class to encapsulate a Dapr Workflow runtime and manage workflows and tasks.
     """
-    
+
     # Class-level constant for instrumentation callback
     # This is used to register the workflow instrumentation callback with the instrumentor
     # This is needed because the instrumentor is not available immediately when the WorkflowApp is initialized
@@ -441,7 +441,7 @@ class WorkflowApp(BaseModel):
             logger.info("Starting workflow runtime.")
             self.wf_runtime.start()
             self.wf_runtime_is_running = True
-            
+
             # Apply workflow instrumentation if callback was registered
             if hasattr(self.__class__, self.INSTRUMENTATION_CALLBACK_ATTR):
                 getattr(self.__class__, self.INSTRUMENTATION_CALLBACK_ATTR)()
@@ -808,5 +808,3 @@ class WorkflowApp(BaseModel):
             dtask.WhenAnyTask: A task that completes when the first task finishes.
         """
         return dtask.when_any(tasks)
-
-

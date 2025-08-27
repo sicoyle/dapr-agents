@@ -214,7 +214,7 @@ class WorkflowMonitorWrapper:
 
         Returns:
             Any: Result from wrapped method execution (workflow output)
-        """        
+        """
         # Check for instrumentation suppression
         if context_api and context_api.get_value(
             context_api._SUPPRESS_INSTRUMENTATION_KEY
@@ -224,7 +224,9 @@ class WorkflowMonitorWrapper:
         workflow_name = self._extract_workflow_name(args, kwargs)
         # Extract agent name from the instance
         agent_name = getattr(instance, "name", "DurableAgent")
-        attributes = self._build_workflow_attributes(workflow_name, agent_name, args, kwargs)
+        attributes = self._build_workflow_attributes(
+            workflow_name, agent_name, args, kwargs
+        )
 
         # Store global context immediately when this method is called
         # This ensures workflow tasks can access it before async execution begins
@@ -234,17 +236,17 @@ class WorkflowMonitorWrapper:
 
             captured_context = extract_otel_context()
             if captured_context.get("traceparent"):
-                logger.debug(f"Captured traceparent: {captured_context.get('traceparent')}")
-
-                store_workflow_context(
-                    "__global_workflow_context__", captured_context
+                logger.debug(
+                    f"Captured traceparent: {captured_context.get('traceparent')}"
                 )
+
+                store_workflow_context("__global_workflow_context__", captured_context)
             else:
-                logger.warning("No traceparent found in captured context during __call__")
+                logger.warning(
+                    "No traceparent found in captured context during __call__"
+                )
         except Exception as e:
-            logger.warning(
-                f"Failed to capture/store workflow context in __call__: {e}"
-            )
+            logger.warning(f"Failed to capture/store workflow context in __call__: {e}")
 
         # Handle async vs sync execution
         if asyncio.iscoroutinefunction(wrapped):
@@ -271,17 +273,19 @@ class WorkflowMonitorWrapper:
             workflow = args[0]
         else:
             workflow = kwargs.get("workflow")
-        
+
         # Extract workflow name
         workflow_name = (
             workflow
             if isinstance(workflow, str)
             else getattr(workflow, "__name__", "unknown_workflow")
         )
-        
+
         return workflow_name
 
-    def _build_workflow_attributes(self, workflow_name: str, agent_name: str, args: Any, kwargs: Any) -> Dict[str, Any]:
+    def _build_workflow_attributes(
+        self, workflow_name: str, agent_name: str, args: Any, kwargs: Any
+    ) -> Dict[str, Any]:
         """
         Build span attributes for workflow execution.
 
