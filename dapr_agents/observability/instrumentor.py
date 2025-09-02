@@ -121,6 +121,20 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
         """
         return ("dapr-agents",)
 
+    def instrument(self, **kwargs: Any) -> None:
+        """
+        Public method to instrument Dapr Agents with OpenTelemetry tracing.
+        
+        This method is called by users to enable instrumentation. It delegates
+        to the private _instrument method which contains the actual implementation.
+        
+        Args:
+            **kwargs: Instrumentation configuration including:
+                     - tracer_provider: Optional OpenTelemetry tracer provider
+                     - Additional provider-specific configuration
+        """
+        self._instrument(**kwargs)
+
     def _instrument(self, **kwargs: Any) -> None:
         """
         Instrument Dapr Agents with comprehensive OpenTelemetry tracing.
