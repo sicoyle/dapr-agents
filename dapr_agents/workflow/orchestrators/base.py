@@ -44,7 +44,6 @@ class OrchestratorWorkflowBase(AgenticWorkflow, ABC):
         self.register_agentic_system()
 
         # Start the runtime if it's not already running
-        logger.info("Starting workflow runtime...")
         self.start_runtime()
 
     @abstractmethod
