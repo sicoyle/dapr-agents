@@ -1,7 +1,8 @@
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from dapr.ext.workflow import DaprWorkflowContext  # type: ignore
 from pydantic import Field, model_validator
@@ -15,6 +16,7 @@ from dapr_agents.types import (
     ToolMessage,
     UserMessage,
 )
+from dapr_agents.types.workflow import DaprWorkflowStatus
 from dapr_agents.workflow.agentic import AgenticWorkflow
 from dapr_agents.workflow.decorators import message_router, task, workflow
 
@@ -52,6 +54,10 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         default=None,
         description="Metadata about the agent, including name, role, goal, instructions, and topic name.",
     )
+    workflow_instance_id: Optional[str] = Field(
+        default=None,
+        description="The current workflow instance ID for this agent.",
+    )
 
     @model_validator(mode="before")
     def set_agent_and_topic_name(cls, values: dict):
@@ -67,14 +73,43 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
     def model_post_init(self, __context: Any) -> None:
         """Initializes the workflow with agentic execution capabilities."""
-        self.state = DurableAgentWorkflowState().model_dump()
-
         # Call AgenticWorkflow's model_post_init first to initialize state store and other dependencies
+        # This will properly load state from storage if it exists
         super().model_post_init(__context)
 
         # Name of main Workflow
         # TODO: can this be configurable or dynamic? Would that make sense?
         self._workflow_name = "ToolCallingWorkflow"
+
+        # Initialize state structure if it doesn't exist
+        if not self.state:
+            self.state = {}
+        if "instances" not in self.state:
+            self.state["instances"] = {}
+        if "chat_history" not in self.state:
+            self.state["chat_history"] = []
+
+        # Load the current workflow instance ID from state if it exists
+        logger.info(f"State after loading: {self.state}")
+        if self.state and "instances" in self.state:
+            logger.info(f"Found {len(self.state['instances'])} instances in state")
+            for instance_id, instance_data in self.state["instances"].items():
+                stored_workflow_name = instance_data.get("workflow_name")
+                logger.info(
+                    f"Instance {instance_id}: workflow_name={stored_workflow_name}, current_workflow_name={self._workflow_name}"
+                )
+                if stored_workflow_name == self._workflow_name:
+                    self.workflow_instance_id = instance_id
+                    logger.info(
+                        f"Loaded current workflow instance ID from state: {instance_id}"
+                    )
+                    break
+        else:
+            logger.info("No instances found in state or state is empty")
+
+        # Sync workflow state with Dapr runtime after loading
+        # This ensures our database reflects the actual state of resumed workflows
+        self._sync_workflow_state_after_startup()
 
         # Register the agentic system
         self._agent_metadata = {
@@ -88,18 +123,25 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         }
 
         self.register_agentic_system()
-        if not self.wf_runtime_is_running:
-            self.start_runtime()
+
+        # Start the runtime if it's not already running
+        logger.info("Starting workflow runtime...")
+        self.start_runtime()
 
     async def run(self, input_data: Union[str, Dict[str, Any]]) -> Any:
         """
         Fire up the workflow, wait for it to complete, then return the final serialized_output.
+        Dapr automatically handles resuming any incomplete workflows when the runtime starts.
 
         Args:
             input_data (Union[str, Dict[str, Any]]): The input for the workflow. Can be a string (task) or a dict.
         Returns:
             Any: The final output from the workflow execution.
         """
+        logger.debug(f"DurableAgent.run() called with input: {input_data}")
+
+        # Set up signal handlers for graceful shutdown when using run() method
+        self.setup_signal_handlers()
 
         # Prepare input payload for workflow
         if isinstance(input_data, dict):
@@ -107,11 +149,19 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         else:
             input_payload = {"task": input_data}
 
-        # Kick off the workflow and block until it finishes:
-        return await self.run_and_monitor_workflow_async(
-            workflow=self._workflow_name,
-            input=input_payload,
-        )
+        try:
+            result = await self.run_and_monitor_workflow_async(
+                workflow=self._workflow_name,
+                input=input_payload,
+            )
+            return result
+        except asyncio.CancelledError:
+            logger.info("Workflow execution was cancelled")
+            raise
+        finally:
+            # Clean up runtime
+            if self.wf_runtime_is_running:
+                self.stop_runtime()
 
     @message_router
     @workflow(name="ToolCallingWorkflow")
@@ -128,18 +178,79 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         Returns:
             Dict[str, Any]: The final response message when the workflow completes, or None if continuing to the next iteration.
         """
-        # Step 1: pull out task + metadata
+        # Step 1: pull out task + metadata + span context
         if isinstance(message, dict):
             task = message.get("task", None)
-            source_workflow_instance_id = message.get("workflow_instance_id")
             metadata = message.get("_message_metadata", {}) or {}
+            # Extract OpenTelemetry span context if present
+            otel_span_context = message.get("_otel_span_context", None)
+            # Extract workflow_instance_id from TriggerAction if present from orchestrator
+            if "workflow_instance_id" in message:
+                metadata["triggering_workflow_instance_id"] = message[
+                    "workflow_instance_id"
+                ]
         else:
             task = getattr(message, "task", None)
-            source_workflow_instance_id = getattr(message, "workflow_instance_id", None)
             metadata = getattr(message, "_message_metadata", {}) or {}
+            # Extract OpenTelemetry span context if present
+            otel_span_context = getattr(message, "_otel_span_context", None)
+            # Extract workflow_instance_id from TriggerAction if present from orchestrator
+            if hasattr(message, "workflow_instance_id"):
+                metadata["triggering_workflow_instance_id"] = getattr(
+                    message, "workflow_instance_id"
+                )
 
-        instance_id = ctx.instance_id
+        workflow_instance_id = ctx.instance_id
+        triggering_workflow_instance_id = metadata.get(
+            "triggering_workflow_instance_id"
+        )
         source = metadata.get("source")
+
+        # Set default source if not provided (for direct run() calls)
+        if not source:
+            source = "direct"
+
+        # Store workflow instance ID for observability layer to use
+        # The observability layer will handle AGENT span creation for resumed workflows
+        if otel_span_context:
+            # New workflow - store the provided span context (observability layer handles this)
+            from dapr_agents.observability.context_storage import store_workflow_context
+
+            instance_context_key = f"__workflow_context_{workflow_instance_id}__"
+            store_workflow_context(instance_context_key, otel_span_context)
+
+        # Load the latest state from database to ensure we have up-to-date instance data
+        self.load_state()
+
+        # Check if this instance already exists in state (from previous runs)
+        is_resumed_workflow = workflow_instance_id in self.state.get("instances", {})
+        if not is_resumed_workflow:
+            # This is a new instance, create a minimal entry
+            instance_entry = {
+                "input": task,
+                "output": "",
+                "messages": [],
+                # TODO(@Sicoyle): update to leverage deterministic time for replays.
+                "start_time": datetime.now(timezone.utc).isoformat(),
+                "end_time": None,  # Will be set when workflow completes
+                "source": source,
+                "workflow_instance_id": workflow_instance_id,
+                "triggering_workflow_instance_id": triggering_workflow_instance_id,
+                "workflow_name": self._workflow_name,
+                "status": DaprWorkflowStatus.RUNNING.value,
+                "trace_context": otel_span_context,  # Store original trace context for resumption
+            }
+            self.state.setdefault("instances", {})[
+                workflow_instance_id
+            ] = instance_entry
+            logger.debug(f"Created new instance entry: {workflow_instance_id}")
+
+            # Immediately save state so graceful shutdown can capture this instance
+            self.save_state()
+        else:
+            logger.debug(
+                f"Found existing instance entry for workflow {workflow_instance_id}"
+            )
         final_message: Optional[Dict[str, Any]] = None
 
         if not ctx.is_replaying:
@@ -149,8 +260,8 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             # Loop up to max_iterations
             for turn in range(1, self.max_iterations + 1):
                 if not ctx.is_replaying:
-                    logger.info(
-                        f"Workflow turn {turn}/{self.max_iterations} (Instance ID: {instance_id})"
+                    logger.debug(
+                        f"Workflow turn {turn}/{self.max_iterations} (Instance ID: {workflow_instance_id})"
                     )
 
                 # Step 2: On turn 1, record the initial entry
@@ -158,40 +269,33 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                     yield ctx.call_activity(
                         self.record_initial_entry,
                         input={
-                            "instance_id": instance_id,
+                            "instance_id": workflow_instance_id,
                             "input": task or "Triggered without input.",
                             "source": source,
-                            "source_workflow_instance_id": source_workflow_instance_id,
+                            "triggering_workflow_instance_id": triggering_workflow_instance_id,
                             "output": "",
                         },
                     )
-
-                # Step 3: Retrieve workflow entry info for this instance
-                entry_info: dict = yield ctx.call_activity(
-                    self.get_workflow_entry_info, input={"instance_id": instance_id}
-                )
-                source = entry_info.get("source")
-                source_workflow_instance_id = entry_info.get(
-                    "source_workflow_instance_id"
-                )
-
                 # Step 4: Generate Response with LLM
                 response_message: dict = yield ctx.call_activity(
                     self.generate_response,
-                    input={"task": task, "instance_id": instance_id},
+                    input={"task": task, "instance_id": workflow_instance_id},
                 )
 
                 # Step 5: Add the assistant's response message to the chat history
                 yield ctx.call_activity(
                     self.append_assistant_message,
-                    input={"instance_id": instance_id, "message": response_message},
+                    input={
+                        "instance_id": workflow_instance_id,
+                        "message": response_message,
+                    },
                 )
 
                 # Step 6: Handle tool calls response
                 tool_calls = response_message.get("tool_calls") or []
                 if tool_calls:
                     if not ctx.is_replaying:
-                        logger.info(
+                        logger.debug(
                             f"Turn {turn}: executing {len(tool_calls)} tool call(s)"
                         )
                     # fan‑out parallel tool executions
@@ -204,7 +308,10 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                     for tr in tool_results:
                         yield ctx.call_activity(
                             self.append_tool_message,
-                            input={"instance_id": instance_id, "tool_result": tr},
+                            input={
+                                "instance_id": workflow_instance_id,
+                                "tool_result": tr,
+                            },
                         )
                     # 🔴 If this was the last turn, stop here—even though there were tool calls
                     if turn == self.max_iterations:
@@ -248,21 +355,20 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             )
 
         # Respond to source agent if available
-        if source and source_workflow_instance_id:
+        if source and triggering_workflow_instance_id:
             yield ctx.call_activity(
                 self.send_response_back,
                 input={
                     "response": final_message,
                     "target_agent": source,
-                    "target_instance_id": source_workflow_instance_id,
+                    "target_instance_id": triggering_workflow_instance_id,
                 },
             )
 
-        # Save final output to workflow state
         yield ctx.call_activity(
             self.finalize_workflow,
             input={
-                "instance_id": instance_id,
+                "instance_id": workflow_instance_id,
                 "final_output": final_message["content"],
             },
         )
@@ -272,7 +378,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             verdict = (
                 "max_iterations_reached" if turn == self.max_iterations else "completed"
             )
-            logger.info(f"Workflow {instance_id} finalized: {verdict}")
+            logger.info(f"Workflow {workflow_instance_id} finalized: {verdict}")
 
         # Return the final response message
         return final_message
@@ -283,7 +389,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         instance_id: str,
         input: str,
         source: Optional[str],
-        source_workflow_instance_id: Optional[str],
+        triggering_workflow_instance_id: Optional[str],
         output: str = "",
     ):
         """
@@ -292,14 +398,16 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             instance_id (str): The workflow instance ID.
             input (str): The input task for the workflow.
             source (Optional[str]): The source of the workflow trigger.
-            source_workflow_instance_id (Optional[str]): The workflow instance ID of the source.
+            triggering_workflow_instance_id (Optional[str]): The workflow instance ID of the triggering workflow.
             output (str): The output for the workflow entry (default: "").
         """
         entry = DurableAgentWorkflowEntry(
             input=input,
             source=source,
-            source_workflow_instance_id=source_workflow_instance_id,
+            workflow_instance_id=instance_id,
+            triggering_workflow_instance_id=triggering_workflow_instance_id,
             output=output,
+            workflow_name=self._workflow_name,
         )
         self.state.setdefault("instances", {})[instance_id] = entry.model_dump(
             mode="json"
@@ -308,7 +416,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
     @task
     def get_workflow_entry_info(self, instance_id: str) -> Dict[str, Any]:
         """
-        Retrieves the 'source' and 'source_workflow_instance_id' for a given workflow instance.
+        Retrieves the 'source' and 'triggering_workflow_instance_id' for a given workflow instance.
 
         Args:
             instance_id (str): The workflow instance ID to look up.
@@ -316,17 +424,20 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         Returns:
             Dict[str, Any]: Dictionary containing:
                 - 'source': The source of the workflow trigger (str or None).
-                - 'source_workflow_instance_id': The workflow instance ID of the source (str or None).
+                - 'triggering_workflow_instance_id': The workflow instance ID of the triggering workflow (str or None).
 
         Raises:
             AgentError: If the entry is not found or invalid.
         """
+        # Load state to ensure we have the latest data
+        self.load_state()
+
         workflow_entry = self.state.get("instances", {}).get(instance_id)
         if workflow_entry is not None:
             return {
                 "source": workflow_entry.get("source"),
-                "source_workflow_instance_id": workflow_entry.get(
-                    "source_workflow_instance_id"
+                "triggering_workflow_instance_id": workflow_entry.get(
+                    "triggering_workflow_instance_id"
                 ),
             }
         raise AgentError(f"No workflow entry found for instance_id={instance_id}")
@@ -347,8 +458,11 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             A plain dict of the LLM's response (choices, finish_reason, etc).
             Pydantic models are `.model_dump()`-ed; any other object is coerced via `dict()`.
         """
-        # Construct messages using only input_data; chat history handled internally
-        messages: List[Dict[str, Any]] = self.construct_messages(task or {})
+        # Construct messages using instance-specific chat history instead of global memory
+        # This ensures proper message sequence for tool calls
+        messages: List[Dict[str, Any]] = self._construct_messages_with_instance_history(
+            instance_id, task or {}
+        )
         user_message = self.get_last_message_if_user(messages)
 
         # Always work with a copy of the user message for safety
@@ -362,12 +476,20 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             self.memory.add_message(user_msg)
             # Define DurableAgentMessage object for state persistence
             msg_object = DurableAgentMessage(**user_message_copy)
+            # Ensure the instance entry exists
+            if instance_id not in self.state["instances"]:
+                self.state["instances"][instance_id] = {
+                    "messages": [],
+                    "start_time": datetime.now(timezone.utc).isoformat(),
+                    "source": "user_input",
+                    "workflow_instance_id": instance_id,
+                    "triggering_workflow_instance_id": None,
+                    "workflow_name": self._workflow_name,
+                }
             inst: dict = self.state["instances"][instance_id]
             inst.setdefault("messages", []).append(msg_object.model_dump(mode="json"))
             inst["last_message"] = msg_object.model_dump(mode="json")
-            self.state.setdefault("chat_history", []).append(
-                msg_object.model_dump(mode="json")
-            )
+            # Note: Do not use global chat_history update to prevent cross-instance contamination
             # Save the state after appending the user message
             self.save_state()
 
@@ -398,8 +520,20 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             assistant_message = response_message.model_dump()
             return assistant_message
         except Exception as e:
-            logger.error(f"Error during chat generation: {e}")
-            raise AgentError(f"Failed during chat generation: {e}") from e
+            error_type = type(e).__name__
+            error_msg = str(e)
+
+            logger.error(
+                f"LLM generation failed in workflow {instance_id}: {error_type} - {error_msg}"
+            )
+            logger.error(f"Task: {task}")
+            logger.error(f"Messages count: {len(messages)}")
+            logger.error(f"Tools available: {len(self.get_llm_tools())}")
+            logger.error("Full error details:", exc_info=True)
+
+            raise AgentError(
+                f"LLM generation failed in workflow {instance_id}: {error_type} - {error_msg}"
+            ) from e
 
     @task
     async def run_tool(self, tool_call: Dict[str, Any]) -> Dict[str, Any]:
@@ -495,17 +629,33 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         message["name"] = self.name
         # Convert the message to a DurableAgentMessage object
         msg_object = DurableAgentMessage(**message)
-        # Defensive: check self.state is not None
+        # Ensure the instance entry exists
+        if instance_id not in self.state["instances"]:
+            self.state["instances"][instance_id] = {
+                "messages": [],
+                "start_time": datetime.now(timezone.utc).isoformat(),
+                "source": "user_input",
+                "workflow_instance_id": instance_id,
+                "triggering_workflow_instance_id": None,
+                "workflow_name": self._workflow_name,
+            }
         inst: dict = self.state["instances"][instance_id]
-        inst.setdefault("messages", []).append(msg_object.model_dump(mode="json"))
-        inst["last_message"] = msg_object.model_dump(mode="json")
-        self.state.setdefault("chat_history", []).append(
-            msg_object.model_dump(mode="json")
+        # Check if message already exists (idempotent operation for workflow replay)
+        message_dict = msg_object.model_dump(mode="json")
+        messages = inst.setdefault("messages", [])
+
+        # Check for duplicate by message ID (idempotent for workflow replay)
+        message_exists = any(
+            msg.get("id") == message_dict.get("id") for msg in messages
         )
-        # Add the assistant message to the tool history
-        self.memory.add_message(AssistantMessage(**message))
-        # Save the state after appending the assistant message
-        self.save_state()
+        if not message_exists:
+            messages.append(message_dict)
+            inst["last_message"] = message_dict
+            # Add the assistant message to memory (only if new)
+            # Note: Memory updates are handled at workflow level to avoid replay issues
+            self.memory.add_message(AssistantMessage(**message))
+            # Save the state after appending the assistant message
+            self.save_state()
         # Print the assistant message
         self.text_formatter.print_message(message)
 
@@ -527,19 +677,43 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         # Define a ToolExecutionRecord object
         # to store the tool execution details in the workflow state
         tool_history_entry = ToolExecutionRecord(**tool_result)
-        # Defensive: check self.state is not None
+        # Ensure the instance entry exists
+        if instance_id not in self.state["instances"]:
+            self.state["instances"][instance_id] = {
+                "messages": [],
+                "start_time": datetime.now(timezone.utc).isoformat(),
+                "source": "user_input",
+                "workflow_instance_id": instance_id,
+                "triggering_workflow_instance_id": None,
+                "workflow_name": self._workflow_name,
+            }
         inst: dict = self.state["instances"][instance_id]
-        inst.setdefault("messages", []).append(msg_object.model_dump(mode="json"))
-        inst.setdefault("tool_history", []).append(
-            tool_history_entry.model_dump(mode="json")
+        # Check if message already exists (idempotent operation for workflow replay)
+        message_dict = msg_object.model_dump(mode="json")
+        messages = inst.setdefault("messages", [])
+
+        # Check for duplicate by message ID (idempotent for workflow replay)
+        message_exists = any(
+            msg.get("id") == message_dict.get("id") for msg in messages
         )
-        self.state.setdefault("chat_history", []).append(
-            msg_object.model_dump(mode="json")
+        if not message_exists:
+            messages.append(message_dict)
+
+        # Check for duplicate tool history entry by tool_call_id
+        tool_history_dict = tool_history_entry.model_dump(mode="json")
+        tool_history = inst.setdefault("tool_history", [])
+
+        tool_exists = any(
+            th.get("tool_call_id") == tool_history_dict.get("tool_call_id")
+            for th in tool_history
         )
-        # Update tool history and memory of agent
-        self.tool_history.append(tool_history_entry)
-        # Add the tool message to the agent's memory
-        self.memory.add_message(tool_message)
+        if not tool_exists:
+            tool_history.append(tool_history_dict)
+            # Update tool history and memory of agent (only if new)
+            # Note: Memory updates are handled at workflow level to avoid replay issues
+            self.tool_history.append(tool_history_entry)
+            # Add the tool message to the agent's memory
+            self.memory.add_message(tool_message)
         # Save the state after appending the tool message
         self.save_state()
         # Print the tool message
@@ -552,9 +726,21 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         """
         end_time = datetime.now(timezone.utc)
         end_time_str = end_time.isoformat()
+        # Ensure the instance entry exists
+        if instance_id not in self.state["instances"]:
+            self.state["instances"][instance_id] = {
+                "messages": [],
+                "start_time": datetime.now(timezone.utc).isoformat(),
+                "source": "user_input",
+                "workflow_instance_id": instance_id,
+                "triggering_workflow_instance_id": None,
+                "workflow_name": self._workflow_name,
+            }
         inst: dict = self.state["instances"][instance_id]
         inst["output"] = final_output
         inst["end_time"] = end_time_str
+        inst["status"] = DaprWorkflowStatus.COMPLETED.value  # Mark as completed
+        logger.info(f"Workflow {instance_id} completed successfully")
         self.save_state()
 
     @message_router(broadcast=True)
@@ -609,3 +795,62 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
         except Exception as e:
             logger.error(f"Error processing broadcast message: {e}", exc_info=True)
+
+    def _construct_messages_with_instance_history(
+        self, instance_id: str, input_data: Union[str, Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Construct messages using instance-specific chat history instead of global memory.
+        This ensures proper message sequence for tool calls and prevents OpenAI API errors
+        in the event an app gets terminated or restarts while the workflow is running.
+
+        Args:
+            instance_id: The workflow instance ID
+            input_data: User input, either as a string or dictionary
+
+        Returns:
+            List of formatted messages with proper sequence
+        """
+        if not self.prompt_template:
+            raise ValueError(
+                "Prompt template must be initialized before constructing messages."
+            )
+
+        # Get instance-specific chat history instead of global memory
+        instance_data = self.state.get("instances", {}).get(instance_id, {})
+        instance_messages = instance_data.get("messages", [])
+
+        # Convert instance messages to the format expected by prompt template
+        chat_history = []
+        for msg in instance_messages:
+            if isinstance(msg, dict):
+                chat_history.append(msg)
+            else:
+                # Convert DurableAgentMessage to dict if needed
+                chat_history.append(
+                    msg.model_dump() if hasattr(msg, "model_dump") else dict(msg)
+                )
+
+        if isinstance(input_data, str):
+            formatted_messages = self.prompt_template.format_prompt(
+                chat_history=chat_history
+            )
+            if isinstance(formatted_messages, list):
+                user_message = {"role": "user", "content": input_data}
+                return formatted_messages + [user_message]
+            else:
+                return [
+                    {"role": "system", "content": formatted_messages},
+                    {"role": "user", "content": input_data},
+                ]
+        elif isinstance(input_data, dict):
+            input_vars = dict(input_data)
+            if "chat_history" not in input_vars:
+                input_vars["chat_history"] = chat_history
+            formatted_messages = self.prompt_template.format_prompt(**input_vars)
+            if isinstance(formatted_messages, list):
+                return formatted_messages
+            else:
+                return [{"role": "system", "content": formatted_messages}]
+        else:
+            raise ValueError("Input data must be either a string or dictionary.")

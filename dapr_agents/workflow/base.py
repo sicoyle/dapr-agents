@@ -5,6 +5,7 @@ import json
 import logging
 import sys
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 from dapr.ext.workflow import (
@@ -19,6 +20,7 @@ from typing import ClassVar
 
 from dapr_agents.agents.base import ChatClientBase
 from dapr_agents.types.workflow import DaprWorkflowStatus
+from dapr_agents.utils import SignalHandlingMixin
 from dapr_agents.workflow.task import WorkflowTask
 from dapr_agents.workflow.utils.core import get_decorated_methods, is_pydantic_model
 
@@ -27,15 +29,12 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class WorkflowApp(BaseModel):
+class WorkflowApp(BaseModel, SignalHandlingMixin):
     """
     A Pydantic-based class to encapsulate a Dapr Workflow runtime and manage workflows and tasks.
     """
 
-    # Class-level constant for instrumentation callback
-    # This is used to register the workflow instrumentation callback with the instrumentor
-    # This is needed because the instrumentor is not available immediately when the WorkflowApp is initialized
-    INSTRUMENTATION_CALLBACK_ATTR: ClassVar[str] = "_workflow_instrumentation_callback"
+    # NOTE: Workflow instrumentation is applied directly during instrumentor initialization
 
     llm: Optional[ChatClientBase] = Field(
         default=None,
@@ -72,11 +71,17 @@ class WorkflowApp(BaseModel):
         """
         Initialize the Dapr workflow runtime and register tasks & workflows.
         """
+        # Initialize LLM first
+        if self.llm is None:
+            self.llm = self._create_default_llm()
+
         # Initialize clients and runtime
         self.wf_runtime = WorkflowRuntime()
         self.wf_runtime_is_running = False
         self.wf_client = DaprWorkflowClient()
         logger.info("WorkflowApp initialized; discovering tasks and workflows.")
+
+        self.start_runtime()
 
         # Discover and register tasks and workflows
         discovered_tasks = self._discover_tasks()
@@ -84,7 +89,83 @@ class WorkflowApp(BaseModel):
         discovered_wfs = self._discover_workflows()
         self._register_workflows(discovered_wfs)
 
+        # Set up automatic signal handlers for graceful shutdown
+        try:
+            self.setup_signal_handlers()
+        except Exception as e:
+            logger.warning(f"Could not set up signal handlers: {e}")
+
         super().model_post_init(__context)
+
+    def _create_default_llm(self) -> Optional[ChatClientBase]:
+        """
+        Creates a default LLM client when none is provided.
+        Returns None if the default LLM cannot be created due to missing configuration.
+        """
+        try:
+            from dapr_agents.llm.openai import OpenAIChatClient
+
+            return OpenAIChatClient()
+        except Exception as e:
+            logger.warning(
+                f"Failed to create default OpenAI client: {e}. LLM will be None."
+            )
+            return None
+
+    def graceful_shutdown(self) -> None:
+        """
+        Perform graceful shutdown operations for the WorkflowApp.
+
+        This method stops the workflow runtime and cleans up resources.
+        Overrides the SignalHandlingMixin method to provide WorkflowApp-specific cleanup.
+        """
+        logger.debug("Initiating graceful shutdown of WorkflowApp...")
+
+        try:
+            if getattr(self, "wf_runtime_is_running", False):
+                logger.debug("Shutting down workflow runtime...")
+                self.stop_runtime()
+                logger.debug("Workflow runtime stopped successfully.")
+        except Exception as e:
+            logger.error(f"Error during workflow runtime shutdown: {e}")
+
+    def __del__(self):
+        """
+        Cleanup method called when WorkflowApp is garbage collected.
+        Ensures runtime is properly stopped.
+        """
+        try:
+            if getattr(self, "wf_runtime_is_running", False):
+                logger.debug("Cleaning up workflow runtime in destructor...")
+                self.stop_runtime()
+        except Exception:
+            # Ignore errors during cleanup in destructor
+            pass
+
+    def setup_shutdown_handlers(self) -> None:
+        """
+        Set up signal handlers for graceful shutdown.
+
+        Call this method to enable automatic cleanup when the process receives
+        shutdown signals (SIGINT, SIGTERM).
+        """
+        self.setup_signal_handlers()
+        logger.debug("Shutdown signal handlers configured for WorkflowApp.")
+
+    async def __aenter__(self):
+        """
+        Async context manager entry.
+        Sets up signal handlers for automatic cleanup.
+        """
+        self.setup_shutdown_handlers()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """
+        Async context manager exit.
+        Ensures graceful shutdown when exiting the context.
+        """
+        await self.graceful_shutdown()
 
     def _choose_llm_for(self, method: Callable) -> Optional[ChatClientBase]:
         """
@@ -321,7 +402,10 @@ class WorkflowApp(BaseModel):
                 # If no running loop, create one
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                return loop.run_until_complete(coro)
+                try:
+                    return loop.run_until_complete(coro)
+                finally:
+                    loop.close()
 
         @functools.wraps(method)
         def wrapper(ctx: WorkflowActivityContext, *args, **kwargs):
@@ -436,6 +520,8 @@ class WorkflowApp(BaseModel):
 
         return workflow_func
 
+    # NOTE: Workflow instrumentation is applied directly during instrumentor initialization
+    # since start_runtime() is called in model_post_init
     def start_runtime(self):
         """Idempotently start the Dapr workflow runtime."""
         if not self.wf_runtime_is_running:
@@ -443,11 +529,383 @@ class WorkflowApp(BaseModel):
             self.wf_runtime.start()
             self.wf_runtime_is_running = True
 
-            # Apply workflow instrumentation if callback was registered
-            if hasattr(self.__class__, self.INSTRUMENTATION_CALLBACK_ATTR):
-                getattr(self.__class__, self.INSTRUMENTATION_CALLBACK_ATTR)()
+            # Sync database state with Dapr workflow status after runtime starts
+            # This ensures our database reflects the actual state of resumed workflows
+            self._sync_workflow_state_after_startup()
+
+            # Start monitoring resumed workflows to keep database in sync and handle trace continuity
+            self._monitor_resumed_workflows()
         else:
             logger.debug("Workflow runtime already running; skipping.")
+
+    def _sync_workflow_state_after_startup(self):
+        """
+        Sync database workflow state with actual Dapr workflow status after runtime startup.
+        This ensures our database reflects the current state of any resumed workflows.
+        """
+        try:
+            # Only sync if this class has state management capabilities
+            if (
+                not hasattr(self, "state")
+                or not hasattr(self, "load_state")
+                or not hasattr(self, "save_state")
+            ):
+                logger.debug(
+                    "No state management capabilities, skipping workflow state sync"
+                )
+                return
+
+            logger.debug("Syncing workflow state with Dapr after runtime startup...")
+            self.load_state()
+
+            # Check if we have instances to sync
+            instances = (
+                getattr(self.state, "instances", {})
+                if hasattr(self.state, "instances")
+                else self.state.get("instances", {})
+            )
+            if not instances:
+                return
+
+            logger.debug(f"Found {len(instances)} workflow instances to sync")
+
+            # Sync each instance with Dapr's actual status
+            for instance_id, instance_data in instances.items():
+                try:
+                    # Skip if already completed
+                    if instance_data.get("end_time") is not None:
+                        continue
+
+                    # Get actual status from Dapr
+                    workflow_state = self.get_workflow_state(instance_id)
+                    if workflow_state:
+                        runtime_status = workflow_state.runtime_status.name
+                        logger.debug(
+                            f"Instance {instance_id}: Dapr status = {runtime_status}"
+                        )
+
+                        # Update our database state based on Dapr's status
+                        if runtime_status.upper() in [
+                            DaprWorkflowStatus.COMPLETED.value.upper(),
+                            DaprWorkflowStatus.FAILED.value.upper(),
+                            DaprWorkflowStatus.TERMINATED.value.upper(),
+                        ]:
+                            # Mark as completed in our state
+                            instance_data["end_time"] = datetime.now(
+                                timezone.utc
+                            ).isoformat()
+                            instance_data["status"] = runtime_status.lower()
+                            logger.debug(
+                                f"Marked workflow {instance_id} as {runtime_status.lower()} in database"
+                            )
+                        elif runtime_status.upper() in [
+                            DaprWorkflowStatus.RUNNING.value.upper(),
+                            DaprWorkflowStatus.PENDING.value.upper(),
+                        ]:
+                            # Ensure it's marked as running
+                            instance_data["status"] = DaprWorkflowStatus.RUNNING.value
+                            logger.debug(f"Confirmed workflow {instance_id} is running")
+                        else:
+                            logger.warning(
+                                f"Unknown status for workflow {instance_id}: {runtime_status}"
+                            )
+                    else:
+                        # Workflow no longer exists in Dapr, mark as completed
+                        instance_data["end_time"] = datetime.now(
+                            timezone.utc
+                        ).isoformat()
+                        instance_data["status"] = DaprWorkflowStatus.COMPLETED.value
+                        logger.debug(
+                            f"Workflow {instance_id} no longer in Dapr, marked as completed"
+                        )
+
+                except Exception as e:
+                    logger.warning(f"Error syncing workflow {instance_id}: {e}")
+                    continue
+
+            # Save updated state
+            self.save_state()
+            logger.debug("Workflow state sync completed")
+
+        except Exception as e:
+            logger.error(f"Error during workflow state sync: {e}", exc_info=True)
+
+    def _monitor_resumed_workflows(self):
+        """
+        Monitor any resumed workflows in the background to keep database state synchronized
+        and handle trace continuity. This runs after the initial state sync.
+        """
+        import asyncio
+        import threading
+
+        def monitor_workflows():
+            """Monitor resumed workflows in background thread."""
+            try:
+                # Create event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+                # Run the monitoring
+                loop.run_until_complete(self._monitor_workflows_async())
+
+            except Exception as e:
+                logger.error(f"Error monitoring resumed workflows: {e}", exc_info=True)
+            finally:
+                loop.close()
+
+        # Start monitoring in background thread
+        monitor_thread = threading.Thread(target=monitor_workflows, daemon=True)
+        monitor_thread.start()
+        logger.debug("Started background monitoring for resumed workflows")
+
+    async def _monitor_workflows_async(self):
+        """
+        Monitor any running workflows and update database when they complete.
+        Also handles trace continuity for resumed workflows.
+        """
+        try:
+            # Only monitor if this class has state management capabilities
+            if (
+                not hasattr(self, "state")
+                or not hasattr(self, "load_state")
+                or not hasattr(self, "save_state")
+            ):
+                logger.debug(
+                    "No state management capabilities, skipping workflow monitoring"
+                )
+                return
+
+            # Load current state
+            self.load_state()
+            instances = (
+                getattr(self.state, "instances", {})
+                if hasattr(self.state, "instances")
+                else self.state.get("instances", {})
+            )
+
+            # Find workflows that need trace continuity restoration (resumed workflows only)
+            resumed_workflows = [
+                (instance_id, instance_data)
+                for instance_id, instance_data in instances.items()
+                if instance_data.get("end_time") is None
+                and instance_data.get("status") == DaprWorkflowStatus.SUSPENDED.value
+                and instance_data.get("trace_context", {}).get(
+                    "needs_agent_span_on_resume"
+                )
+            ]
+
+            if not resumed_workflows:
+                logger.debug("No resumed workflows found that need trace continuity")
+                return
+
+            logger.debug(
+                f"Restoring trace continuity for {len(resumed_workflows)} resumed workflows..."
+            )
+            for instance_id, instance_data in resumed_workflows:
+                try:
+                    logger.debug(
+                        f"Restoring trace continuity for resumed workflow {instance_id}..."
+                    )
+                    await self._ensure_trace_continuity(instance_id, instance_data)
+                except Exception as e:
+                    logger.error(
+                        f"Error restoring trace continuity for workflow {instance_id}: {e}"
+                    )
+
+        except Exception as e:
+            logger.error(f"Error in workflow monitoring: {e}", exc_info=True)
+
+    async def _ensure_trace_continuity(self, instance_id: str, instance_data: dict):
+        """
+        Ensure trace continuity for resumed workflows by creating proper AGENT spans.
+        This is the key fix for missing parent traces in resumed workflows.
+        """
+        try:
+            stored_trace_context = instance_data.get("trace_context")
+
+            # Check if this workflow needs trace context restored
+            if stored_trace_context and stored_trace_context.get(
+                "needs_agent_span_on_resume"
+            ):
+                logger.info(
+                    f"Restoring trace context for resumed workflow {instance_id}"
+                )
+                await self._create_agent_span_for_resumed_workflow(
+                    instance_id, instance_data
+                )
+            elif stored_trace_context and stored_trace_context.get("traceparent"):
+                logger.debug(
+                    f"Restoring trace context for resumed workflow {instance_id}"
+                )
+
+                # Store the trace context for workflow tasks to use
+                from dapr_agents.observability.context_storage import (
+                    store_workflow_context,
+                )
+
+                context_data = {
+                    "traceparent": stored_trace_context.get("traceparent"),
+                    "tracestate": stored_trace_context.get("tracestate"),
+                    "trace_id": stored_trace_context.get("trace_id"),
+                    "span_id": stored_trace_context.get("span_id"),
+                    "instance_id": instance_id,
+                    "resumed": True,
+                    "restored": True,
+                }
+                store_workflow_context(
+                    f"__workflow_context_{instance_id}__", context_data
+                )
+                logger.debug(f"Trace context restored for workflow {instance_id}")
+
+            else:
+                # Create new trace context for resumed workflow without stored context
+                logger.debug(
+                    f"Creating new trace context for resumed workflow {instance_id}"
+                )
+                agent_name = getattr(self, "name", None) or "DurableAgent"
+
+                from dapr_agents.observability.context_storage import _context_storage
+
+                context_data = _context_storage.create_resumed_workflow_context(
+                    instance_id, agent_name, stored_trace_context
+                )
+                logger.debug(f"New trace context created for workflow {instance_id}")
+
+        except Exception as e:
+            logger.warning(
+                f"Error ensuring trace continuity for workflow {instance_id}: {e}"
+            )
+
+    # TODO: This needs further work as resumed workflows remain intact on their workflow task traces,
+    # but the official agent span is not created.
+    async def _create_agent_span_for_resumed_workflow(
+        self, instance_id: str, instance_data: dict
+    ):
+        """
+        Create a proper AGENT span for resumed workflows to restore trace hierarchy.
+        This ensures resumed workflows have the same trace structure as new workflows.
+        """
+        try:
+            from dapr_agents.observability.context_storage import store_workflow_context
+            from opentelemetry import trace
+            from opentelemetry.trace import set_span_in_context
+            from opentelemetry.context import Context
+
+            # Get stored trace context
+            stored_trace_context = instance_data.get("trace_context", {})
+
+            if stored_trace_context and stored_trace_context.get("traceparent"):
+                # Parse the stored traceparent to restore the original trace
+                traceparent = stored_trace_context.get("traceparent")
+                trace_id_hex = traceparent.split("-")[1]
+                parent_span_id_hex = traceparent.split("-")[2]
+                trace_id = int(trace_id_hex, 16)
+                parent_span_id = int(parent_span_id_hex, 16)
+
+                # Create span context from stored trace
+                from opentelemetry.trace import SpanContext, TraceFlags
+
+                parent_span_context = SpanContext(
+                    trace_id=trace_id,
+                    span_id=parent_span_id,
+                    is_remote=True,
+                    trace_flags=TraceFlags(0x01),  # Sampled
+                )
+
+                parent_context = set_span_in_context(
+                    trace.NonRecordingSpan(parent_span_context), Context()
+                )
+
+                # Get tracer and create AGENT span as child of the original trace
+                tracer = trace.get_tracer(__name__)
+                agent_name = getattr(self, "name", "DurableAgent")
+                workflow_name = instance_data.get(
+                    "workflow_name", "ToolCallingWorkflow"
+                )
+                span_name = f"{agent_name}.{workflow_name}"
+
+                # Create the AGENT span that will show up in the trace
+                agent_span = tracer.start_span(
+                    span_name,
+                    context=parent_context,
+                    kind=trace.SpanKind.INTERNAL,
+                    attributes={
+                        "openinference.span.kind": "AGENT",
+                        "workflow.instance_id": instance_id,
+                        "agent.name": agent_name,
+                        "workflow.name": workflow_name,
+                        "workflow.resumed": True,
+                        "input.value": instance_data.get("input", ""),
+                        "input.mime_type": "text/plain",
+                    },
+                )
+
+                # Make this span the current context for child spans
+                agent_span_context = agent_span.get_span_context()
+                context_data = {
+                    "traceparent": f"00-{format(agent_span_context.trace_id, '032x')}-{format(agent_span_context.span_id, '016x')}-01",
+                    "tracestate": stored_trace_context.get("tracestate", ""),
+                    "trace_id": format(agent_span_context.trace_id, "032x"),
+                    "span_id": format(agent_span_context.span_id, "016x"),
+                    "instance_id": instance_id,
+                    "resumed": True,
+                    "restored": True,
+                    "agent_span": agent_span,  # Store span reference for lifecycle management
+                }
+
+                # Store context for child spans to use
+                store_workflow_context(
+                    f"__workflow_context_{instance_id}__", context_data
+                )
+
+                # Remove the resume flag and save state
+                stored_trace_context.pop("needs_agent_span_on_resume", None)
+                self.save_state()
+
+                logger.debug(
+                    f"Created AGENT span '{span_name}' for resumed workflow {instance_id}"
+                )
+
+            else:
+                logger.warning(
+                    f"No valid trace context found for resumed workflow {instance_id}"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to create agent span for resumed workflow {instance_id}: {e}"
+            )
+
+    # TODO: This needs further work as resumed workflows remain intact on their workflow task traces,
+    # but the official agent span is not created.
+    def _close_resumed_workflow_span(self, instance_id: str, final_output: str = None):
+        """
+        Close the agent span for a resumed workflow when it completes.
+        This should be called when the workflow finishes execution.
+        """
+        try:
+            from dapr_agents.observability.context_storage import get_workflow_context
+            from opentelemetry.trace import Status, StatusCode
+
+            context = get_workflow_context(f"__workflow_context_{instance_id}__")
+            if context and context.get("resumed") and "agent_span" in context:
+                agent_span = context["agent_span"]
+                if final_output:
+                    agent_span.set_attribute("output.value", str(final_output)[:1000])
+                    agent_span.set_attribute("output.mime_type", "text/plain")
+
+                agent_span.set_status(Status(StatusCode.OK))
+                agent_span.end()
+
+                logger.debug(
+                    f"Closed AGENT span for completed resumed workflow {instance_id}"
+                )
+                context.pop("agent_span", None)
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to close resumed workflow span for {instance_id}: {e}"
+            )
 
     def stop_runtime(self):
         """Idempotently stop the Dapr workflow runtime."""
@@ -543,7 +1001,7 @@ class WorkflowApp(BaseModel):
                 state.failure_details
             )  # This is an object, not a dictionary
 
-            if workflow_status == "COMPLETED":
+            if workflow_status.upper() == DaprWorkflowStatus.COMPLETED.value.upper():
                 logger.info(
                     f"Workflow '{instance_id}' completed successfully. Status: {workflow_status}."
                 )
@@ -553,7 +1011,10 @@ class WorkflowApp(BaseModel):
                         f"Output: {json.dumps(state.serialized_output, indent=2)}"
                     )
 
-            elif workflow_status in ("FAILED", "ABORTED"):
+            elif workflow_status.upper() in (
+                DaprWorkflowStatus.FAILED.value.upper(),
+                "ABORTED",
+            ):
                 # Ensure `failure_details` exists before accessing attributes
                 error_type = getattr(failure_details, "error_type", "Unknown")
                 message = getattr(failure_details, "message", "No message provided")
@@ -604,10 +1065,13 @@ class WorkflowApp(BaseModel):
         Returns:
             Optional[str]: The serialized output of the workflow.
         """
-        instance_id = None
         try:
             # Off-load the potentially blocking run_workflow call to a thread.
             instance_id = await asyncio.to_thread(self.run_workflow, workflow, input)
+
+            logger.debug(
+                f"Workflow '{workflow}' started with instance ID: {instance_id}"
+            )
 
             # Await the asynchronous monitoring of the workflow state.
             state = await self.monitor_workflow_state(instance_id)

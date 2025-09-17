@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from dapr_agents.types import MessageContent, ToolExecutionRecord
 from datetime import datetime
 import uuid
@@ -30,7 +30,7 @@ class DurableAgentWorkflowEntry(BaseModel):
         description="Timestamp when the workflow was started",
     )
     end_time: Optional[datetime] = Field(
-        default_factory=datetime.now,
+        default=None,
         description="Timestamp when the workflow was completed or failed",
     )
     messages: List[DurableAgentMessage] = Field(
@@ -44,9 +44,21 @@ class DurableAgentWorkflowEntry(BaseModel):
         default_factory=list, description="Tool message exchanged during the workflow"
     )
     source: Optional[str] = Field(None, description="Entity that initiated the task.")
-    source_workflow_instance_id: Optional[str] = Field(
+    workflow_instance_id: Optional[str] = Field(
         default=None,
-        description="The workflow instance ID associated with the original request.",
+        description="The agent's own workflow instance ID.",
+    )
+    triggering_workflow_instance_id: Optional[str] = Field(
+        default=None,
+        description="The workflow instance ID of the entity that triggered this agent (for multi-agent communication).",
+    )
+    workflow_name: Optional[str] = Field(
+        default=None,
+        description="The name of the workflow.",
+    )
+    trace_context: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="OpenTelemetry trace context for workflow resumption.",
     )
 
 

@@ -26,7 +26,7 @@ class StateManagementMixin:
         """
         try:
             if self.state is None:
-                logger.info("No user-provided state. Attempting to load from storage.")
+                logger.debug("No user-provided state. Attempting to load from storage.")
                 self.state = self.load_state()
 
             if isinstance(self.state, BaseModel):
@@ -65,7 +65,7 @@ class StateManagementMixin:
                 )
                 return state_data
 
-            logger.info("Validating workflow state against schema.")
+            logger.debug("Validating workflow state against schema.")
             validated_state: BaseModel = self.state_format(**state_data)
             return validated_state.model_dump()
         except ValidationError as e:
@@ -94,28 +94,31 @@ class StateManagementMixin:
                     "State store is not configured. Please provide 'state_store_name' and 'state_key'."
                 )
 
-            if self.state:
-                logger.info(
-                    "Using existing in-memory state. Skipping load from storage."
-                )
-                return self.state
-
+            # For durable agents, always load from database to ensure it's the source of truth
             has_state, state_data = self._state_store_client.try_get_state(
                 self.state_key
             )
             if has_state and state_data:
-                logger.info(
+                logger.debug(
                     f"Existing state found for key '{self.state_key}'. Validating it."
                 )
                 if not isinstance(state_data, dict):
                     raise TypeError(
                         f"Invalid state type retrieved: {type(state_data)}. Expected dict."
                     )
-                return (
-                    self.validate_state(state_data) if self.state_format else state_data
-                )
 
-            logger.info(
+                # Set self.state to the loaded data
+                if self.state_format:
+                    loaded_state = self.validate_state(state_data)
+                else:
+                    loaded_state = state_data
+
+                self.state = loaded_state
+                logger.debug(f"Set self.state to loaded data: {self.state}")
+
+                return loaded_state
+
+            logger.debug(
                 f"No existing state found for key '{self.state_key}'. Initializing empty state."
             )
             return {}

@@ -56,6 +56,10 @@ def patch_dapr_check(monkeypatch):
         self._text_formatter = Mock()
         self.client = Mock()
         self._state_store_client = Mock()
+        # Configure the mock to return a tuple as expected by try_get_state
+        self._state_store_client.try_get_state.return_value = (False, None)
+        # Configure the mock for save_state method
+        self._state_store_client.save_state.return_value = None
         self._agent_metadata = {
             "name": getattr(self, "name", "TestAgent"),
             "role": getattr(self, "role", "Test Role"),
@@ -273,7 +277,7 @@ class TestDurableAgent:
         ] = DurableAgentWorkflowEntry(
             input="Test task",
             source=None,
-            source_workflow_instance_id="parent-instance-123",
+            triggering_workflow_instance_id="parent-instance-123",
         )
 
         workflow_gen = basic_durable_agent.tool_calling_workflow(
@@ -288,7 +292,7 @@ class TestDurableAgent:
         instance_data = basic_durable_agent.state["instances"]["test-instance-123"]
         assert instance_data.input == "Test task"
         assert instance_data.source is None
-        assert instance_data.source_workflow_instance_id == "parent-instance-123"
+        assert instance_data.triggering_workflow_instance_id == "parent-instance-123"
 
     @pytest.mark.asyncio
     async def test_generate_response_activity(self, basic_durable_agent):
@@ -317,7 +321,7 @@ class TestDurableAgent:
             instance_id: {
                 "input": "Test task",
                 "source": "test_source",
-                "source_workflow_instance_id": None,
+                "triggering_workflow_instance_id": None,
                 "messages": [],
                 "tool_history": [],
                 "output": None,
@@ -371,7 +375,7 @@ class TestDurableAgent:
             instance_id: {
                 "input": "Test task",
                 "source": "test_source",
-                "source_workflow_instance_id": None,
+                "triggering_workflow_instance_id": None,
                 "messages": [],
                 "tool_history": [],
                 "output": None,
@@ -399,7 +403,7 @@ class TestDurableAgent:
             instance_id: {
                 "input": "Test task",
                 "source": "test_source",
-                "source_workflow_instance_id": None,
+                "triggering_workflow_instance_id": None,
                 "messages": [],
                 "tool_history": [],
                 "output": None,

@@ -16,13 +16,6 @@ class ElevenLabsClientConfig(BaseModel):
         None, description="API key to authenticate with the ElevenLabs API."
     )
 
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
-
 
 class NVIDIAClientConfig(BaseModel):
     base_url: Optional[str] = Field(
@@ -32,21 +25,9 @@ class NVIDIAClientConfig(BaseModel):
         None, description="API key to authenticate the NVIDIA API"
     )
 
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
-
 
 class DaprInferenceClientConfig:
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
+    pass
 
 
 class HFInferenceClientConfig(BaseModel):
@@ -89,13 +70,6 @@ class HFInferenceClientConfig(BaseModel):
         description="Billing account for requests. Only used for enterprise/organization billing.",
     )
 
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
-
 
 class OpenAIClientConfig(BaseModel):
     base_url: Optional[str] = Field(None, description="Base URL for the OpenAI API")
@@ -106,13 +80,6 @@ class OpenAIClientConfig(BaseModel):
         None, description="Organization name for OpenAI"
     )
     project: Optional[str] = Field(None, description="OpenAI project name.")
-
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
 
 
 class AzureOpenAIClientConfig(BaseModel):
@@ -140,13 +107,6 @@ class AzureOpenAIClientConfig(BaseModel):
     azure_client_id: Optional[str] = Field(
         default=None, description="Client ID for Managed Identity authentication."
     )
-
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
 
 
 class OpenAIModelConfig(OpenAIClientConfig):
@@ -205,13 +165,6 @@ class OpenAIParamsBase(BaseModel):
     stop: Optional[Union[str, List[str]]] = Field(None, description="Stop sequences")
     stream: Optional[bool] = Field(False, description="Whether to stream responses")
 
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
-
 
 class OpenAITextCompletionParams(OpenAIParamsBase):
     """
@@ -226,13 +179,6 @@ class OpenAITextCompletionParams(OpenAIParamsBase):
         None, ge=0, le=5, description="Include log probabilities"
     )
     suffix: Optional[str] = Field(None, description="Suffix to append to the prompt")
-
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
 
 
 class OpenAIChatCompletionParams(OpenAIParamsBase):
@@ -268,13 +214,6 @@ class OpenAIChatCompletionParams(OpenAIParamsBase):
     user: Optional[str] = Field(
         None, description="Unique identifier representing the end-user"
     )
-
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
 
 
 class HFHubChatCompletionParams(BaseModel):
@@ -338,13 +277,6 @@ class HFHubChatCompletionParams(BaseModel):
         None, description="A list of tools the model may call."
     )
 
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
-
 
 class NVIDIAChatCompletionParams(OpenAIParamsBase):
     """
@@ -370,13 +302,6 @@ class NVIDIAChatCompletionParams(OpenAIParamsBase):
         None, description="Controls which tool is called"
     )
 
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
-
 
 class PromptyModelConfig(BaseModel):
     api: Literal["chat", "completion"] = Field(
@@ -395,13 +320,6 @@ class PromptyModelConfig(BaseModel):
         "first",
         description="Determines if full response or just the first one is returned",
     )
-
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
 
     @model_validator(mode="before")
     def sync_model_name(cls, values: dict):
@@ -475,13 +393,6 @@ class PromptyDefinition(BaseModel):
     content: str = Field(
         ..., description="The prompt messages defined in the Prompty file."
     )
-
-    @field_validator("*", mode="before")
-    @classmethod
-    def none_to_default(cls, v):
-        if v is None:
-            raise PydanticUseDefault()
-        return v
 
 
 class AudioSpeechRequest(BaseModel):

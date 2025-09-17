@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Any
 
 from ..constants import (
@@ -14,6 +15,8 @@ from ..constants import (
     context_api,
 )
 from ..utils import bind_arguments, extract_content_from_result, get_input_value
+
+logger = logging.getLogger(__name__)
 
 try:
     from openinference.instrumentation import get_attributes_from_context
@@ -77,6 +80,10 @@ class AgentRunWrapper:
         if context_api and context_api.get_value(
             context_api._SUPPRESS_INSTRUMENTATION_KEY
         ):
+            return wrapped(*args, **kwargs)
+
+        # Skip DurableAgent instances - they use WorkflowMonitorWrapper instead
+        if instance.__class__.__name__ == "DurableAgent":
             return wrapped(*args, **kwargs)
 
         # Extract agent information for span naming and attributes
@@ -175,6 +182,42 @@ class AgentRunWrapper:
             with self._tracer.start_as_current_span(
                 span_name, attributes=attributes
             ) as span:
+                # Store span ID for cross-process parent-child relationship
+                try:
+                    from ..context_propagation import extract_otel_context
+                    from ..context_storage import store_workflow_context
+
+                    # Extract current context from the AGENT span
+                    current_context = extract_otel_context()
+                    if current_context.get("traceparent"):
+                        # Store the span ID for workflow tasks to use as parent
+                        span_id = span.get_span_context().span_id
+                        trace_id = span.get_span_context().trace_id
+
+                        # Store span context with trace and span IDs
+                        span_context = {
+                            "trace_id": format(
+                                trace_id, "032x"
+                            ),  # Convert to 32-char hex string
+                            "span_id": format(
+                                span_id, "016x"
+                            ),  # Convert to 16-char hex string
+                            "traceparent": current_context.get("traceparent"),
+                            "tracestate": current_context.get("tracestate", ""),
+                        }
+
+                        # Store under multiple keys for different lookup patterns
+                        store_workflow_context(
+                            "__current_workflow_context__", span_context
+                        )
+                        logger.debug(
+                            f"Stored Agent span context: trace_id={format(trace_id, '032x')}, span_id={format(span_id, '016x')}"
+                        )
+                    else:
+                        logger.warning("No traceparent found in AGENT span context")
+                except Exception as e:
+                    logger.warning(f"Failed to store span context: {e}")
+
                 try:
                     result = await wrapped(*args, **kwargs)
 
@@ -215,6 +258,28 @@ class AgentRunWrapper:
         with self._tracer.start_as_current_span(
             span_name, attributes=attributes
         ) as span:
+            # Store span ID for cross-process parent-child relationship
+            try:
+                from ..context_propagation import extract_otel_context
+                from ..context_storage import store_workflow_context
+
+                # Extract current context from the AGENT span
+                current_context = extract_otel_context()
+                if current_context.get("traceparent"):
+                    # Store the span ID for workflow tasks to use as parent
+                    span_id = span.get_span_context().span_id
+                    trace_id = span.get_span_context().trace_id
+
+                    # Context will be stored per-instance by WorkflowMonitorWrapper
+                    # to avoid cross-instance contamination
+                    logger.debug(
+                        f"Stored Agent span context: trace_id={format(trace_id, '032x')}, span_id={format(span_id, '016x')}"
+                    )
+                else:
+                    logger.warning("No traceparent found in AGENT span context")
+            except Exception as e:
+                logger.warning(f"Failed to store span context: {e}")
+
             try:
                 result = wrapped(*args, **kwargs)
 

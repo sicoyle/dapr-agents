@@ -2,13 +2,13 @@ import asyncio
 import inspect
 import logging
 from typing import Optional
-
-from dapr_agents.utils import add_signal_handlers_cross_platform
+from dapr_agents.types.workflow import DaprWorkflowStatus
+from dapr_agents.utils import SignalHandlingMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ServiceMixin:
+class ServiceMixin(SignalHandlingMixin):
     """
     Mixin providing FastAPI service integration and lifecycle management for agentic workflows.
 
@@ -86,16 +86,11 @@ class ServiceMixin:
         self.register_routes()
         return self
 
-    def handle_shutdown_signal(self, sig):
+    async def graceful_shutdown(self) -> None:
         """
-        Handle shutdown signal and trigger graceful service stop.
-
-        Args:
-            sig: The received signal.
+        Perform graceful shutdown operations for the service.
         """
-        logger.info(f"Shutdown signal {sig} received. Stopping service gracefully...")
-        self._shutdown_event.set()
-        asyncio.create_task(self.stop())
+        await self.stop()
 
     async def start(self):
         """
@@ -115,12 +110,12 @@ class ServiceMixin:
         try:
             if not hasattr(self, "_http_server") or self._http_server is None:
                 logger.info("Running in headless mode.")
-                loop = asyncio.get_event_loop()
-                add_signal_handlers_cross_platform(loop, self.handle_shutdown_signal)
+                # Set up signal handlers using the mixin
+                self.setup_signal_handlers()
                 self.register_message_routes()
                 self._is_running = True
-                while not self._shutdown_event.is_set():
-                    await asyncio.sleep(1)
+                # Wait for shutdown signal
+                await self.wait_for_shutdown()
             else:
                 logger.info("Running in FastAPI service mode.")
                 self.register_message_routes()
@@ -140,6 +135,62 @@ class ServiceMixin:
             return
 
         logger.info("Stopping Agent Workflow Service...")
+
+        # Save state before shutting down to ensure persistence and agent durability to properly rerun after being stoped
+        try:
+            if hasattr(self, "save_state") and hasattr(self, "state"):
+                # Graceful shutdown compensation: Save incomplete instance if it exists
+                if hasattr(self, "workflow_instance_id") and self.workflow_instance_id:
+                    if self.workflow_instance_id not in self.state.get("instances", {}):
+                        # This instance was never saved, add it as incomplete
+                        from datetime import datetime, timezone
+
+                        incomplete_entry = {
+                            "messages": [],
+                            "start_time": datetime.now(timezone.utc).isoformat(),
+                            "source": "graceful_shutdown",
+                            "triggering_workflow_instance_id": None,
+                            "workflow_name": getattr(self, "_workflow_name", "Unknown"),
+                            "dapr_status": DaprWorkflowStatus.PENDING,
+                            "suspended_reason": "app_terminated",
+                            "trace_context": {"needs_agent_span_on_resume": True},
+                        }
+                        self.state.setdefault("instances", {})[
+                            self.workflow_instance_id
+                        ] = incomplete_entry
+                        logger.info(
+                            f"Added incomplete instance {self.workflow_instance_id} during graceful shutdown"
+                        )
+                    else:
+                        # Mark running instances as needing AGENT spans on resume
+                        if "instances" in self.state:
+                            for instance_id, instance_data in self.state[
+                                "instances"
+                            ].items():
+                                # Only mark instances that are still running (no end_time)
+                                if not instance_data.get("end_time"):
+                                    instance_data[
+                                        "dapr_status"
+                                    ] = DaprWorkflowStatus.SUSPENDED
+                                    instance_data["suspended_reason"] = "app_terminated"
+
+                                    # Mark trace context for AGENT span creation on resume
+                                    if instance_data.get("trace_context"):
+                                        instance_data["trace_context"][
+                                            "needs_agent_span_on_resume"
+                                        ] = True
+                                        logger.debug(
+                                            f"Marked trace context for AGENT span creation on resume for {instance_id}"
+                                        )
+
+                                    logger.info(
+                                        f"Marked instance {instance_id} as suspended due to app termination"
+                                    )
+
+                    self.save_state()
+                    logger.debug("Workflow state saved successfully.")
+        except Exception as e:
+            logger.error(f"Failed to save state during shutdown: {e}")
 
         for (pubsub_name, topic_name), close_fn in self._subscriptions.items():
             try:
