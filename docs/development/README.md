@@ -29,15 +29,17 @@ pip-compile pyproject.toml
 
 # Generate dev-requirements.txt
 pip-compile pyproject.toml # --extra dev
+
+pip install -r requirements.txt
 ```
 
 #### Option 2 - Using uv:
 ```bash
-# Generate lock file with all dependencies
-uv lock --all-extras
-
 # Install everything from lock file
 uv sync --all-extras
+
+# Generate lock file with all dependencies
+uv lock --all-extras
 ```
 
 ### Installing Dependencies
