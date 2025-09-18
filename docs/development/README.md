@@ -30,7 +30,7 @@ pip-compile pyproject.toml
 # Generate dev-requirements.txt
 pip-compile pyproject.toml # --extra dev
 
-pip-install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 #### Option 2 - Using uv:
