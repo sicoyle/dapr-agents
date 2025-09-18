@@ -38,7 +38,7 @@ dependencies = [
     "python-dotenv>=1.1.1,<2.0.0",
     "posthog<6.0.0",
     "nltk>=3.8.0,<4.0.0",
-    "protobuf>=5.29.0,<7.0.0",
+    "protobuf>=6.31.0,<7.0.0",
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -67,9 +67,10 @@ dev = [
     "cachetools>=6.1.0,<7.0.0",
 ]
 observability = [
-    "opentelemetry-api>=1.12.0,<1.35.0",
-    "opentelemetry-exporter-otlp>=1.32.1,<1.35.0",
-    "opentelemetry-instrumentation-requests>=0.53b1,<0.56b0",
+    "opentelemetry-api>=1.35.0,<2.0.0",
+    "opentelemetry-exporter-otlp>=1.35.0,<2.0.0",
+    "opentelemetry-proto>=1.35.0,<2.0.0",
+    "opentelemetry-instrumentation-requests>=0.56b0,<0.57b0",
     "wrapt>=1.14.0,<2.0.0",
     "openinference-instrumentation>=0.1.0,<1.0.0",
     "openinference-semantic-conventions>=0.1.0,<1.0.0",
