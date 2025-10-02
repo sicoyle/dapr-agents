@@ -106,6 +106,11 @@ def restructure_plan(
         step_id = update["step"]
         step_entry = find_step_in_plan(plan, step_id)
         if step_entry:
+            # Preserve existing substeps when updating step
+            existing_substeps = step_entry.get("substeps")
             step_entry.update(update)
+            # Restore substeps if they were present and not explicitly updated
+            if existing_substeps is not None and "substeps" not in update:
+                step_entry["substeps"] = existing_substeps
 
     return plan

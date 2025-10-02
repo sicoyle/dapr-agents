@@ -233,7 +233,7 @@ class StructureHandler:
         """
         try:
             logger.debug(f"Processing structured response for mode: {structured_mode}")
-            if llm_provider in ("openai", "nvidia", "huggingface"):
+            if llm_provider in ("openai", "nvidia", "huggingface", "dapr"):
                 if structured_mode == "function_call":
                     tool_calls = getattr(message, "tool_calls", None)
                     if tool_calls:
@@ -575,18 +575,26 @@ class StructureHandler:
 
         # Handle one or more BaseModels
         models = StructureHandler.resolve_all_pydantic_models(expected_type)
-        for model_cls in models:
-            try:
-                if isinstance(result, list):
-                    return [
-                        StructureHandler.validate_response(item, model_cls).model_dump()
-                        for item in result
-                    ]
-                else:
+        if models:
+            validation_errors = {}
+            for model_cls in models:
+                try:
+                    # Always validate the entire result against the model class
+                    # Don't try to validate individual list items
                     validated = StructureHandler.validate_response(result, model_cls)
                     return validated.model_dump()
-            except ValidationError:
-                continue
+                except ValidationError as e:
+                    validation_errors[model_cls.__name__] = e
+                    continue
+
+            # If we get here, all models failed validation
+            if validation_errors:
+                error_details = "\n".join(
+                    f"{model}: {error}" for model, error in validation_errors.items()
+                )
+                raise TypeError(
+                    f"Validation failed for all possible models:\n{error_details}"
+                )
 
         # Handle Union[str, dict, etc.]
         if origin is Union:

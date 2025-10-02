@@ -79,10 +79,8 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
 
     component_name: Optional[str] = None
 
-    component_name: Optional[str] = None
-
-    # Only function_call–style structured output is supported
-    SUPPORTED_STRUCTURED_MODES: ClassVar[set[str]] = {"function_call"}
+    # Support both function_call and json structured output modes
+    SUPPORTED_STRUCTURED_MODES: ClassVar[set[str]] = {"function_call", "json"}
 
     def model_post_init(self, __context: Any) -> None:
         """
@@ -234,7 +232,7 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
         llm_component: Optional[str] = None,
         tools: Optional[List[Union[AgentTool, Dict[str, Any]]]] = None,
         response_format: Optional[Type[BaseModel]] = None,
-        structured_mode: Literal["function_call"] = "function_call",
+        structured_mode: Literal["function_call", "json"] = "function_call",
         scrubPII: bool = False,
         temperature: Optional[float] = None,
         **kwargs: Any,
@@ -256,7 +254,7 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             llm_component:   Dapr component name (defaults from env).
             tools:           AgentTool or dict specifications.
             response_format: Pydantic model for structured output.
-            structured_mode: Must be "function_call".
+            structured_mode: Must be "function_call" or "json".
             scrubPII:        Obfuscate sensitive output if True.
             temperature:     Sampling temperature.
             **kwargs:        Other Dapr API parameters.
@@ -273,9 +271,8 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             raise ValueError(
                 f"structured_mode must be one of {self.SUPPORTED_STRUCTURED_MODES}"
             )
-        # 2) Disallow response_format + streaming
-        if response_format is not None:
-            raise ValueError("`response_format` is not supported by DaprChatClient.")
+        # 2) Disallow streaming
+        # Note: response_format is now supported for structured output
         if kwargs.get("stream"):
             raise ValueError("Streaming is not supported by DaprChatClient.")
 
@@ -306,10 +303,15 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             structured_mode=structured_mode,
         )
 
+        logger.debug(f"Processed parameters for Dapr: {params}")
+        if response_format:
+            logger.debug(f"Response format: {response_format}")
+            logger.debug(f"Structured mode: {structured_mode}")
+
         # 6) Convert to Dapr inputs & call
         conv_inputs = self.convert_to_conversation_inputs(params["inputs"])
         try:
-            logger.info("Invoking the Dapr Conversation API.")
+            logger.debug("Invoking the Dapr Conversation API.")
             # Log tools/tool_choice/parameters for debugging
             if params.get("tools"):
                 try:
@@ -346,7 +348,8 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             normalized = self.translate_response(
                 raw, llm_component or self._llm_component
             )
-            logger.info("Chat completion retrieved successfully.")
+            logger.debug(f"Dapr Conversation API response: {raw}")
+            logger.debug(f"Normalized response: {normalized}")
         except Exception as e:
             logger.error(
                 f"An error occurred during the Dapr Conversation API call: {e}"
@@ -369,11 +372,9 @@ def _check_dapr_runtime_support(metadata: "GetMetadataResponse"):  # noqa: F821
     dapr_runtime_version = extended_metadata.get("daprRuntimeVersion", None)
     if dapr_runtime_version is not None:
         # Allow only versions >=1.16.0, edge, and <2.0.0 for Alpha2 Chat Client
-        if not is_version_supported(
-            str(dapr_runtime_version), ">=1.16.0, edge, <2.0.0"
-        ):
+        if not is_version_supported(str(dapr_runtime_version), ">=1.16.0, <2.0.0"):
             raise DaprRuntimeVersionNotSupportedError(
-                f"!!!!! Dapr Runtime Version {dapr_runtime_version} is not supported with Alpha2 Dapr Chat Client. Only Dapr runtime versions >=1.16.0, edge, and <2.0.0 are supported."
+                f"!!!!! Dapr Runtime Version {dapr_runtime_version} is not supported with Alpha2 Dapr Chat Client. Only Dapr runtime versions >=1.16.0 and <2.0.0 are supported."
             )
 
 

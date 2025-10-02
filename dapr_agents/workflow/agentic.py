@@ -274,9 +274,9 @@ class AgenticWorkflow(
             key (str): The key to update.
             data (dict): The data to update the store with.
         """
-        # retry the entire operation up to ten times sleeping 1 second between each
+        # retry the entire operation up to twenty times sleeping 1-2 seconds between each
         # TODO: rm the custom retry logic here and use the DaprClient retry_policy instead.
-        for attempt in range(1, 11):
+        for attempt in range(1, 21):
             try:
                 response: StateResponse = self._dapr_client.get_state(
                     store_name=store_name, key=store_key
@@ -328,10 +328,16 @@ class AgenticWorkflow(
                 return None
             except Exception as e:
                 logger.error(f"Error on transaction attempt: {attempt}: {e}")
-                logger.info("Sleeping for 1 second before retrying transaction...")
-                time.sleep(1)
+                # Add random jitter
+                import random
+
+                delay = 1 + random.uniform(0, 1)  # 1-2 seconds
+                logger.info(
+                    f"Sleeping for {delay:.2f} seconds before retrying transaction..."
+                )
+                time.sleep(delay)
         raise Exception(
-            f"Failed to update state store key: {store_key} after 10 attempts."
+            f"Failed to update state store key: {store_key} after 20 attempts."
         )
 
     def register_agentic_system(self) -> None:
@@ -387,8 +393,9 @@ class AgenticWorkflow(
                 input_data = await request.json()
 
             logger.info(f"Starting workflow '{workflow_name}' with input: {input_data}")
-            instance_id = self.run_workflow(workflow=workflow_name, input=input_data)
-            asyncio.create_task(self.monitor_workflow_completion(instance_id))
+            instance_id = await self.run_and_monitor_workflow_async(
+                workflow=workflow_name, input=input_data
+            )
 
             return JSONResponse(
                 content={
