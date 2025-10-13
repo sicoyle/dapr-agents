@@ -58,6 +58,7 @@ expander = Agent(
 # Workflow
 # -----------------------------------------------------------------------------
 
+
 @runtime.workflow(name="chained_planner_workflow")
 def chained_planner_workflow(ctx: DaprWorkflowContext, user_msg: str) -> str:
     """Plan a 3-day trip using chained agent activities."""
@@ -70,6 +71,7 @@ def chained_planner_workflow(ctx: DaprWorkflowContext, user_msg: str) -> str:
 # -----------------------------------------------------------------------------
 # Activities (no explicit params, no prompts)
 # -----------------------------------------------------------------------------
+
 
 @runtime.activity(name="extract_destination")
 @agent_activity(agent=extractor)

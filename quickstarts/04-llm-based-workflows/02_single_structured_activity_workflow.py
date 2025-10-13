@@ -41,7 +41,8 @@ JSON schema (informal):
     "breed": string    // Primary breed or mixed
 }}
 """,
-    llm=llm)
+    llm=llm,
+)
 def describe_dog(ctx, name: str) -> Dog:
     pass
 

@@ -68,7 +68,9 @@ def normalize_input(
     return {k: v for k, v in data.items() if k in param_names}
 
 
-def format_prompt(signature: inspect.Signature, template: str, data: Dict[str, Any]) -> str:
+def format_prompt(
+    signature: inspect.Signature, template: str, data: Dict[str, Any]
+) -> str:
     """Render a prompt template using defaults from the signature and provided data.
 
     The provided ``data`` should already be normalized via :func:`normalize_input`,
@@ -93,7 +95,9 @@ def format_prompt(signature: inspect.Signature, template: str, data: Dict[str, A
     try:
         bound = signature.bind_partial(**data)
     except TypeError as exc:
-        raise ValueError(f"Failed to bind prompt arguments to signature: {exc}") from exc
+        raise ValueError(
+            f"Failed to bind prompt arguments to signature: {exc}"
+        ) from exc
 
     bound.apply_defaults()
 
@@ -102,7 +106,9 @@ def format_prompt(signature: inspect.Signature, template: str, data: Dict[str, A
         return template.format(**bound.arguments)
     except KeyError as exc:
         missing_key = exc.args[0]
-        raise ValueError(f"Prompt template expects missing key: '{missing_key}'") from exc
+        raise ValueError(
+            f"Prompt template expects missing key: '{missing_key}'"
+        ) from exc
 
 
 def format_agent_input(payload: Any, data: Dict[str, Any]) -> str:
@@ -195,7 +201,7 @@ def convert_result(result: Any) -> Any:
 
     if isinstance(result, BaseMessage):
         return result.model_dump()
-    
+
     if isinstance(result, BaseModel):
         return result.model_dump()
 
@@ -228,7 +234,9 @@ async def validate_result(result: Any, signature: inspect.Signature) -> Any:
     ):
         return result
 
-    return StructureHandler.validate_against_signature(result, signature.return_annotation)
+    return StructureHandler.validate_against_signature(
+        result, signature.return_annotation
+    )
 
 
 def strip_context_parameter(signature: inspect.Signature) -> inspect.Signature:
@@ -255,10 +263,14 @@ def strip_context_parameter(signature: inspect.Signature) -> inspect.Signature:
     ):
         params = params[1:]
 
-    return inspect.Signature(parameters=params, return_annotation=signature.return_annotation)
+    return inspect.Signature(
+        parameters=params, return_annotation=signature.return_annotation
+    )
 
 
-def extract_ctx_and_payload(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[Any, Any]:
+def extract_ctx_and_payload(
+    args: Tuple[Any, ...], kwargs: Dict[str, Any]
+) -> Tuple[Any, Any]:
     """Extract ``(ctx, payload)`` from wrapper ``args``/``kwargs``.
 
     Accepts either positional ``(ctx, payload)`` or keyword forms

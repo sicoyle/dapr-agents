@@ -23,19 +23,23 @@ llm = DaprChatClient(component_name="openai")
 
 # ----- Models -----
 
+
 class Question(BaseModel):
     """Represents a single research question."""
+
     text: str = Field(..., description="A research question related to the topic.")
 
 
 class Questions(BaseModel):
     """Encapsulates a list of research questions."""
+
     questions: List[Question] = Field(
         ..., description="A list of research questions generated for the topic."
     )
 
 
 # ----- Workflow -----
+
 
 @runtime.workflow(name="research_workflow")
 def research_workflow(ctx: DaprWorkflowContext, topic: str):
@@ -54,8 +58,7 @@ def research_workflow(ctx: DaprWorkflowContext, topic: str):
 
     # 2) Gather information for each question in parallel
     parallel_tasks = [
-        ctx.call_activity(gather_information, input={"question": q})
-        for q in q_list
+        ctx.call_activity(gather_information, input={"question": q}) for q in q_list
     ]
     research_results: List[str] = yield wf.when_all(parallel_tasks)
 
@@ -68,6 +71,7 @@ def research_workflow(ctx: DaprWorkflowContext, topic: str):
 
 
 # ----- Activities -----
+
 
 @runtime.activity(name="generate_questions")
 @llm_activity(

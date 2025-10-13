@@ -65,10 +65,14 @@ def llm_activity(
 
         async def _execute(ctx: WorkflowActivityContext, payload: Any = None) -> Any:
             """Run the LLM pipeline inside the worker."""
-            normalized = normalize_input(activity_sig, payload) if payload is not None else {}
+            normalized = (
+                normalize_input(activity_sig, payload) if payload is not None else {}
+            )
 
             formatted_prompt = format_prompt(activity_sig, prompt, normalized)
-            params = build_llm_params(activity_sig, formatted_prompt, effective_structured_mode)
+            params = build_llm_params(
+                activity_sig, formatted_prompt, effective_structured_mode
+            )
 
             raw = llm.generate(**params)
             if inspect.isawaitable(raw):
@@ -145,10 +149,14 @@ def agent_activity(
         prompt_template = prompt or ""
 
         async def _execute(ctx: WorkflowActivityContext, payload: Any = None) -> Any:
-            normalized = normalize_input(activity_sig, payload) if payload is not None else {}
+            normalized = (
+                normalize_input(activity_sig, payload) if payload is not None else {}
+            )
 
             if prompt_template:
-                formatted_prompt = format_prompt(activity_sig, prompt_template, normalized)
+                formatted_prompt = format_prompt(
+                    activity_sig, prompt_template, normalized
+                )
             else:
                 formatted_prompt = format_agent_input(payload, normalized)
 

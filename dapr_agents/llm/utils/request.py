@@ -120,8 +120,7 @@ class RequestHandler:
         if tools:
             logger.info("Tools are available in the request.")
             params["tools"] = [
-                ToolHelper.format_tool(t, tool_format=llm_provider)
-                for t in tools
+                ToolHelper.format_tool(t, tool_format=llm_provider) for t in tools
             ]
 
         # Structured output

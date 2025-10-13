@@ -54,7 +54,7 @@ def task(
     def decorator(f: Callable) -> Callable:
         if not callable(f):
             raise ValueError(f"@task must be applied to a function, got {type(f)}.")
-        
+
         warnings.warn(
             _TASK_DEPRECATION_MESSAGE,
             DeprecationWarning,
@@ -121,7 +121,7 @@ def workflow(
         """
         if not callable(f):
             raise ValueError(f"@workflow must be applied to a function, got {type(f)}.")
-        
+
         warnings.warn(
             _WORKFLOW_DEPRECATION_MESSAGE,
             DeprecationWarning,
