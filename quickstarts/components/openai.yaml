@@ -9,6 +9,6 @@ spec:
   - name: key
     value: "YOUR_OPENAI_API_KEY"
   - name: model
-    value: gpt-5-2025-08-07
+    value: gpt-5-mini
   - name: temperature
     value: 1
