@@ -34,8 +34,7 @@ def extract_message_models(type_hint: Any) -> list[type]:
     origin = get_origin(type_hint)
     if origin in (Union, types.UnionType):  # handle both `Union[...]` and `A | B`
         return [
-            t for t in get_args(type_hint)
-            if t is not NoneType and isinstance(t, type)
+            t for t in get_args(type_hint) if t is not NoneType and isinstance(t, type)
         ]
 
     return [type_hint] if isinstance(type_hint, type) else []
@@ -154,7 +153,9 @@ def extract_cloudevent_data(
         raise ValueError(f"Unexpected message type: {type(message)!r}")
 
     if not isinstance(event_data, dict):
-        logger.debug("Event data is not a dict (type=%s); value=%r", type(event_data), event_data)
+        logger.debug(
+            "Event data is not a dict (type=%s); value=%r", type(event_data), event_data
+        )
 
     return event_data, metadata
 

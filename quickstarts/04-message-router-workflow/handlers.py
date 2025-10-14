@@ -30,7 +30,9 @@ def start_blog_workflow(message: StartBlogMessage) -> TopicEventResponse:
             workflow=blog_workflow,
             input=message.model_dump(),
         )
-        logger.info("Scheduled blog_workflow instance=%s topic=%s", instance_id, message.topic)
+        logger.info(
+            "Scheduled blog_workflow instance=%s topic=%s", instance_id, message.topic
+        )
         return TopicEventResponse("success")
     except Exception as exc:  # transient infra error → retry
         logger.exception("Failed to schedule blog workflow: %s", exc)

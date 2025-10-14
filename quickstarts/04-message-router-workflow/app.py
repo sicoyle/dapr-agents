@@ -43,7 +43,7 @@ async def _wait_for_shutdown() -> None:
 
 async def main() -> None:
     runtime = wf.WorkflowRuntime()
-    
+
     runtime.register_workflow(blog_workflow)
     runtime.register_activity(create_outline)
     runtime.register_activity(write_post)

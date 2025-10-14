@@ -16,6 +16,7 @@ _MESSAGE_ROUTER_DEPRECATION_MESSAGE = (
     "Union types, forward references, and explicit Dapr workflow integration."
 )
 
+
 def message_router(
     func: Optional[Callable[..., Any]] = None,
     *,
@@ -46,13 +47,12 @@ def message_router(
     """
 
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
-
         warnings.warn(
             _MESSAGE_ROUTER_DEPRECATION_MESSAGE,
             DeprecationWarning,
             stacklevel=2,
         )
-        
+
         is_workflow = hasattr(f, "_is_workflow")
         workflow_name = getattr(f, "_workflow_name", None)
 
@@ -74,7 +74,8 @@ def message_router(
 
         logger.debug(
             "@message_router (legacy): '%s' => models %s",
-            f.__name__, [m.__name__ for m in message_models],
+            f.__name__,
+            [m.__name__ for m in message_models],
         )
 
         # Attach metadata for later registration

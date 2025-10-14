@@ -73,7 +73,9 @@ def register_message_handlers(
             schemas: List[Type[Any]] = meta.get("message_schemas") or []
 
             # Bind method to instance if needed (descriptor protocol).
-            bound = handler if owner is None else handler.__get__(owner, owner.__class__)
+            bound = (
+                handler if owner is None else handler.__get__(owner, owner.__class__)
+            )
 
             async def _invoke(
                 bound_handler: Callable[..., Any],
@@ -92,6 +94,7 @@ def register_message_handlers(
                 bound_handler: Callable[..., Any],
             ) -> Callable[[SubscriptionMessage], TopicEventResponse]:
                 """Create a Dapr-compatible handler for a single decorated function."""
+
                 def handler_fn(message: SubscriptionMessage) -> TopicEventResponse:
                     try:
                         # 1) Extract payload + CloudEvent metadata (bytes/str/dict are also supported by the extractor)
@@ -99,13 +102,17 @@ def register_message_handlers(
 
                         # 2) Validate against the first matching schema (or dict as fallback)
                         parsed = None
-                        for model in (schemas or [dict]):
+                        for model in schemas or [dict]:
                             try:
                                 parsed = validate_message_model(model, event_data)
                                 break
                             except Exception:
                                 # Try the next schema; log at debug for signal without noise.
-                                logger.debug("Schema %r did not match payload; trying next.", model, exc_info=True)
+                                logger.debug(
+                                    "Schema %r did not match payload; trying next.",
+                                    model,
+                                    exc_info=True,
+                                )
                                 continue
 
                         if parsed is None:
@@ -125,7 +132,9 @@ def register_message_handlers(
 
                         # 4) Bridge worker thread → event loop
                         if loop and loop.is_running():
-                            fut = asyncio.run_coroutine_threadsafe(_invoke(bound_handler, parsed), loop)
+                            fut = asyncio.run_coroutine_threadsafe(
+                                _invoke(bound_handler, parsed), loop
+                            )
                             return fut.result()
                         return asyncio.run(_invoke(bound_handler, parsed))
 

@@ -50,7 +50,9 @@ def message_router(
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         # Validate required kwargs only when decorator is used with args
         if pubsub is None or topic is None:
-            raise ValueError("`pubsub` and `topic` are required when using @message_router with arguments.")
+            raise ValueError(
+                "`pubsub` and `topic` are required when using @message_router with arguments."
+            )
 
         sig = inspect.signature(f)
         if "message" not in sig.parameters:
@@ -60,7 +62,9 @@ def message_router(
         try:
             hints = get_type_hints(f, globalns=f.__globals__)
         except Exception:
-            logger.debug("Failed to fully resolve type hints for %s", f.__name__, exc_info=True)
+            logger.debug(
+                "Failed to fully resolve type hints for %s", f.__name__, exc_info=True
+            )
             hints = getattr(f, "__annotations__", {}) or {}
 
         raw_hint = hints.get("message")
@@ -72,7 +76,9 @@ def message_router(
 
         models = extract_message_models(raw_hint)
         if not models:
-            raise TypeError(f"Unsupported or unresolved message type for '{f.__name__}': {raw_hint!r}")
+            raise TypeError(
+                f"Unsupported or unresolved message type for '{f.__name__}': {raw_hint!r}"
+            )
 
         # Optional early validation of supported schema kinds
         for m in models:
@@ -82,10 +88,11 @@ def message_router(
         data = {
             "pubsub": pubsub,
             "topic": topic,
-            "dead_letter_topic": dead_letter_topic or (f"{topic}_DEAD" if topic else None),
+            "dead_letter_topic": dead_letter_topic
+            or (f"{topic}_DEAD" if topic else None),
             "is_broadcast": broadcast,
-            "message_schemas": models,                     # list[type]
-            "message_types": [m.__name__ for m in models], # list[str]
+            "message_schemas": models,  # list[type]
+            "message_types": [m.__name__ for m in models],  # list[str]
         }
 
         # Attach metadata; deepcopy for defensive isolation
@@ -94,7 +101,11 @@ def message_router(
 
         logger.debug(
             "@message_router: '%s' => models %s (topic=%s, pubsub=%s, broadcast=%s)",
-            f.__name__, [m.__name__ for m in models], topic, pubsub, broadcast
+            f.__name__,
+            [m.__name__ for m in models],
+            topic,
+            pubsub,
+            broadcast,
         )
         return f
 
