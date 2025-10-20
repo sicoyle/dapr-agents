@@ -1,5 +1,6 @@
 from dapr_agents import LLMOrchestrator
 from dapr_agents.llm import DaprChatClient
+from dapr_agents.memory import ConversationDaprStateMemory
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -34,6 +35,9 @@ async def main():
             agents_registry_store_name="agentstatestore",
             agents_registry_key="agents_registry",
             broadcast_topic_name="beacon_channel",
+            memory=ConversationDaprStateMemory(
+            store_name="conversationstore", session_id="myuniqueid"
+            ),
             max_iterations=3,
         ).as_service(port=8004)
 
