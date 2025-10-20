@@ -60,10 +60,8 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         default=None,
         description="The current workflow instance ID for this agent.",
     )
-    memory: ConversationDaprStateMemory = Field(
-        default_factory=lambda: ConversationDaprStateMemory(
-            store_name="workflowstatestore", session_id="durable_agent_session"
-        ),
+    memory: Optional[ConversationDaprStateMemory] = Field(
+        default=None,
         description="Persistent memory with session-based state hydration.",
     )
 
@@ -93,19 +91,27 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         if not self.state:
             self.state = {"instances": {}}
 
+        if self.memory is not None:
+            self.memory = ConversationDaprStateMemory(
+                store_name=self.memory.store_name, 
+                session_id=f"{self.name or 'agent'}_session"
+            )
+            logger.info(f"Initialized memory with store name: {self.memory.store_name}")
+
         # Load the current workflow instance ID from state using session_id
         logger.debug(f"State after loading: {self.state}")
         if self.state and self.state.get("instances"):
             logger.debug(f"Found {len(self.state['instances'])} instances in state")
+            current_session_id = self.memory.session_id if self.memory else f"{self.name}_default_session"
             for instance_id, instance_data in self.state["instances"].items():
                 stored_workflow_name = instance_data.get("workflow_name")
                 stored_session_id = instance_data.get("session_id")
                 logger.debug(
-                    f"Instance {instance_id}: workflow_name={stored_workflow_name}, session_id={stored_session_id}, current_workflow_name={self._workflow_name}, current_session_id={self.memory.session_id}"
+                    f"Instance {instance_id}: workflow_name={stored_workflow_name}, session_id={stored_session_id}, current_workflow_name={self._workflow_name}, current_session_id={current_session_id}"
                 )
                 if (
                     stored_workflow_name == self._workflow_name
-                    and stored_session_id == self.memory.session_id
+                    and stored_session_id == current_session_id
                 ):
                     self.workflow_instance_id = instance_id
                     logger.debug(
@@ -401,7 +407,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             "workflow_instance_id": instance_id,
             "triggering_workflow_instance_id": triggering_workflow_instance_id,
             "workflow_name": self._workflow_name,
-            "session_id": self.memory.session_id,
+            "session_id": self.memory.session_id if self.memory else f"{self.name}_default_session",
             "start_time": start_time_str,
             "trace_context": trace_context,
             "status": DaprWorkflowStatus.RUNNING.value,
@@ -443,7 +449,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                 "workflow_instance_id": instance_id,
                 "triggering_workflow_instance_id": triggering_workflow_instance_id,
                 "workflow_name": self._workflow_name,
-                "session_id": self.memory.session_id,
+                "session_id": self.memory.session_id if self.memory else f"{self.name}_default_session",
                 "messages": [],
                 "tool_history": [],
                 "status": DaprWorkflowStatus.RUNNING.value,
@@ -462,7 +468,8 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             return
 
         user_msg = UserMessage(content=user_message_copy.get("content", ""))
-        self.memory.add_message(user_msg)
+        if self.memory:
+            self.memory.add_message(user_msg)
 
         msg_object = DurableAgentMessage(**user_message_copy)
         inst = self.state["instances"][instance_id]
@@ -502,7 +509,8 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         if not message_exists:
             messages_list.append(agent_msg.model_dump(mode="json"))
             inst["last_message"] = agent_msg.model_dump(mode="json")
-            self.memory.add_message(AssistantMessage(**assistant_message))
+            if self.memory:
+                self.memory.add_message(AssistantMessage(**assistant_message))
             self.save_state()
 
     def _print_llm_interaction_messages(
@@ -649,8 +657,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         # Update tool history and memory of agent (only if new)
         # Note: Memory updates are handled at workflow level to avoid replay issues
         self.tool_history.append(tool_history_entry)
-        # Add the tool message to the agent's memory
-        self.memory.add_message(tool_message)
+        # Add the tool message to the agent's memory if enabled
+        if self.memory:
+            self.memory.add_message(tool_message)
 
     def _get_last_message_from_state(
         self, instance_id: str
@@ -850,8 +859,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             logger.debug(
                 f"{self.name} processing broadcast message from '{source}'. Content: {message_content}"
             )
-            # Store the message in local memory
-            self.memory.add_message(message)
+            # Store the message in local memory if enabled
+            if self.memory:
+                self.memory.add_message(message)
 
             # Define DurableAgentMessage object for state persistence
             agent_msg = DurableAgentMessage(**message.model_dump())
@@ -920,15 +930,18 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         else:
             instance_messages = []
 
-        # Get messages from persistent memory (session-based, cross-workflow)
+        # Get messages from persistent memory (session-based, cross-workflow) if memory is enabled
         persistent_memory_messages = []
-        try:
-            persistent_memory_messages = self.memory.get_messages()
-            logger.info(
-                f"Retrieved {len(persistent_memory_messages)} messages for session {self.memory.session_id}"
-            )
-        except Exception as e:
-            logger.warning(f"Failed to retrieve persistent memory: {e}")
+        if self.memory:
+            try:
+                persistent_memory_messages = self.memory.get_messages()
+                logger.info(
+                    f"Retrieved {len(persistent_memory_messages)} messages for session {self.memory.session_id}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to retrieve persistent memory: {e}")
+        else:
+            logger.debug("Memory is disabled, skipping persistent memory retrieval")
 
         # Get long-term memory from workflow state (for broadcast messages and persistent context)
         long_term_memory_data = self.state.get("chat_history", [])
