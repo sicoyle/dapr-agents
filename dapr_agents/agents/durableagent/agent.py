@@ -93,8 +93,8 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
         if self.memory is not None:
             self.memory = ConversationDaprStateMemory(
-                store_name=self.memory.store_name, 
-                session_id=f"{self.name or 'agent'}_session"
+                store_name=self.memory.store_name,
+                session_id=f"{self.name or 'agent'}_session",
             )
             logger.info(f"Initialized memory with store name: {self.memory.store_name}")
 
@@ -102,7 +102,11 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         logger.debug(f"State after loading: {self.state}")
         if self.state and self.state.get("instances"):
             logger.debug(f"Found {len(self.state['instances'])} instances in state")
-            current_session_id = self.memory.session_id if self.memory else f"{self.name}_default_session"
+            current_session_id = (
+                self.memory.session_id
+                if self.memory
+                else f"{self.name}_default_session"
+            )
             for instance_id, instance_data in self.state["instances"].items():
                 stored_workflow_name = instance_data.get("workflow_name")
                 stored_session_id = instance_data.get("session_id")
@@ -407,7 +411,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             "workflow_instance_id": instance_id,
             "triggering_workflow_instance_id": triggering_workflow_instance_id,
             "workflow_name": self._workflow_name,
-            "session_id": self.memory.session_id if self.memory else f"{self.name}_default_session",
+            "session_id": self.memory.session_id
+            if self.memory
+            else f"{self.name}_default_session",
             "start_time": start_time_str,
             "trace_context": trace_context,
             "status": DaprWorkflowStatus.RUNNING.value,
@@ -449,7 +455,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                 "workflow_instance_id": instance_id,
                 "triggering_workflow_instance_id": triggering_workflow_instance_id,
                 "workflow_name": self._workflow_name,
-                "session_id": self.memory.session_id if self.memory else f"{self.name}_default_session",
+                "session_id": self.memory.session_id
+                if self.memory
+                else f"{self.name}_default_session",
                 "messages": [],
                 "tool_history": [],
                 "status": DaprWorkflowStatus.RUNNING.value,

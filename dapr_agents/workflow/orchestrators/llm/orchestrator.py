@@ -75,11 +75,11 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         if not self.state:
             logger.debug("No state found, initializing empty state")
             self.state = {"instances": {}}
-        
+
         if self.memory is not None:
             self.memory = ConversationDaprStateMemory(
-                store_name=self.memory.store_name, 
-                session_id=f"{self.name or 'orchestrator'}_session"
+                store_name=self.memory.store_name,
+                session_id=f"{self.name or 'orchestrator'}_session",
             )
 
             print(f"sam memory store name is {self.memory.store_name}")
@@ -89,7 +89,11 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         if self.state and self.state.get("instances"):
             logger.debug(f"Found {len(self.state['instances'])} instances in state")
 
-            current_session_id = self.memory.session_id if self.memory else f"{self.name}_default_session"
+            current_session_id = (
+                self.memory.session_id
+                if self.memory
+                else f"{self.name}_default_session"
+            )
             for instance_id, instance_data in self.state["instances"].items():
                 stored_workflow_name = instance_data.get("workflow_name")
                 stored_session_id = instance_data.get("session_id")
@@ -659,7 +663,11 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
                 "instances", {}
             ).items():
                 stored_session_id = instance_data.get("session_id")
-                current_session_id = self.memory.session_id if self.memory else f"{self.name}_default_session"
+                current_session_id = (
+                    self.memory.session_id
+                    if self.memory
+                    else f"{self.name}_default_session"
+                )
                 if stored_session_id == current_session_id:
                     existing_plan = instance_data.get("plan", [])
                     logger.debug(
@@ -696,7 +704,10 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
                 if isinstance(response, str):
                     # If it's a raw JSON string
                     plan_dict = json.loads(response)
-                    plan_objects = [PlanStep(**step_dict) for step_dict in plan_dict.get("objects", [])]
+                    plan_objects = [
+                        PlanStep(**step_dict)
+                        for step_dict in plan_dict.get("objects", [])
+                    ]
                 elif hasattr(response, "choices") and response.choices:
                     # If it's an OpenAI-style response with multiple choices
                     plan_objects = []
@@ -704,14 +715,21 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
                         plan_data = choice.message.content
                         if isinstance(plan_data, str):
                             plan_dict = json.loads(plan_data)
-                            plan_objects.extend(PlanStep(**step_dict) for step_dict in plan_dict.get("objects", []))
+                            plan_objects.extend(
+                                PlanStep(**step_dict)
+                                for step_dict in plan_dict.get("objects", [])
+                            )
                         elif hasattr(plan_data, "objects"):
                             plan_objects.extend(plan_data.objects)
                 else:
                     # If it's already a Pydantic model
-                    plan_objects = response.objects if hasattr(response, "objects") else []
-                
-                logger.debug(f"Plan generation response with {len(plan_objects)} objects: {plan_objects}")
+                    plan_objects = (
+                        response.objects if hasattr(response, "objects") else []
+                    )
+
+                logger.debug(
+                    f"Plan generation response with {len(plan_objects)} objects: {plan_objects}"
+                )
 
             # Format and broadcast message
             plan_dicts = self._convert_plan_objects_to_dicts(plan_objects)
@@ -1051,7 +1069,9 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         # Store workflow instance ID, workflow name, and session_id for session-based state rehydration
         workflow_entry["workflow_instance_id"] = instance_id
         workflow_entry["workflow_name"] = self._workflow_name
-        workflow_entry["session_id"] = self.memory.session_id if self.memory else f"{self.name}_default_session"
+        workflow_entry["session_id"] = (
+            self.memory.session_id if self.memory else f"{self.name}_default_session"
+        )
 
         # Persist updated state
         self.save_state()

@@ -36,7 +36,7 @@ async def main():
             agents_registry_key="agents_registry",
             broadcast_topic_name="beacon_channel",
             memory=ConversationDaprStateMemory(
-            store_name="conversationstore", session_id="myuniqueid"
+                store_name="conversationstore", session_id="myuniqueid"
             ),
             max_iterations=3,
         ).as_service(port=8004)
