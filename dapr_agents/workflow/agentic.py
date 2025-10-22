@@ -31,6 +31,7 @@ from dapr_agents.workflow.mixins import (
     ServiceMixin,
     StateManagementMixin,
 )
+from dapr_agents.agents.durableagent.storage import Storage
 
 logger = logging.getLogger(__name__)
 
@@ -56,44 +57,23 @@ class AgenticWorkflow(
         default=None,
         description="Default topic for broadcasting messages. Set explicitly for multi-agent setups.",
     )
-    state_store_name: str = Field(
-        ..., description="Dapr state store for workflow state."
+
+    storage: Storage = Field(
+        ...,
+        description="The durable storage for workflow state and agent registration."
     )
-    state_key: str = Field(
-        default="workflow_state",
-        description="Dapr state key for workflow state storage.",
-    )
-    state: dict = Field(
-        default_factory=dict, description="Current state of the workflow."
-    )
-    state_format: Optional[Type[BaseModel]] = Field(
-        default=None,
-        description=(
-            "Optional Pydantic model used to validate the persisted workflow "
-            "state. If provided, state loaded from storage is coerced to this "
-            "schema."
-        ),
-    )
-    agents_registry_store_name: str = Field(
-        ..., description="Dapr state store for agent metadata."
-    )
-    agents_registry_key: str = Field(
-        default="agents_registry", description="Key for agents registry in state store."
-    )
+
     # TODO: test this is respected by runtime.
     max_iterations: int = Field(
         default=10, description="Maximum iterations for workflows.", ge=1
     )
+
+    # Long term memory based on an execution run, so should be in the execution config class!
     memory: MemoryBase = Field(
         default_factory=ConversationListMemory,
         description="Handles conversation history storage.",
     )
-    save_state_locally: bool = Field(
-        default=True, description="Whether to save workflow state locally."
-    )
-    local_state_path: Optional[str] = Field(
-        default=None, description="Local path for saving state files."
-    )
+    
     client: Optional[DaprClient] = Field(
         default=None, init=False, description="Dapr client instance."
     )
@@ -128,8 +108,8 @@ class AgenticWorkflow(
         """
         self._dapr_client = DaprClient()
         self._text_formatter = ColorTextFormatter()
-        self._state_store_client = DaprStateStore(store_name=self.state_store_name)
-        logger.info(f"State store '{self.state_store_name}' initialized.")
+        self._state_store_client = DaprStateStore(store_name=self.storage.name)
+        logger.info(f"State store '{self.storage.name}' initialized.")
         self.initialize_state()
         super().model_post_init(__context)
 
@@ -213,14 +193,14 @@ class AgenticWorkflow(
         try:
             agents_metadata = (
                 self.get_data_from_store(
-                    self.agents_registry_store_name, self.agents_registry_key
+                    self.storage.name, "agent_registry"
                 )
                 or {}
             )
 
             if agents_metadata:
                 logger.info(
-                    f"Agents found in '{self.agents_registry_store_name}' for key '{self.agents_registry_key}'."
+                    f"Agents found in '{self.storage.name}' for key 'agent_regisry'."
                 )
                 filtered = {
                     name: metadata
@@ -235,7 +215,7 @@ class AgenticWorkflow(
                 return filtered
 
             logger.info(
-                f"No agents found in '{self.agents_registry_store_name}' for key '{self.agents_registry_key}'."
+                f"No agents found in '{self.storage.name}' for key 'agent_registry'."
             )
             return {}
         except Exception as e:
@@ -349,8 +329,8 @@ class AgenticWorkflow(
         """
         try:
             self.register_agent(
-                store_name=self.agents_registry_store_name,
-                store_key=self.agents_registry_key,
+                store_name=self.storage.name,
+                store_key="agent_registry", # TODO(@Sicoyle): move this to just be const in func
                 agent_name=self.name,
                 agent_metadata=self._agent_metadata,
             )
