@@ -25,51 +25,25 @@ class StateManagementMixin:
             RuntimeError: If state initialization or loading from storage fails.
         """
         try:
-            if self.storage.current_state is None:
+            if self.storage._current_state is None:
                 logger.debug("No user-provided state. Attempting to load from storage.")
-                self.storage.current_state = self.load_state()
+                self.storage._current_state = self.load_state()
 
-            if isinstance(self.storage.current_state, BaseModel):
+            if isinstance(self.storage._current_state, BaseModel):
                 logger.debug(
                     "User provided a state as a Pydantic model. Converting to dict."
                 )
-                self.storage.current_state = self.storage.current_state.model_dump()
+                self.storage._current_state = self.storage._current_state.model_dump()
 
-            if not isinstance(self.storage.current_state, dict):
+            if not isinstance(self.storage._current_state, dict):
                 raise TypeError(
-                    f"Invalid state type: {type(self.storage.current_state)}. Expected dict."
+                    f"Invalid state type: {type(self.storage._current_state)}. Expected dict."
                 )
 
-            logger.debug(f"Workflow state initialized with {len(self.storage.current_state)} key(s).")
+            logger.debug(f"Workflow state initialized with {len(self.storage._current_state)} key(s).")
             self.save_state()
         except Exception as e:
             raise RuntimeError(f"Error initializing workflow state: {e}") from e
-
-    def validate_state(self, state_data: dict) -> dict:
-        """
-        Validate the workflow state against ``storage.format`` if provided.
-
-        Args:
-            state_data: The raw state data to validate.
-
-        Returns:
-            dict: The validated and structured state.
-
-        Raises:
-            ValidationError: If the state data does not conform to the expected schema.
-        """
-        try:
-            if not self.storage.format:
-                logger.warning(
-                    "No schema (storage.format) provided; returning state as-is."
-                )
-                return state_data
-
-            logger.debug("Validating workflow state against schema.")
-            validated_state: BaseModel = self.storage.format(**state_data)
-            return validated_state.model_dump()
-        except ValidationError as e:
-            raise ValidationError(f"Invalid workflow state: {e.errors()}") from e
 
     def load_state(self) -> dict:
         """
@@ -91,7 +65,7 @@ class StateManagementMixin:
             ):
                 logger.error("State store is not configured. Cannot load state.")
                 raise RuntimeError(
-                    "State store is not configured. Please provide 'storage.name' and 'state_key'."
+                    "State store is not configured. Please provide 'storage.name' and 'storage.key'."
                 )
 
             # For durable agents, always load from database to ensure it's the source of truth
@@ -107,16 +81,11 @@ class StateManagementMixin:
                         f"Invalid state type retrieved: {type(state_data)}. Expected dict."
                     )
 
-                # Set self.storage.current_state to the loaded data
-                if self.storage.format:
-                    loaded_state = self.validate_state(state_data)
-                else:
-                    loaded_state = state_data
+                # Set self.storage._current_state to the loaded data
+                self.storage._current_state = state_data
+                logger.debug(f"Set self.storage._current_state to loaded data: {self.storage._current_state}")
 
-                self.storage.current_state = loaded_state
-                logger.debug(f"Set self.storage.current_state to loaded data: {self.storage.current_state}")
-
-                return loaded_state
+                return state_data
 
             logger.debug(
                 f"No existing state found for key '{self.storage.key}'. Initializing empty state."
@@ -133,9 +102,17 @@ class StateManagementMixin:
         Returns:
             str: The absolute path to the local state file.
         """
-        directory = self.storage.local_directory or os.getcwd()
-        os.makedirs(directory, exist_ok=True)
-        return os.path.join(directory, f"{self.storage.key}.json")
+        if not self.storage.local_directory:
+            return os.path.join(os.getcwd(), f"{self.name}_state.json")
+        os.makedirs(self.storage.local_directory, exist_ok=True)
+        
+        # If relative path, make it absolute from workspace root
+        if not os.path.isabs(self.storage.local_directory):
+            abs_path = os.path.join(os.getcwd(), self.storage.local_directory)
+        else:
+            abs_path = self.storage.local_directory
+            
+        return os.path.join(abs_path, f"{self.name}_state.json")
 
     def save_state_to_disk(
         self, state_data: str, filename: Optional[str] = None
@@ -151,10 +128,9 @@ class StateManagementMixin:
             RuntimeError: If saving to disk fails.
         """
         try:
-            save_directory = self.storage.local_directory or os.getcwd()
+            file_path = filename or self.get_local_state_file_path()
+            save_directory = os.path.dirname(file_path)
             os.makedirs(save_directory, exist_ok=True)
-            filename = filename or f"{self.name}_state.json"
-            file_path = os.path.join(save_directory, filename)
 
             with tempfile.NamedTemporaryFile(
                 "w", dir=save_directory, delete=False
@@ -215,27 +191,27 @@ class StateManagementMixin:
             ):
                 logger.error("State store is not configured. Cannot save state.")
                 raise RuntimeError(
-                    "State store is not configured. Please provide 'storage.name' and 'state_key'."
+                    "State store is not configured. Please provide 'storage.name' and 'storage.key'."
                 )
 
-            self.storage.current_state = state or self.storage.current_state
-            if not self.storage.current_state:
+            self.storage._current_state = state or self.storage._current_state
+            if not self.storage._current_state:
                 logger.warning("Skipping state save: Empty state.")
                 return
 
-            if isinstance(self.storage.current_state, BaseModel):
-                state_to_save = self.storage.current_state.model_dump_json()
-            elif isinstance(self.storage.current_state, dict):
-                state_to_save = json.dumps(self.storage.current_state)
-            elif isinstance(self.storage.current_state, str):
+            if isinstance(self.storage._current_state, BaseModel):
+                state_to_save = self.storage._current_state.model_dump_json()
+            elif isinstance(self.storage._current_state, dict):
+                state_to_save = json.dumps(self.storage._current_state)
+            elif isinstance(self.storage._current_state, str):
                 try:
-                    json.loads(self.storage.current_state)
+                    json.loads(self.storage._current_state)
                 except json.JSONDecodeError as e:
                     raise ValueError(f"Invalid JSON string provided as state: {e}")
-                state_to_save = self.storage.current_state
+                state_to_save = self.storage._current_state
             else:
                 raise TypeError(
-                    f"Invalid state type: {type(self.storage.current_state)}. Expected dict, BaseModel, or JSON string."
+                    f"Invalid state type: {type(self.storage._current_state)}. Expected dict, BaseModel, or JSON string."
                 )
 
             self._state_store_client.save_state(self.storage.key, state_to_save)
@@ -245,7 +221,7 @@ class StateManagementMixin:
                 self.save_state_to_disk(state_data=state_to_save)
 
             if force_reload:
-                self.storage.current_state = self.load_state()
+                self.storage._current_state = self.load_state()
                 logger.debug(f"State reloaded after saving for key '{self.storage.key}'.")
         except Exception as e:
             logger.error(f"Failed to save state for key '{self.storage.key}': {e}")
