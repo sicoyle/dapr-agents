@@ -61,38 +61,64 @@ class StateManagementMixin:
             if (
                 not self._state_store_client
                 or not self.storage.name
-                or not self.storage.key
+                or not self.storage._key
             ):
                 logger.error("State store is not configured. Cannot load state.")
                 raise RuntimeError(
-                    "State store is not configured. Please provide 'storage.name' and 'storage.key'."
+                    "State store is not configured. Please provide 'storage.name'."
                 )
 
             # For durable agents, always load from database to ensure it's the source of truth
             has_state, state_data = self._state_store_client.try_get_state(
-                self.storage.key
+                self.storage._key
             )
             if has_state and state_data:
                 logger.debug(
-                    f"Existing state found for key '{self.storage.key}'. Validating it."
+                    f"Existing state found for key '{self.storage._key}'. Validating it."
                 )
                 if not isinstance(state_data, dict):
                     raise TypeError(
                         f"Invalid state type retrieved: {type(state_data)}. Expected dict."
                     )
-
-                # Set self.storage._current_state to the loaded data
                 self.storage._current_state = state_data
-                logger.debug(f"Set self.storage._current_state to loaded data: {self.storage._current_state}")
+            else:
+                self.storage._current_state = {}
 
-                return state_data
+            # Load workflow instances from session index
+            has_sessions, sessions_data = self._state_store_client.try_get_state(
+                self.storage._get_sessions_key()
+            )
+            if has_sessions and sessions_data:
+                # Handle JSON string if necessary
+                if isinstance(sessions_data, str):
+                    import json
+                    sessions_data = json.loads(sessions_data)
+                    
+                session_id = self.storage._get_session_id()
+                session = sessions_data.get("sessions", {}).get(session_id, {})
+                instance_ids = session.get("workflow_instances", [])
+                
+                # Load each instance
+                self.storage._current_state["instances"] = {}
+                for instance_id in instance_ids:
+                    instance_key = self.storage._get_instance_key(instance_id)
+                    has_instance, instance_data = self._state_store_client.try_get_state(instance_key)
+                    if has_instance and instance_data:
+                        # Deserialize if it's a JSON string
+                        if isinstance(instance_data, str):
+                            instance_data = json.loads(instance_data)
+                        self.storage._current_state["instances"][instance_id] = instance_data
+                        logger.debug(f"Loaded workflow instance {instance_id} from key '{instance_key}'")
+
+            logger.debug(f"Set self.storage._current_state to loaded data: {self.storage._current_state}")
+            return self.storage._current_state
 
             logger.debug(
-                f"No existing state found for key '{self.storage.key}'. Initializing empty state."
+                f"No existing state found for key '{self.storage._key}'. Initializing empty state."
             )
             return {}
         except Exception as e:
-            logger.error(f"Failed to load state for key '{self.storage.key}': {e}")
+            logger.error(f"Failed to load state for key '{self.storage._key}': {e}")
             raise RuntimeError(f"Error loading workflow state: {e}") from e
 
     def get_local_state_file_path(self) -> str:
@@ -187,11 +213,11 @@ class StateManagementMixin:
             if (
                 not self._state_store_client
                 or not self.storage.name
-                or not self.storage.key
+                or not self.storage._key
             ):
                 logger.error("State store is not configured. Cannot save state.")
                 raise RuntimeError(
-                    "State store is not configured. Please provide 'storage.name' and 'storage.key'."
+                    "State store is not configured. Please provide 'storage.name'."
                 )
 
             self.storage._current_state = state or self.storage._current_state
@@ -214,15 +240,33 @@ class StateManagementMixin:
                     f"Invalid state type: {type(self.storage._current_state)}. Expected dict, BaseModel, or JSON string."
                 )
 
-            self._state_store_client.save_state(self.storage.key, state_to_save)
-            logger.debug(f"Successfully saved state for key '{self.storage.key}'.")
+            # Save each workflow instance separately
+            if "instances" in self.storage._current_state:
+                for instance_id, instance_data in self.storage._current_state["instances"].items():
+                    instance_key = self.storage._get_instance_key(instance_id)
+                    # Handle both dict and already-serialized string
+                    if isinstance(instance_data, dict):
+                        instance_json = json.dumps(instance_data)
+                    elif isinstance(instance_data, str):
+                        instance_json = instance_data
+                    else:
+                        instance_json = json.dumps(instance_data)
+                    self._state_store_client.save_state(instance_key, instance_json)
+                    logger.debug(f"Saved workflow instance {instance_id} to key '{instance_key}'")
+            
+            # Save other state data (like chat_history) to main key
+            other_state = {k: v for k, v in self.storage._current_state.items() if k != "instances"}
+            if other_state:
+                other_state_json = json.dumps(other_state)
+                self._state_store_client.save_state(self.storage._key, other_state_json)
+                logger.debug(f"Saved non-instance state to key '{self.storage._key}'")
 
             if self.storage.local_directory is not None:
                 self.save_state_to_disk(state_data=state_to_save)
 
             if force_reload:
                 self.storage._current_state = self.load_state()
-                logger.debug(f"State reloaded after saving for key '{self.storage.key}'.")
+                logger.debug(f"State reloaded after saving for key '{self.storage._key}'.")
         except Exception as e:
-            logger.error(f"Failed to save state for key '{self.storage.key}': {e}")
+            logger.error(f"Failed to save state for key '{self.storage._key}': {e}")
             raise

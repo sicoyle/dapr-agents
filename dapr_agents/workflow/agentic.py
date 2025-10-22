@@ -18,11 +18,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, PrivateAttr
 
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
-from dapr_agents.memory import (
-    ConversationListMemory,
-    ConversationVectorMemory,
-    MemoryBase,
-)
+from dapr_agents.memory import MemoryBase, ConversationVectorMemory
 from dapr_agents.storage.daprstores.statestore import DaprStateStore
 from dapr_agents.workflow.base import WorkflowApp
 from dapr_agents.workflow.mixins import (
@@ -69,8 +65,8 @@ class AgenticWorkflow(
     )
 
     # Long term memory based on an execution run, so should be in the execution config class!
-    memory: MemoryBase = Field(
-        default_factory=ConversationListMemory,
+    memory: Optional[MemoryBase] = Field(
+        default=None,
         description="Handles conversation history storage.",
     )
     
@@ -108,6 +104,10 @@ class AgenticWorkflow(
         """
         self._dapr_client = DaprClient()
         self._text_formatter = ColorTextFormatter()
+        
+        # Set storage key based on agent name
+        self.storage._set_key(self.name)
+        
         self._state_store_client = DaprStateStore(store_name=self.storage.name)
         logger.info(f"State store '{self.storage.name}' initialized.")
         self.initialize_state()
@@ -134,12 +134,31 @@ class AgenticWorkflow(
                 query_embeddings = self.memory.vector_store.embedding_function.embed(
                     task
                 )
-                messages = self.memory.get_messages(query_embeddings=query_embeddings)
-            else:
-                messages = self.memory.get_messages()
-        else:
-            messages = self.memory.get_messages()
-        return messages
+                vector_messages = self.memory.get_messages(query_embeddings=query_embeddings)
+                if vector_messages:
+                    return vector_messages
+
+        # Get messages from storage
+        if self.storage._current_state is None:
+            logger.warning("Agent state is None, initializing empty state")
+            self.storage._current_state = {}
+
+        # Get messages from all instances
+        all_messages = []
+        for instance in self.storage._current_state.get("instances", {}).values():
+            messages = instance.get("messages", [])
+            all_messages.extend(messages)
+
+        # Get long-term memory from workflow state
+        long_term_memory = self.storage._current_state.get("chat_history", [])
+        all_messages.extend(long_term_memory)
+
+        # If we have vector memory but no task, also include vector memory messages
+        if isinstance(self.memory, ConversationVectorMemory):
+            vector_messages = self.memory.get_messages()
+            all_messages.extend(vector_messages)
+
+        return all_messages
 
     @property
     def chat_history(self) -> List[Dict[str, Any]]:

@@ -89,11 +89,6 @@ class AgentBase(BaseModel, ABC):
     max_iterations: int = Field(
         default=10, description="Max iterations for conversation cycles."
     )
-    # TODO(@Sicoyle): Rename this to make clearer
-    memory: MemoryBase = Field(
-        default_factory=ConversationListMemory,
-        description="Handles long-term conversation history (for all workflow instance-ids within the same session) and context storage.",
-    )
     # TODO: we should have a system_template, prompt_template, and response_template, or better separation here.
     # If we have something like a customer service agent, we want diff templates for different types of interactions.
     # In future, we could also have a way to dynamically change the template based on the context of the interaction.
@@ -293,33 +288,17 @@ Your role is {role}.
         """Returns the text formatter for the agent."""
         return self._text_formatter
 
+    @abstractmethod
     def get_chat_history(self, task: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Retrieves the chat history from memory as a list of dictionaries.
+        Retrieves the chat history as a list of dictionaries.
 
         Args:
-            task (Optional[str]): The task or query provided by the user (used for vector search).
+            task (Optional[str]): The task or query provided by the user.
 
         Returns:
             List[Dict[str, Any]]: The chat history as dictionaries.
         """
-        if isinstance(self.memory, ConversationVectorMemory) and task:
-            if (
-                hasattr(self.memory.vector_store, "embedding_function")
-                and self.memory.vector_store.embedding_function
-                and hasattr(
-                    self.memory.vector_store.embedding_function, "embed_documents"
-                )
-            ):
-                query_embeddings = self.memory.vector_store.embedding_function.embed(
-                    task
-                )
-                messages = self.memory.get_messages(query_embeddings=query_embeddings)
-            else:
-                messages = self.memory.get_messages()
-        else:
-            messages = self.memory.get_messages()
-        return messages
 
     @property
     def chat_history(self) -> List[Dict[str, Any]]:
@@ -457,10 +436,6 @@ Your role is {role}.
 
         else:
             raise ValueError("Input data must be either a string or dictionary.")
-
-    def reset_memory(self):
-        """Clears all messages stored in the agent's memory."""
-        self.memory.reset_memory()
 
     def get_last_message(self) -> Optional[Dict[str, Any]]:
         """

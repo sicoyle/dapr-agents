@@ -21,6 +21,18 @@ class Agent(AgentBase):
     It integrates tools and processes them based on user inputs and task orchestration.
     """
 
+    def get_chat_history(self, task: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieves the chat history as a list of dictionaries.
+
+        Args:
+            task (Optional[str]): The task or query provided by the user.
+
+        Returns:
+            List[Dict[str, Any]]: The chat history as dictionaries.
+        """
+        return self.memory.get_messages()
+
     async def run(self, input_data: Optional[Union[str, Dict[str, Any]]] = None) -> Any:
         """
         Runs the agent with the given input, supporting graceful shutdown.

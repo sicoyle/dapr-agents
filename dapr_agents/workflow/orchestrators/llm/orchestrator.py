@@ -37,7 +37,7 @@ from dapr_agents.workflow.orchestrators.llm.utils import (
     restructure_plan,
     update_step_statuses,
 )
-from dapr_agents.memory import ConversationDaprStateMemory
+from dapr_agents.agents.durableagent.storage import Storage
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +54,12 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         default=None,
         description="The current workflow instance ID for this orchestrator.",
     )
-    memory: ConversationDaprStateMemory = Field(
-        default_factory=lambda: ConversationDaprStateMemory(
-            store_name="workflowstatestore", session_id="orchestrator_session"
+    memory: Storage = Field(
+        default_factory=lambda: Storage(
+            name="workflowstatestore",
+            session_id="orchestrator_session"
         ),
-        description="Persistent memory with session-based state hydration.",
+        description="Persistent storage with session-based state hydration.",
     )
 
     def model_post_init(self, __context: Any) -> None:
@@ -1031,7 +1032,9 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
             workflow_entry["last_message"] = serialized_message
 
             # Update the local chat history
-            self.memory.add_message(message)
+            if "chat_history" not in self.memory._current_state:
+                self.memory._current_state["chat_history"] = []
+            self.memory._current_state["chat_history"].append(serialized_message)
 
         if final_output is not None:
             workflow_entry["output"] = final_output
