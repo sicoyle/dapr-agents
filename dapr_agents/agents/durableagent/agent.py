@@ -118,6 +118,13 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         if not self.storage._current_state:
             self.storage._current_state = {"instances": {}}
 
+        if self.memory is not None:
+            self.memory = ConversationDaprStateMemory(
+                store_name=self.memory.store_name,
+                session_id=f"{self.name or 'agent'}_session",
+            )
+            logger.info(f"Initialized memory with store name: {self.memory.store_name}")
+
         # Load the current workflow instance ID from state using session_id
         logger.debug(f"State after loading: {self.storage._current_state}")
         if self.storage._current_state and self.storage._current_state.get("instances"):

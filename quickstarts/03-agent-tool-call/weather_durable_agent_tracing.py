@@ -37,7 +37,6 @@ async def main():
         message_bus_name="messagepubsub",
         state_store_name="workflowstatestore",
         agents_registry_store_name="agentstatestore",
-        history_store_name="historystore",
     )
 
     await AIAgent.run("What is the weather in Virginia, New York and Washington DC?")
