@@ -56,7 +56,7 @@ class AgenticWorkflow(
 
     storage: Storage = Field(
         ...,
-        description="The durable storage for workflow state and agent registration."
+        description="The durable storage for workflow state and agent registration.",
     )
 
     # TODO: test this is respected by runtime.
@@ -69,7 +69,7 @@ class AgenticWorkflow(
         default=None,
         description="Handles conversation history storage.",
     )
-    
+
     client: Optional[DaprClient] = Field(
         default=None, init=False, description="Dapr client instance."
     )
@@ -104,10 +104,10 @@ class AgenticWorkflow(
         """
         self._dapr_client = DaprClient()
         self._text_formatter = ColorTextFormatter()
-        
+
         # Set storage key based on agent name
         self.storage._set_key(self.name)
-        
+
         self._state_store_client = DaprStateStore(store_name=self.storage.name)
         logger.info(f"State store '{self.storage.name}' initialized.")
         self.initialize_state()
@@ -134,7 +134,9 @@ class AgenticWorkflow(
                 query_embeddings = self.memory.vector_store.embedding_function.embed(
                     task
                 )
-                vector_messages = self.memory.get_messages(query_embeddings=query_embeddings)
+                vector_messages = self.memory.get_messages(
+                    query_embeddings=query_embeddings
+                )
                 if vector_messages:
                     return vector_messages
 
@@ -211,10 +213,7 @@ class AgenticWorkflow(
         """
         try:
             agents_metadata = (
-                self.get_data_from_store(
-                    self.storage.name, "agent_registry"
-                )
-                or {}
+                self.get_data_from_store(self.storage.name, "agent_registry") or {}
             )
 
             if agents_metadata:

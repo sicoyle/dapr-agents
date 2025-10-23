@@ -10,17 +10,18 @@ from dapr_agents.types.workflow import DaprWorkflowStatus
 class Storage(BaseModel):
     """
     Unified storage interface for both Agent (in-memory) and DurableAgent (persistent).
-    
+
     - If `name` is provided: Uses Dapr state store for persistence to provide persistent storage for the agent on workflow state (if DurableAgent), agent registration, and conversation history.
     - If `name` is None: Uses in-memory list storage to provide in-memory storage for the agent on conversation history.
     """
+
     name: Optional[str] = Field(
         default=None,
         description=(
             "Dapr state store for persistent data. "
             "If None, uses in-memory storage. "
             "If provided, uses persistent Dapr State Store for storage of workflow state (if DurableAgent), agent registration, and conversation history."
-        )
+        ),
     )
     session_id: Optional[str] = Field(
         default=None,
@@ -28,7 +29,7 @@ class Storage(BaseModel):
             "Session ID to group related conversations and workflow state. "
             "If not provided, a unique ID will be generated. "
             "Can be overridden in agent.run()."
-        )
+        ),
     )
     local_directory: Optional[str] = Field(
         default=None,
@@ -37,24 +38,26 @@ class Storage(BaseModel):
             "If not set, no local saving occurs. "
             "Can be absolute or relative to workspace root. "
             "Files will be named '{agent_name}_state.json'."
-        )
+        ),
     )
     _current_state: dict = PrivateAttr(default_factory=dict)
-    _agent_name: str = PrivateAttr(default=None)  # Set by AgenticWorkflow -> TODO: SAM to double check this in adding regular agents registration capabilities!!
+    _agent_name: str = PrivateAttr(
+        default=None
+    )  # Set by AgenticWorkflow -> TODO: SAM to double check this in adding regular agents registration capabilities!!
     _workflow_prefix: str = PrivateAttr(default="workflow")
     _sessions_prefix: str = PrivateAttr(default="sessions")
     _key: str = PrivateAttr(default="workflow_state")
     _in_memory_messages: List[Dict[str, Any]] = PrivateAttr(default_factory=list)
-    
+
     def _set_key(self, agent_name: str) -> None:
         """Internal method to set the agent name and initialize storage."""
         self._agent_name = agent_name
         self._key = f"{agent_name}_workflow_state"
-        
+
     def _get_instance_key(self, instance_id: str) -> str:
         """Get the state store key for a workflow instance."""
         return f"{self._agent_name}_{self._workflow_prefix}_{instance_id}"
-        
+
     def _get_sessions_key(self) -> str:
         """Get the state store key for sessions."""
         return f"{self._agent_name}_{self._sessions_prefix}"
@@ -70,14 +73,14 @@ class Storage(BaseModel):
         session_id = self._get_session_id()
         sessions_key = self._get_sessions_key()
         has_sessions, sessions_data = state_store_client.try_get_state(sessions_key)
-        
+
         if not has_sessions or not sessions_data:
             sessions_data = {"sessions": {}}
         else:
             # Deserialize if it's a JSON string
             if isinstance(sessions_data, str):
                 sessions_data = json.loads(sessions_data)
-        
+
         if session_id not in sessions_data.get("sessions", {}):
             if "sessions" not in sessions_data:
                 sessions_data["sessions"] = {}
@@ -85,69 +88,73 @@ class Storage(BaseModel):
                 "workflow_instances": [],
                 "metadata": {
                     "agent_name": self._agent_name,
-                    "created_at": datetime.now().isoformat()
-                }
+                    "created_at": datetime.now().isoformat(),
+                },
             }
-        
+
         session = sessions_data["sessions"][session_id]
         if instance_id not in session["workflow_instances"]:
             session["workflow_instances"].append(instance_id)
         session["last_active"] = datetime.now().isoformat()
-        
+
         # Save the updated sessions data
         self._save_state_with_metadata(state_store_client, sessions_key, sessions_data)
 
     def get_session_workflows(self, state_store_client) -> List[str]:
         """
         Get workflow instances for the current session.
-        
+
         Args:
             state_store_client: The Dapr state store client
-            
+
         Returns:
             List of workflow instance IDs (both active and completed)
         """
         session_id = self._get_session_id()
         sessions_key = self._get_sessions_key()
         has_sessions, sessions_data = state_store_client.try_get_state(sessions_key)
-        
+
         if not has_sessions or not sessions_data:
             return []
-        
+
         # Deserialize if it's a JSON string
         if isinstance(sessions_data, str):
             sessions_data = json.loads(sessions_data)
-            
+
         session = sessions_data.get("sessions", {}).get(session_id, {})
         return session.get("workflow_instances", [])
-        
+
     def reset_session(self, state_store_client) -> None:
         """
         Reset all state for the current session, including workflow instances and session data.
         """
         session_id = self._get_session_id()
         sessions_key = self._get_sessions_key()
-        
+
         # Get session data to find all workflow instances
         has_sessions, sessions_data = state_store_client.try_get_state(sessions_key)
         if has_sessions and sessions_data:
             # Deserialize if it's a JSON string
             if isinstance(sessions_data, str):
                 sessions_data = json.loads(sessions_data)
-                
+
             session = sessions_data.get("sessions", {}).get(session_id, {})
-            
+
             # Delete all workflow instances
             for instance_id in session.get("workflow_instances", []):
                 instance_key = self._get_instance_key(instance_id)
                 state_store_client.delete_state(instance_key)
-            
+
             # Remove session from sessions index
             if session_id in sessions_data.get("sessions", {}):
                 del sessions_data["sessions"][session_id]
-                self._save_state_with_metadata(state_store_client, sessions_key, sessions_data)
-                
-    def _save_state_with_metadata(self, state_store_client, key: str, data: Any) -> None:
+                self._save_state_with_metadata(
+                    state_store_client, sessions_key, sessions_data
+                )
+
+    def _save_state_with_metadata(
+        self, state_store_client, key: str, data: Any
+    ) -> None:
         """Save state with content type metadata."""
         # Serialize data to JSON string if it's not already
         if isinstance(data, dict):
@@ -156,11 +163,9 @@ class Storage(BaseModel):
             data_to_save = data
         else:
             data_to_save = json.dumps(data)
-            
+
         state_store_client.save_state(
-            key, 
-            data_to_save,
-            state_metadata={"contentType": "application/json"}
+            key, data_to_save, state_metadata={"contentType": "application/json"}
         )
 
     def is_persistent(self) -> bool:
@@ -171,7 +176,7 @@ class Storage(BaseModel):
         """
         Add a single message to storage.
         Uses in-memory list if name is None.
-        
+
         Args:
             message (Dict[str, Any]): The message to add
         """
@@ -182,7 +187,7 @@ class Storage(BaseModel):
     def add_messages(self, messages: List[Dict[str, Any]]) -> None:
         """
         Add multiple messages to storage.
-        
+
         Args:
             messages (List[Dict[str, Any]]): The messages to add
         """
@@ -193,7 +198,7 @@ class Storage(BaseModel):
     def get_messages(self) -> List[Dict[str, Any]]:
         """
         Get all messages from storage.
-        
+
         Returns:
             List[Dict[str, Any]]: All stored messages
         """
@@ -206,6 +211,7 @@ class Storage(BaseModel):
         if not self.is_persistent():
             # In-memory mode for regular Agent
             self._in_memory_messages.clear()
+
 
 class DurableAgentMessage(MessageContent):
     id: str = Field(

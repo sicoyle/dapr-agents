@@ -55,4 +55,3 @@ class ConversationListMemory(MemoryBase):
             List[Dict[str, Any]]: A list containing copies of all stored messages as dictionaries.
         """
         return self.messages.copy()
-

@@ -40,7 +40,9 @@ class StateManagementMixin:
                     f"Invalid state type: {type(self.storage._current_state)}. Expected dict."
                 )
 
-            logger.debug(f"Workflow state initialized with {len(self.storage._current_state)} key(s).")
+            logger.debug(
+                f"Workflow state initialized with {len(self.storage._current_state)} key(s)."
+            )
             self.save_state()
         except Exception as e:
             raise RuntimeError(f"Error initializing workflow state: {e}") from e
@@ -92,25 +94,35 @@ class StateManagementMixin:
                 # Handle JSON string if necessary
                 if isinstance(sessions_data, str):
                     import json
+
                     sessions_data = json.loads(sessions_data)
-                    
+
                 session_id = self.storage._get_session_id()
                 session = sessions_data.get("sessions", {}).get(session_id, {})
                 instance_ids = session.get("workflow_instances", [])
-                
+
                 # Load each instance
                 self.storage._current_state["instances"] = {}
                 for instance_id in instance_ids:
                     instance_key = self.storage._get_instance_key(instance_id)
-                    has_instance, instance_data = self._state_store_client.try_get_state(instance_key)
+                    (
+                        has_instance,
+                        instance_data,
+                    ) = self._state_store_client.try_get_state(instance_key)
                     if has_instance and instance_data:
                         # Deserialize if it's a JSON string
                         if isinstance(instance_data, str):
                             instance_data = json.loads(instance_data)
-                        self.storage._current_state["instances"][instance_id] = instance_data
-                        logger.debug(f"Loaded workflow instance {instance_id} from key '{instance_key}'")
+                        self.storage._current_state["instances"][
+                            instance_id
+                        ] = instance_data
+                        logger.debug(
+                            f"Loaded workflow instance {instance_id} from key '{instance_key}'"
+                        )
 
-            logger.debug(f"Set self.storage._current_state to loaded data: {self.storage._current_state}")
+            logger.debug(
+                f"Set self.storage._current_state to loaded data: {self.storage._current_state}"
+            )
             return self.storage._current_state
 
             logger.debug(
@@ -131,13 +143,13 @@ class StateManagementMixin:
         if not self.storage.local_directory:
             return os.path.join(os.getcwd(), f"{self.name}_state.json")
         os.makedirs(self.storage.local_directory, exist_ok=True)
-        
+
         # If relative path, make it absolute from workspace root
         if not os.path.isabs(self.storage.local_directory):
             abs_path = os.path.join(os.getcwd(), self.storage.local_directory)
         else:
             abs_path = self.storage.local_directory
-            
+
         return os.path.join(abs_path, f"{self.name}_state.json")
 
     def save_state_to_disk(
@@ -242,7 +254,9 @@ class StateManagementMixin:
 
             # Save each workflow instance separately
             if "instances" in self.storage._current_state:
-                for instance_id, instance_data in self.storage._current_state["instances"].items():
+                for instance_id, instance_data in self.storage._current_state[
+                    "instances"
+                ].items():
                     instance_key = self.storage._get_instance_key(instance_id)
                     # Handle both dict and already-serialized string
                     if isinstance(instance_data, dict):
@@ -252,10 +266,14 @@ class StateManagementMixin:
                     else:
                         instance_json = json.dumps(instance_data)
                     self._state_store_client.save_state(instance_key, instance_json)
-                    logger.debug(f"Saved workflow instance {instance_id} to key '{instance_key}'")
-            
+                    logger.debug(
+                        f"Saved workflow instance {instance_id} to key '{instance_key}'"
+                    )
+
             # Save other state data (like chat_history) to main key
-            other_state = {k: v for k, v in self.storage._current_state.items() if k != "instances"}
+            other_state = {
+                k: v for k, v in self.storage._current_state.items() if k != "instances"
+            }
             if other_state:
                 other_state_json = json.dumps(other_state)
                 self._state_store_client.save_state(self.storage._key, other_state_json)
@@ -266,7 +284,9 @@ class StateManagementMixin:
 
             if force_reload:
                 self.storage._current_state = self.load_state()
-                logger.debug(f"State reloaded after saving for key '{self.storage._key}'.")
+                logger.debug(
+                    f"State reloaded after saving for key '{self.storage._key}'."
+                )
         except Exception as e:
             logger.error(f"Failed to save state for key '{self.storage._key}': {e}")
             raise

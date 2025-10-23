@@ -66,7 +66,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         all_messages = []
         instance_data = self.storage._current_state.get("instances", {})
         logger.debug(f"Current state instances: {instance_data}")
-        
+
         for instance in instance_data.values():
             messages = instance.get("messages", [])
             logger.debug(f"Instance messages: {messages}")
@@ -77,7 +77,6 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         all_messages.extend(long_term_memory)
 
         return all_messages
-
 
     agent_topic_name: Optional[str] = Field(
         default=None,
@@ -121,12 +120,15 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         if not self.storage.name:
             raise ValueError("DurableAgent must have a name for persistent storage")
 
-
         # Load the current workflow instance ID from state using session_id
         logger.debug(f"State after loading: {self.storage._current_state}")
         if self.storage._current_state and self.storage._current_state.get("instances"):
-            logger.debug(f"Found {len(self.storage._current_state['instances'])} instances in state")
-            for instance_id, instance_data in self.storage._current_state["instances"].items():
+            logger.debug(
+                f"Found {len(self.storage._current_state['instances'])} instances in state"
+            )
+            for instance_id, instance_data in self.storage._current_state[
+                "instances"
+            ].items():
                 stored_workflow_name = instance_data.get("workflow_name")
                 stored_session_id = instance_data.get("session_id")
                 logger.debug(
@@ -148,12 +150,8 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         # This ensures our database reflects the actual state of resumed workflows
         self._sync_workflow_state_after_startup()
 
-
-
     async def run(
-        self, 
-        input_data: Union[str, Dict[str, Any]], 
-        session_id: Optional[str] = None
+        self, input_data: Union[str, Dict[str, Any]], session_id: Optional[str] = None
     ) -> Any:
         """
         Fire up the workflow, wait for it to complete, then return the final serialized_output.
@@ -265,7 +263,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         try:
             for turn in range(1, self.max_iterations + 1):
                 self.load_state()
-                
+
                 if not ctx.is_replaying:
                     logger.debug(
                         f"Workflow turn {turn}/{self.max_iterations} (Instance ID: {ctx.instance_id})"
@@ -666,9 +664,8 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             history_dump = tool_history_entry.model_dump(mode="json")
             logger.debug(f"Adding new tool history entry: {history_dump}")
             tool_history.append(history_dump)
-            
-        logger.debug(f"After appending - instance state: {wf_instance}")
 
+        logger.debug(f"After appending - instance state: {wf_instance}")
 
     def _get_last_message_from_state(
         self, instance_id: str
@@ -682,7 +679,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         Returns:
             The last message dict or None if not found
         """
-        instance_data = self.storage._current_state.get("instances", {}).get(instance_id)
+        instance_data = self.storage._current_state.get("instances", {}).get(
+            instance_id
+        )
         if instance_data is not None:
             return instance_data.get("last_message")
         return None
@@ -744,24 +743,28 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             else "Tool execution"
         )
         self._ensure_instance_exists(instance_id, existing_input, time=time)
-        
+
         # Save both the assistant's tool call and the tool result atomically
         instance = self.storage._current_state["instances"][instance_id]
-        instance["messages"].append({
-            "role": "tool",
-            "content": str(result) if result is not None else "",
-            "name": fn_name,
-            "tool_call_id": tool_call["id"]
-        })
+        instance["messages"].append(
+            {
+                "role": "tool",
+                "content": str(result) if result is not None else "",
+                "name": fn_name,
+                "tool_call_id": tool_call["id"],
+            }
+        )
         self.save_state()
-        
+
         # Print for visibility
-        self.text_formatter.print_message({
-            "role": "tool",
-            "content": str(result) if result is not None else "",
-            "name": fn_name,
-            "tool_call_id": tool_call["id"]
-        })
+        self.text_formatter.print_message(
+            {
+                "role": "tool",
+                "content": str(result) if result is not None else "",
+                "name": fn_name,
+                "tool_call_id": tool_call["id"],
+            }
+        )
 
         return tool_result
 
@@ -883,7 +886,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             # Persist to global chat history
             if "chat_history" not in self.storage._current_state:
                 self.storage._current_state["chat_history"] = []
-            self.storage._current_state["chat_history"].append(agent_msg.model_dump(mode="json"))
+            self.storage._current_state["chat_history"].append(
+                agent_msg.model_dump(mode="json")
+            )
             # Save the state after processing the broadcast message
             self.save_state()
 
@@ -938,7 +943,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             )
             self.storage._current_state = {}
 
-        instance_data = self.storage._current_state.get("instances", {}).get(instance_id)
+        instance_data = self.storage._current_state.get("instances", {}).get(
+            instance_id
+        )
         if instance_data is not None:
             instance_messages = instance_data.get("messages", [])
         else:
@@ -965,10 +972,10 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         # Add instance messages in chronological order, preserving proper tool call/response pairing
         # Track which assistant messages have been added to avoid duplicates
         added_assistant_ids = set()
-        
+
         for msg in instance_messages:
             msg_dict = msg.model_dump() if hasattr(msg, "model_dump") else dict(msg)
-            
+
             # For assistant messages with tool calls, add them only once along with all their tool responses
             if msg_dict.get("role") == "assistant" and msg_dict.get("tool_calls"):
                 msg_id = msg_dict.get("id")
@@ -976,13 +983,21 @@ class DurableAgent(AgenticWorkflow, AgentBase):
                     # Add the assistant message
                     chat_history.append(msg_dict)
                     added_assistant_ids.add(msg_id)
-                    
+
                     # Add all tool responses for this assistant message's tool calls
-                    tool_call_ids = {tc.get("id") for tc in msg_dict.get("tool_calls", [])}
+                    tool_call_ids = {
+                        tc.get("id") for tc in msg_dict.get("tool_calls", [])
+                    }
                     for tool_msg in instance_messages:
-                        tool_dict = tool_msg.model_dump() if hasattr(tool_msg, "model_dump") else dict(tool_msg)
-                        if (tool_dict.get("role") == "tool" and 
-                            tool_dict.get("tool_call_id") in tool_call_ids):
+                        tool_dict = (
+                            tool_msg.model_dump()
+                            if hasattr(tool_msg, "model_dump")
+                            else dict(tool_msg)
+                        )
+                        if (
+                            tool_dict.get("role") == "tool"
+                            and tool_dict.get("tool_call_id") in tool_call_ids
+                        ):
                             chat_history.append(tool_dict)
             # For other messages (user, tool, assistant without tool_calls), add them if not already added
             elif msg_dict.get("role") != "tool":

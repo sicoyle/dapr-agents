@@ -56,8 +56,7 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
     )
     memory: Storage = Field(
         default_factory=lambda: Storage(
-            name="workflowstatestore",
-            session_id="orchestrator_session"
+            name="workflowstatestore", session_id="orchestrator_session"
         ),
         description="Persistent storage with session-based state hydration.",
     )

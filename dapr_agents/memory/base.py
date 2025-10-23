@@ -66,7 +66,6 @@ class MemoryBase(BaseModel, ABC):
         """
         pass
 
-
     @staticmethod
     def _convert_to_dict(message: Union[Dict, BaseMessage]) -> Dict:
         """

@@ -181,10 +181,17 @@ Your role is {role}.
 
         # Initialize Dapr client if storage is persistent
         # This is needed for state store access and agent registration
-        if self.storage and self.storage.name and (not hasattr(self, '_dapr_client') or self._dapr_client is None):
+        if (
+            self.storage
+            and self.storage.name
+            and (not hasattr(self, "_dapr_client") or self._dapr_client is None)
+        ):
             from dapr.clients import DaprClient
+
             self._dapr_client = DaprClient()
-            logger.debug(f"Initialized Dapr client for agent '{self.name}' with persistent storage")
+            logger.debug(
+                f"Initialized Dapr client for agent '{self.name}' with persistent storage"
+            )
 
         # Register agent if it has persistent storage
         # This applies to both Agent and DurableAgent with persistent storage
@@ -194,8 +201,8 @@ Your role is {role}.
                 "role": self.role,
                 "goal": self.goal,
                 "instructions": self.instructions,
-                "topic_name": getattr(self, 'agent_topic_name', None),
-                "pubsub_name": getattr(self, 'message_bus_name', None),
+                "topic_name": getattr(self, "agent_topic_name", None),
+                "pubsub_name": getattr(self, "message_bus_name", None),
                 "orchestrator": False,
                 # TODO: SAM ADD OTHER THINGS HERE?
             }
@@ -570,13 +577,18 @@ Your role is {role}.
         import time
         from dapr.clients.grpc._response import StateResponse
         from dapr.clients.grpc._state import StateOptions, Concurrency, Consistency
-        from dapr.clients.grpc._request import TransactionalStateOperation, TransactionOperationType
-        
+        from dapr.clients.grpc._request import (
+            TransactionalStateOperation,
+            TransactionOperationType,
+        )
+
         # Only proceed if agent has Dapr client
-        if not hasattr(self, '_dapr_client'):
-            logger.debug(f"Agent '{self.name}' does not have Dapr client, skipping registration")
+        if not hasattr(self, "_dapr_client"):
+            logger.debug(
+                f"Agent '{self.name}' does not have Dapr client, skipping registration"
+            )
             return
-        
+
         # retry the entire operation up to twenty times sleeping 1-2 seconds between each
         # TODO: rm the custom retry logic here and use the DaprClient retry_policy instead.
         for attempt in range(1, 21):
