@@ -3,6 +3,7 @@ from dapr_agents.memory import (
     ConversationListMemory,
     ConversationVectorMemory,
 )
+from dapr_agents.agents.storage import Storage
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
 from dapr_agents.types import MessagePlaceHolder, BaseMessage, ToolExecutionRecord
 from dapr_agents.tool.executor import AgentToolExecutor
@@ -96,6 +97,14 @@ class AgentBase(BaseModel, ABC):
         default="jinja2",
         description="The format used for rendering the prompt template.",
     )
+    storage: Optional["Storage"] = Field(
+        default=None,
+        description=(
+            "Storage for conversation history. "
+            "If None, a default in-memory Storage will be created. "
+            "For persistent storage, specify the name of the Dapr State Store to use. "
+        ),
+    )
 
     DEFAULT_SYSTEM_PROMPT: ClassVar[str]
     """Default f-string template; placeholders will be swapped to Jinja if needed."""
@@ -119,6 +128,7 @@ Your role is {role}.
     _text_formatter: ColorTextFormatter = PrivateAttr(
         default_factory=ColorTextFormatter
     )
+    _dapr_client: Optional[Any] = PrivateAttr(default=None)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -163,6 +173,38 @@ Your role is {role}.
         # Initialize LLM if not provided
         if self.llm is None:
             self.llm = get_default_llm()
+
+        # Initialize storage if not provided (in-memory by default)
+        if self.storage is None:
+            self.storage = Storage()
+            logger.debug("Initialized default in-memory Storage")
+
+        # Initialize Dapr client if storage is persistent
+        # This is needed for state store access and agent registration
+        if self.storage and self.storage.name and (not hasattr(self, '_dapr_client') or self._dapr_client is None):
+            from dapr.clients import DaprClient
+            self._dapr_client = DaprClient()
+            logger.debug(f"Initialized Dapr client for agent '{self.name}' with persistent storage")
+
+        # Register agent if it has persistent storage
+        # This applies to both Agent and DurableAgent with persistent storage
+        if self.storage and self.storage.name:
+            self._agent_metadata = {
+                "name": self.name,
+                "role": self.role,
+                "goal": self.goal,
+                "instructions": self.instructions,
+                "topic_name": getattr(self, 'agent_topic_name', None),
+                "pubsub_name": getattr(self, 'message_bus_name', None),
+                "orchestrator": False,
+                # TODO: SAM ADD OTHER THINGS HERE?
+            }
+            self.register_agent(
+                store_name=self.storage.name,
+                store_key="agent_registry",
+                agent_name=self.name,
+                agent_metadata=self._agent_metadata,
+            )
 
         # Centralize prompt template selection logic
         self.prompt_template = self._initialize_prompt_template()
@@ -510,6 +552,96 @@ Your role is {role}.
                     logger.warning(f"Failed to convert callable to AgentTool: {e}")
                     continue
         return llm_tools
+
+    def register_agent(
+        self, store_name: str, store_key: str, agent_name: str, agent_metadata: dict
+    ) -> None:
+        """
+        Merges the existing data with the new data and updates the store.
+        Only works for agents with Dapr client access (AgenticWorkflow subclasses).
+
+        Args:
+            store_name (str): The name of the Dapr state store component.
+            store_key (str): The key to update.
+            agent_name (str): The name of the agent to register.
+            agent_metadata (dict): The metadata to register for the agent.
+        """
+        import json
+        import time
+        from dapr.clients.grpc._response import StateResponse
+        from dapr.clients.grpc._state import StateOptions, Concurrency, Consistency
+        from dapr.clients.grpc._request import TransactionalStateOperation, TransactionOperationType
+        
+        # Only proceed if agent has Dapr client
+        if not hasattr(self, '_dapr_client'):
+            logger.debug(f"Agent '{self.name}' does not have Dapr client, skipping registration")
+            return
+        
+        # retry the entire operation up to twenty times sleeping 1-2 seconds between each
+        # TODO: rm the custom retry logic here and use the DaprClient retry_policy instead.
+        for attempt in range(1, 21):
+            try:
+                response: StateResponse = self._dapr_client.get_state(
+                    store_name=store_name, key=store_key
+                )
+                if not response.etag:
+                    # if there is no etag the following transaction won't work as expected
+                    # so we need to save an empty object with a strong consistency to force the etag to be created
+                    self._dapr_client.save_state(
+                        store_name=store_name,
+                        key=store_key,
+                        value=json.dumps({}),
+                        state_metadata={
+                            "contentType": "application/json",
+                            "partitionKey": store_key,
+                        },
+                        options=StateOptions(
+                            concurrency=Concurrency.first_write,
+                            consistency=Consistency.strong,
+                        ),
+                    )
+                    # raise an exception to retry the entire operation
+                    raise Exception(f"No etag found for key: {store_key}")
+                existing_data = json.loads(response.data) if response.data else {}
+                if (agent_name, agent_metadata) in existing_data.items():
+                    logger.debug(f"agent {agent_name} already registered.")
+                    return None
+                agent_data = {agent_name: agent_metadata}
+                merged_data = {**existing_data, **agent_data}
+                logger.debug(f"merged data: {merged_data} etag: {response.etag}")
+                try:
+                    # using the transactional API to be able to later support the Dapr outbox pattern
+                    self._dapr_client.execute_state_transaction(
+                        store_name=store_name,
+                        operations=[
+                            TransactionalStateOperation(
+                                key=store_key,
+                                data=json.dumps(merged_data),
+                                etag=response.etag,
+                                operation_type=TransactionOperationType.upsert,
+                            )
+                        ],
+                        transactional_metadata={
+                            "contentType": "application/json",
+                            "partitionKey": store_key,
+                        },
+                    )
+                except Exception as e:
+                    raise e
+                return None
+            except Exception as e:
+                logger.error(f"Error on transaction attempt: {attempt}: {e}")
+                # Add random jitter
+                import random
+
+                delay = 1 + random.uniform(0, 1)  # 1-2 seconds
+                logger.info(
+                    f"Sleeping for {delay:.2f} seconds before retrying transaction..."
+                )
+                time.sleep(delay)
+        raise Exception(
+            f"Failed to update state store key: {store_key} after 20 attempts."
+        )
 
     def pre_fill_prompt_template(self, **kwargs: Union[str, Callable[[], str]]) -> None:
         """

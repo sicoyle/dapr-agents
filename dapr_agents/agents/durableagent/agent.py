@@ -8,7 +8,7 @@ from dapr.ext.workflow import DaprWorkflowContext  # type: ignore
 from pydantic import Field, model_validator
 
 from dapr_agents.agents.base import AgentBase
-from dapr_agents.agents.durableagent.storage import DurableAgentWorkflowState
+from dapr_agents.agents.storage import DurableAgentWorkflowState
 from dapr_agents.types import (
     AgentError,
     AssistantMessage,
@@ -27,7 +27,7 @@ from .schemas import (
     InternalTriggerAction,
     TriggerAction,
 )
-from .storage import (
+from dapr_agents.agents.storage import (
     DurableAgentMessage,
     DurableAgentWorkflowEntry,
 )
@@ -118,12 +118,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         if not self.storage._current_state:
             self.storage._current_state = {"instances": {}}
 
-        if self.memory is not None:
-            self.memory = ConversationDaprStateMemory(
-                store_name=self.memory.store_name,
-                session_id=f"{self.name or 'agent'}_session",
-            )
-            logger.info(f"Initialized memory with store name: {self.memory.store_name}")
+        if not self.storage.name:
+            raise ValueError("DurableAgent must have a name for persistent storage")
+
 
         # Load the current workflow instance ID from state using session_id
         logger.debug(f"State after loading: {self.storage._current_state}")
@@ -151,18 +148,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         # This ensures our database reflects the actual state of resumed workflows
         self._sync_workflow_state_after_startup()
 
-        # Register the agentic system
-        self._agent_metadata = {
-            "name": self.name,
-            "role": self.role,
-            "goal": self.goal,
-            "instructions": self.instructions,
-            "topic_name": self.agent_topic_name,
-            "pubsub_name": self.message_bus_name,
-            "orchestrator": False,
-        }
 
-        self.register_agentic_system()
 
     async def run(
         self, 

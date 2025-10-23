@@ -37,7 +37,7 @@ from dapr_agents.workflow.orchestrators.llm.utils import (
     restructure_plan,
     update_step_statuses,
 )
-from dapr_agents.agents.durableagent.storage import Storage
+from dapr_agents.agents.storage import Storage
 
 logger = logging.getLogger(__name__)
 

@@ -27,7 +27,7 @@ from dapr_agents.workflow.mixins import (
     ServiceMixin,
     StateManagementMixin,
 )
-from dapr_agents.agents.durableagent.storage import Storage
+from dapr_agents.agents.storage import Storage
 
 logger = logging.getLogger(__name__)
 
@@ -261,101 +261,6 @@ class AgenticWorkflow(
             (separator + "\n", "dapr_agents_teal"),
         ]
         self._text_formatter.print_colored_text(interaction_text)
-
-    def register_agent(
-        self, store_name: str, store_key: str, agent_name: str, agent_metadata: dict
-    ) -> None:
-        """
-        Merges the existing data with the new data and updates the store.
-
-        Args:
-            store_name (str): The name of the Dapr state store component.
-            key (str): The key to update.
-            data (dict): The data to update the store with.
-        """
-        # retry the entire operation up to twenty times sleeping 1-2 seconds between each
-        # TODO: rm the custom retry logic here and use the DaprClient retry_policy instead.
-        for attempt in range(1, 21):
-            try:
-                response: StateResponse = self._dapr_client.get_state(
-                    store_name=store_name, key=store_key
-                )
-                if not response.etag:
-                    # if there is no etag the following transaction won't work as expected
-                    # so we need to save an empty object with a strong consistency to force the etag to be created
-                    self._dapr_client.save_state(
-                        store_name=store_name,
-                        key=store_key,
-                        value=json.dumps({}),
-                        state_metadata={
-                            "contentType": "application/json",
-                            "partitionKey": store_key,
-                        },
-                        options=StateOptions(
-                            concurrency=Concurrency.first_write,
-                            consistency=Consistency.strong,
-                        ),
-                    )
-                    # raise an exception to retry the entire operation
-                    raise Exception(f"No etag found for key: {store_key}")
-                existing_data = json.loads(response.data) if response.data else {}
-                if (agent_name, agent_metadata) in existing_data.items():
-                    logger.debug(f"agent {agent_name} already registered.")
-                    return None
-                agent_data = {agent_name: agent_metadata}
-                merged_data = {**existing_data, **agent_data}
-                logger.debug(f"merged data: {merged_data} etag: {response.etag}")
-                try:
-                    # using the transactional API to be able to later support the Dapr outbox pattern
-                    self._dapr_client.execute_state_transaction(
-                        store_name=store_name,
-                        operations=[
-                            TransactionalStateOperation(
-                                key=store_key,
-                                data=json.dumps(merged_data),
-                                etag=response.etag,
-                                operation_type=TransactionOperationType.upsert,
-                            )
-                        ],
-                        transactional_metadata={
-                            "contentType": "application/json",
-                            "partitionKey": store_key,
-                        },
-                    )
-                except Exception as e:
-                    raise e
-                return None
-            except Exception as e:
-                logger.error(f"Error on transaction attempt: {attempt}: {e}")
-                # Add random jitter
-                import random
-
-                delay = 1 + random.uniform(0, 1)  # 1-2 seconds
-                logger.info(
-                    f"Sleeping for {delay:.2f} seconds before retrying transaction..."
-                )
-                time.sleep(delay)
-        raise Exception(
-            f"Failed to update state store key: {store_key} after 20 attempts."
-        )
-
-    def register_agentic_system(self) -> None:
-        """
-        Register this agent's metadata in the Dapr state store.
-
-        Raises:
-            Exception: If registration fails.
-        """
-        try:
-            self.register_agent(
-                store_name=self.storage.name,
-                store_key="agent_registry", # TODO(@Sicoyle): move this to just be const in func
-                agent_name=self.name,
-                agent_metadata=self._agent_metadata,
-            )
-        except Exception as e:
-            logger.error(f"Failed to register metadata for agent {self.name}: {e}")
-            raise e
 
     async def run_workflow_from_request(self, request: Request) -> JSONResponse:
         """

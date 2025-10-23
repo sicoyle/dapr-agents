@@ -40,8 +40,13 @@ class OrchestratorWorkflowBase(AgenticWorkflow, ABC):
             "orchestrator": True,
         }
 
-        # Register agent metadata
-        self.register_agentic_system()
+        if self.storage and self.storage.name:
+            self.register_agent(
+                store_name=self.storage.name,
+                store_key="agent_registry",
+                agent_name=self.name,
+                agent_metadata=self._agent_metadata,
+            )
 
         # Start the runtime if it's not already running
         self.start_runtime()
