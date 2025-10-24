@@ -45,7 +45,6 @@ class Storage(BaseModel):
         default=None
     )  # Set by AgenticWorkflow -> TODO: SAM to double check this in adding regular agents registration capabilities!!
     _workflow_prefix: str = PrivateAttr(default="workflow")
-    _sessions_prefix: str = PrivateAttr(default="sessions")
     _key: str = PrivateAttr(default="workflow_state")
     _in_memory_messages: List[Dict[str, Any]] = PrivateAttr(default_factory=list)
 
@@ -58,9 +57,13 @@ class Storage(BaseModel):
         """Get the state store key for a workflow instance."""
         return f"{self._agent_name}_{self._workflow_prefix}_{instance_id}"
 
-    def _get_sessions_key(self) -> str:
-        """Get the state store key for sessions."""
-        return f"{self._agent_name}_{self._sessions_prefix}"
+    def _get_session_key(self, session_id: str) -> str:
+        """Get the state store key for a specific session."""
+        return f"{self._agent_name}_session_{session_id}"
+
+    def _get_sessions_index_key(self) -> str:
+        """Get the state store key for the sessions index."""
+        return f"{self._agent_name}_sessions"
 
     def _get_session_id(self) -> str:
         """Get or generate a session ID."""
@@ -69,36 +72,53 @@ class Storage(BaseModel):
         return self.session_id
 
     def _update_session_index(self, instance_id: str, state_store_client) -> None:
-        """Update the session index with a new workflow instance."""
+        """Update the session with a new workflow instance and update the sessions index."""
         session_id = self._get_session_id()
-        sessions_key = self._get_sessions_key()
-        has_sessions, sessions_data = state_store_client.try_get_state(sessions_key)
-
-        if not has_sessions or not sessions_data:
-            sessions_data = {"sessions": {}}
-        else:
-            # Deserialize if it's a JSON string
-            if isinstance(sessions_data, str):
-                sessions_data = json.loads(sessions_data)
-
-        if session_id not in sessions_data.get("sessions", {}):
-            if "sessions" not in sessions_data:
-                sessions_data["sessions"] = {}
-            sessions_data["sessions"][session_id] = {
+        session_key = self._get_session_key(session_id)
+        sessions_index_key = self._get_sessions_index_key()
+        
+        # Get or create session data
+        has_session, session_data = state_store_client.try_get_state(session_key)
+        is_new_session = not has_session or not session_data
+        if is_new_session:
+            # Create new session
+            session_data = {
+                "session_id": session_id,
                 "workflow_instances": [],
                 "metadata": {
                     "agent_name": self._agent_name,
                     "created_at": datetime.now().isoformat(),
                 },
             }
+        else:
+            # Deserialize if it's a JSON string
+            if isinstance(session_data, str):
+                session_data = json.loads(session_data)
 
-        session = sessions_data["sessions"][session_id]
-        if instance_id not in session["workflow_instances"]:
-            session["workflow_instances"].append(instance_id)
-        session["last_active"] = datetime.now().isoformat()
+        # Add instance to session if not already present
+        if instance_id not in session_data.get("workflow_instances", []):
+            session_data["workflow_instances"].append(instance_id)
+        
+        # Update last active timestamp
+        session_data["last_active"] = datetime.now().isoformat()
 
-        # Save the updated sessions data
-        self._save_state_with_metadata(state_store_client, sessions_key, sessions_data)
+        # Save the updated session data
+        self._save_state_with_metadata(state_store_client, session_key, session_data)
+
+        if is_new_session:
+            has_index, index_data = state_store_client.try_get_state(sessions_index_key)
+            
+            if not has_index or not index_data:
+                index_data = {"sessions": []}
+            else:
+                if isinstance(index_data, str):
+                    index_data = json.loads(index_data)
+            
+            # Add session to index if not already present
+            if session_id not in index_data.get("sessions", []):
+                index_data["sessions"].append(session_id)
+                index_data["last_updated"] = datetime.now().isoformat()
+                self._save_state_with_metadata(state_store_client, sessions_index_key, index_data)
 
     def get_session_workflows(self, state_store_client) -> List[str]:
         """
@@ -111,46 +131,73 @@ class Storage(BaseModel):
             List of workflow instance IDs (both active and completed)
         """
         session_id = self._get_session_id()
-        sessions_key = self._get_sessions_key()
-        has_sessions, sessions_data = state_store_client.try_get_state(sessions_key)
+        session_key = self._get_session_key(session_id)
+        has_session, session_data = state_store_client.try_get_state(session_key)
 
-        if not has_sessions or not sessions_data:
+        if not has_session or not session_data:
             return []
 
         # Deserialize if it's a JSON string
-        if isinstance(sessions_data, str):
-            sessions_data = json.loads(sessions_data)
+        if isinstance(session_data, str):
+            session_data = json.loads(session_data)
 
-        session = sessions_data.get("sessions", {}).get(session_id, {})
-        return session.get("workflow_instances", [])
+        return session_data.get("workflow_instances", [])
+
+    def get_all_sessions(self, state_store_client) -> List[str]:
+        """
+        Get all session IDs for this agent.
+        
+        Args:
+            state_store_client: The Dapr state store client
+            
+        Returns:
+            List of session IDs
+        """
+        sessions_index_key = self._get_sessions_index_key()
+        has_index, index_data = state_store_client.try_get_state(sessions_index_key)
+        
+        if not has_index or not index_data:
+            return []
+        
+        # Deserialize if it's a JSON string
+        if isinstance(index_data, str):
+            index_data = json.loads(index_data)
+        
+        return index_data.get("sessions", [])
 
     def reset_session(self, state_store_client) -> None:
         """
         Reset all state for the current session, including workflow instances and session data.
         """
         session_id = self._get_session_id()
-        sessions_key = self._get_sessions_key()
+        session_key = self._get_session_key(session_id)
+        sessions_index_key = self._get_sessions_index_key()
 
         # Get session data to find all workflow instances
-        has_sessions, sessions_data = state_store_client.try_get_state(sessions_key)
-        if has_sessions and sessions_data:
+        has_session, session_data = state_store_client.try_get_state(session_key)
+        if has_session and session_data:
             # Deserialize if it's a JSON string
-            if isinstance(sessions_data, str):
-                sessions_data = json.loads(sessions_data)
-
-            session = sessions_data.get("sessions", {}).get(session_id, {})
+            if isinstance(session_data, str):
+                session_data = json.loads(session_data)
 
             # Delete all workflow instances
-            for instance_id in session.get("workflow_instances", []):
+            for instance_id in session_data.get("workflow_instances", []):
                 instance_key = self._get_instance_key(instance_id)
                 state_store_client.delete_state(instance_key)
 
-            # Remove session from sessions index
-            if session_id in sessions_data.get("sessions", {}):
-                del sessions_data["sessions"][session_id]
-                self._save_state_with_metadata(
-                    state_store_client, sessions_key, sessions_data
-                )
+            # Delete the session itself
+            state_store_client.delete_state(session_key)
+
+            # Remove session from the sessions index
+            has_index, index_data = state_store_client.try_get_state(sessions_index_key)
+            if has_index and index_data:
+                if isinstance(index_data, str):
+                    index_data = json.loads(index_data)
+                
+                if session_id in index_data.get("sessions", []):
+                    index_data["sessions"].remove(session_id)
+                    index_data["last_updated"] = datetime.now().isoformat()
+                    self._save_state_with_metadata(state_store_client, sessions_index_key, index_data)
 
     def _save_state_with_metadata(
         self, state_store_client, key: str, data: Any

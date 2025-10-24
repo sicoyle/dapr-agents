@@ -17,6 +17,29 @@ class StateManagementMixin:
     Mixin providing workflow state initialization, validation, and persistence.
     """
 
+    # TODO: Delete this once we rm orchestrators in favor of agents as tools.
+    @property
+    def state(self) -> dict:
+        """
+        Get the current workflow state.
+        
+        Returns:
+            dict: The current workflow state.
+        """
+        return self.storage._current_state if hasattr(self, 'storage') else {}
+
+    # TODO: Delete this once we rm orchestrators in favor of agents as tools.
+    @state.setter
+    def state(self, value: dict) -> None:
+        """
+        Set the current workflow state.
+        
+        Args:
+            value (dict): The new workflow state.
+        """
+        if hasattr(self, 'storage'):
+            self.storage._current_state = value
+
     def initialize_state(self) -> None:
         """
         Initialize workflow state from provided value or storage.
@@ -78,6 +101,11 @@ class StateManagementMixin:
                 logger.debug(
                     f"Existing state found for key '{self.storage._key}'. Validating it."
                 )
+                # Deserialize JSON string if necessary
+                if isinstance(state_data, str):
+                    import json
+                    state_data = json.loads(state_data)
+                
                 if not isinstance(state_data, dict):
                     raise TypeError(
                         f"Invalid state type retrieved: {type(state_data)}. Expected dict."
@@ -86,23 +114,24 @@ class StateManagementMixin:
             else:
                 self.storage._current_state = {}
 
-            # Load workflow instances from session index
-            has_sessions, sessions_data = self._state_store_client.try_get_state(
-                self.storage._get_sessions_key()
-            )
-            if has_sessions and sessions_data:
+            # Load workflow instances from the current session
+            session_id = self.storage._get_session_id()
+            session_key = self.storage._get_session_key(session_id)
+            has_session, session_data = self._state_store_client.try_get_state(session_key)
+            
+            # Always ensure "instances" key exists
+            self.storage._current_state.setdefault("instances", {})
+            
+            if has_session and session_data:
                 # Handle JSON string if necessary
-                if isinstance(sessions_data, str):
+                if isinstance(session_data, str):
                     import json
 
-                    sessions_data = json.loads(sessions_data)
+                    session_data = json.loads(session_data)
 
-                session_id = self.storage._get_session_id()
-                session = sessions_data.get("sessions", {}).get(session_id, {})
-                instance_ids = session.get("workflow_instances", [])
+                instance_ids = session_data.get("workflow_instances", [])
 
                 # Load each instance
-                self.storage._current_state["instances"] = {}
                 for instance_id in instance_ids:
                     instance_key = self.storage._get_instance_key(instance_id)
                     (

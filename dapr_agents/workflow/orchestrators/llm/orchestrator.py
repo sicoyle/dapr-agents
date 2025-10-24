@@ -77,16 +77,7 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         if not self.state:
             logger.debug("No state found, initializing empty state")
             self.state = {"instances": {}}
-
-        if self.memory is not None:
-            self.memory = ConversationDaprStateMemory(
-                store_name=self.memory.store_name,
-                session_id=f"{self.name or 'orchestrator'}_session",
-            )
-
-            print(f"sam memory store name is {self.memory.store_name}")
-            logger.info(f"sam memory store name is {self.memory.store_name}")
-
+            
         # Load the current workflow instance ID from state using session_id)
         if self.state and self.state.get("instances"):
             logger.debug(f"Found {len(self.state['instances'])} instances in state")
@@ -200,6 +191,11 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         self.state.setdefault("instances", {}).setdefault(
             instance_id, LLMWorkflowEntry(input=task).model_dump(mode="json")
         )
+        
+        # Update session index to track this workflow instance
+        if not ctx.is_replaying:
+            self.storage._update_session_index(instance_id, self._state_store_client)
+        
         # Initialize plan as empty list - it will be set after turn 1
         plan = []
         final_summary: Optional[str] = None
