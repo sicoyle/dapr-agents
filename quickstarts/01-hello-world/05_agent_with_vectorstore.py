@@ -112,11 +112,13 @@ async def main():
         tools=[search_documents, add_document, add_machine_learning_doc],
         llm=OpenAIChatClient(model="gpt-3.5-turbo"),
         storage=Storage(
-            name="workflowstatestore",
+            name="statestore",
             # Optional
             local_directory="./temporary-state",
-            session_id="agent_session",
+            session_id="session",
         ),
+        # Note: Regular Agent always uses in-memory conversation history
+        # The 'name' field only registers the agent for discovery by orchestrators
     )
     try:
         logging.info("Starting Vector Database Agent...")

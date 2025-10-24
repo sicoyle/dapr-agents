@@ -1,7 +1,6 @@
 import asyncio
-from dapr_agents import tool, Agent, DurableAgent
+from dapr_agents import tool, DurableAgent, Storage
 from dapr_agents import OpenAIChatClient
-from dapr_agents.agents.durableagent.storage import Storage
 
 
 @tool
@@ -18,11 +17,10 @@ async def main():
         tools=[my_weather_func],
         message_bus_name="messagepubsub",
         storage=Storage(
-            name="workflowstatestore",
-
+            name="statestore",
             # Optional
-            session_id="weather_agent_session",
             local_directory="./temporary-state",
+            session_id="session",
         ),
         llm=OpenAIChatClient(model="gpt-3.5-turbo"),
     )

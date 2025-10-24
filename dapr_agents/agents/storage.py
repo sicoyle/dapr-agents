@@ -1,26 +1,37 @@
 import json
 from pydantic import Field, BaseModel, PrivateAttr
-from typing import Optional, Type, Dict, Any, List
+from typing import Optional, Type, Dict, Any, List, Union
 from datetime import datetime
 import uuid
 from dapr_agents.types import MessageContent, ToolExecutionRecord
 from dapr_agents.types.workflow import DaprWorkflowStatus
 
+from dapr_agents.types import BaseMessage
+
 
 class Storage(BaseModel):
     """
-    Unified storage interface for both Agent (in-memory) and DurableAgent (persistent).
+    Unified storage interface for both Agent and DurableAgent.
 
-    - If `name` is provided: Uses Dapr state store for persistence to provide persistent storage for the agent on workflow state (if DurableAgent), agent registration, and conversation history.
-    - If `name` is None: Uses in-memory list storage to provide in-memory storage for the agent on conversation history.
+    For regular Agent:
+    - If `name` is None: Pure in-memory operation (no persistence, no registration)
+    - If `name` is provided: 
+        - Conversation history: Persistent in Dapr state store
+        - Agent registration: Registered for discovery by orchestrators
+    
+    For DurableAgent:
+    - Requires `name` to be provided
+    - Conversation history: Persistent in Dapr state store (via workflow instances)
+    - Agent registration: Registered for discovery
+    - Workflow state: Full workflow instance tracking with sessions
     """
 
     name: Optional[str] = Field(
         default=None,
         description=(
-            "Dapr state store for persistent data. "
-            "If None, uses in-memory storage. "
-            "If provided, uses persistent Dapr State Store for storage of workflow state (if DurableAgent), agent registration, and conversation history."
+            "Dapr state store name. "
+            "For Agent: If set, stores conversation and registers agent. If None, pure in-memory. "
+            "For DurableAgent: Required. Stores workflow state, conversation, and registers agent."
         ),
     )
     session_id: Optional[str] = Field(
@@ -41,10 +52,9 @@ class Storage(BaseModel):
         ),
     )
     _current_state: dict = PrivateAttr(default_factory=dict)
-    _agent_name: str = PrivateAttr(
-        default=None
-    )  # Set by AgenticWorkflow -> TODO: SAM to double check this in adding regular agents registration capabilities!!
+    _agent_name: str = PrivateAttr(default=None)  # Set by AgenticWorkflow
     _workflow_prefix: str = PrivateAttr(default="workflow")
+    _sessions_prefix: str = PrivateAttr(default="session")
     _key: str = PrivateAttr(default="workflow_state")
     _in_memory_messages: List[Dict[str, Any]] = PrivateAttr(default_factory=list)
 
@@ -59,11 +69,11 @@ class Storage(BaseModel):
 
     def _get_session_key(self, session_id: str) -> str:
         """Get the state store key for a specific session."""
-        return f"{self._agent_name}_session_{session_id}"
+        return f"{self._agent_name}_{self._sessions_prefix}_{session_id}"
 
     def _get_sessions_index_key(self) -> str:
         """Get the state store key for the sessions index."""
-        return f"{self._agent_name}_sessions"
+        return f"{self._agent_name}_{self._sessions_prefix}"
 
     def _get_session_id(self) -> str:
         """Get or generate a session ID."""
@@ -79,7 +89,9 @@ class Storage(BaseModel):
         
         # Get or create session data
         has_session, session_data = state_store_client.try_get_state(session_key)
+
         is_new_session = not has_session or not session_data
+        
         if is_new_session:
             # Create new session
             session_data = {
@@ -105,6 +117,7 @@ class Storage(BaseModel):
         # Save the updated session data
         self._save_state_with_metadata(state_store_client, session_key, session_data)
 
+        # Update the sessions index if this is a new session
         if is_new_session:
             has_index, index_data = state_store_client.try_get_state(sessions_index_key)
             
@@ -219,45 +232,123 @@ class Storage(BaseModel):
         """Check if storage is persistent (has a state store name) or in-memory."""
         return self.name is not None
 
-    def add_message(self, message: Dict[str, Any]) -> None:
+    def add_message(self, message: Union[Dict[str, Any], "BaseMessage"]) -> None:
         """
         Add a single message to storage.
-        Uses in-memory list if name is None.
+        
+        For regular Agent:
+        - If name is None: Uses in-memory list
+        - If name is set: Stores in Dapr state store
+        
+        For DurableAgent: Uses workflow instance messages directly (doesn't call this method).
 
         Args:
-            message (Dict[str, Any]): The message to add
+            message (Union[Dict[str, Any], BaseMessage]): The message to add
         """
-        if not self.is_persistent():
-            # In-memory mode for regular Agent
-            self._in_memory_messages.append(message)
+        msg_dict = (
+            message.model_dump() if hasattr(message, "model_dump") else message
+        )
+        
+        if self.is_persistent():
+            # Save to state store
+            messages = self.get_messages()
+            messages.append(msg_dict)
+            self._save_messages_to_store(messages)
+        else:
+            # In-memory mode
+            self._in_memory_messages.append(msg_dict)
 
     def add_messages(self, messages: List[Dict[str, Any]]) -> None:
         """
         Add multiple messages to storage.
+        
+        For regular Agent:
+        - If name is None: Uses in-memory list
+        - If name is set: Stores in Dapr state store
+        
+        For DurableAgent: Uses workflow instance messages directly (doesn't call this method).
 
         Args:
             messages (List[Dict[str, Any]]): The messages to add
         """
-        if not self.is_persistent():
-            # In-memory mode for regular Agent
+        if self.is_persistent():
+            # Save to state store
+            current_messages = self.get_messages()
+            current_messages.extend(messages)
+            self._save_messages_to_store(current_messages)
+        else:
+            # In-memory mode
             self._in_memory_messages.extend(messages)
 
     def get_messages(self) -> List[Dict[str, Any]]:
         """
         Get all messages from storage.
+        
+        For regular Agent:
+        - If name is None: Returns in-memory list
+        - If name is set: Loads from Dapr state store
+        
+        For DurableAgent: Use get_chat_history() instead (aggregates from workflow instances).
 
         Returns:
             List[Dict[str, Any]]: All stored messages
         """
-        if not self.is_persistent():
-            # In-memory mode for regular Agent
+        if self.is_persistent():
+            # Load from state store
+            return self._load_messages_from_store()
+        else:
+            # In-memory mode
             return self._in_memory_messages.copy()
 
     def reset_memory(self) -> None:
-        """Clear all messages from storage."""
-        if not self.is_persistent():
-            # In-memory mode for regular Agent
+        """
+        Clear all messages from storage.
+        
+        For regular Agent:
+        - If name is None: Clears in-memory list
+        - If name is set: Deletes from Dapr state store
+        
+        For DurableAgent: Use reset_session() instead (clears workflow instances).
+        """
+        if self.is_persistent():
+            # Clear from state store
+            self._save_messages_to_store([])
+        else:
+            # In-memory mode
             self._in_memory_messages.clear()
+    
+    def _get_messages_key(self) -> str:
+        """Get the state store key for conversation messages."""
+        session_id = self._get_session_id()
+        return f"{self._agent_name}_messages_{session_id}"
+    
+    def _save_messages_to_store(self, messages: List[Dict[str, Any]]) -> None:
+        """Save messages to the Dapr state store."""
+        from dapr.clients import DaprClient
+        
+        key = self._get_messages_key()
+        data = json.dumps({"messages": messages})
+        
+        with DaprClient() as client:
+            client.save_state(
+                store_name=self.name,
+                key=key,
+                value=data,
+                state_metadata={"contentType": "application/json"}
+            )
+    
+    def _load_messages_from_store(self) -> List[Dict[str, Any]]:
+        """Load messages from the Dapr state store."""
+        from dapr.clients import DaprClient
+        
+        key = self._get_messages_key()
+        
+        with DaprClient() as client:
+            response = client.get_state(store_name=self.name, key=key)
+            if response.data:
+                data = json.loads(response.data) if isinstance(response.data, (str, bytes)) else response.data
+                return data.get("messages", [])
+            return []
 
 
 class DurableAgentMessage(MessageContent):
