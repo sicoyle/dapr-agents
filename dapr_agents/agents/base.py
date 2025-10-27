@@ -204,7 +204,7 @@ Your role is {role}.
                 "topic_name": getattr(self, "agent_topic_name", None),
                 "pubsub_name": getattr(self, "message_bus_name", None),
                 "orchestrator": False,
-                # TODO: SAM ADD OTHER THINGS HERE?
+                "statestore_name": self.storage.name,
             }
             self.register_agent(
                 store_name=self.storage.name,

@@ -15,13 +15,13 @@ from dapr_agents.agents.durableagent.schemas import (
     AgentTaskResponse,
     BroadcastMessage,
 )
-from dapr_agents.agents.durableagent.state import (
+from dapr_agents.agents.storage import (
+    Storage,
     DurableAgentMessage,
     DurableAgentWorkflowEntry,
     DurableAgentWorkflowState,
 )
 from dapr_agents.llm import OpenAIChatClient
-from dapr_agents.memory import ConversationDaprStateMemory
 from dapr_agents.tool.base import AgentTool
 from dapr_agents.types import (
     AssistantMessage,
@@ -94,12 +94,13 @@ def patch_dapr_check(monkeypatch):
     )
 
     # No-op for testing
-    def mock_register_agentic_system(self):
+    def mock_register_agent(self, store_name, store_key, agent_name, agent_metadata):
         pass
 
-    monkeypatch.setattr(
-        agentic.AgenticWorkflow, "register_agentic_system", mock_register_agentic_system
-    )
+    # register_agent is now in AgentBase
+    from dapr_agents.agents.base import AgentBase
+
+    monkeypatch.setattr(AgentBase, "register_agent", mock_register_agent)
 
     yield
 
@@ -108,10 +109,11 @@ class MockDaprClient:
     """Mock DaprClient that supports context manager protocol"""
 
     def __init__(self):
-        self.get_state = MagicMock(return_value=Mock(data=None, json=lambda: {}))
+        self.get_state = MagicMock(return_value=Mock(data=None, json=lambda: {}, etag="test-etag"))
         self.save_state = MagicMock()
         self.delete_state = MagicMock()
         self.query_state = MagicMock()
+        self.execute_state_transaction = MagicMock()
 
     def __enter__(self):
         return self
@@ -188,9 +190,7 @@ class TestDurableAgent:
             goal="Help with testing",
             instructions=["Be helpful", "Test things"],
             llm=mock_llm,
-            memory=ConversationDaprStateMemory(
-                store_name="teststatestore", session_id="test_session"
-            ),
+            storage=Storage(name="teststatestore", session_id="test_session"),
             max_iterations=5,
             state_store_name="teststatestore",
             message_bus_name="testpubsub",
@@ -206,9 +206,7 @@ class TestDurableAgent:
             goal="Execute tools",
             instructions=["Use tools when needed"],
             llm=mock_llm,
-            memory=ConversationDaprStateMemory(
-                store_name="teststatestore", session_id="test_session"
-            ),
+            storage=Storage(name="teststatestore", session_id="test_session"),
             tools=[mock_tool],
             max_iterations=5,
             state_store_name="teststatestore",
@@ -224,6 +222,7 @@ class TestDurableAgent:
             goal="Help with testing",
             instructions=["Be helpful"],
             llm=mock_llm,
+            storage=Storage(name="teststatestore"),
             state_store_name="teststatestore",
             message_bus_name="testpubsub",
             agents_registry_store_name="testregistry",
@@ -249,6 +248,7 @@ class TestDurableAgent:
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
+            storage=Storage(name="teststatestore"),
             agent_topic_name="custom-topic",
             state_store_name="teststatestore",
             message_bus_name="testpubsub",
@@ -263,6 +263,7 @@ class TestDurableAgent:
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
+            storage=Storage(name="teststatestore"),
             state_store_name="teststatestore",
             message_bus_name="testpubsub",
             agents_registry_store_name="testregistry",
@@ -839,10 +840,15 @@ class TestDurableAgent:
         # This needs refactoring / better implementation on this test since the actual implementation would depend on the pubsub msg broker.
         await basic_durable_agent.send_message_to_agent("TargetAgent", task_response)
 
-    def test_register_agentic_system(self, basic_durable_agent):
-        """Test registering agentic system."""
+    def test_register_agent(self, basic_durable_agent):
+        """Test registering agent."""
         # TODO(@Sicoyle): fix this to add assertions.
-        basic_durable_agent.register_agentic_system()
+        basic_durable_agent.register_agent(
+            store_name="test_store",
+            store_key="agent_registry",
+            agent_name=basic_durable_agent.name,
+            agent_metadata=basic_durable_agent._agent_metadata,
+        )
 
     @pytest.mark.asyncio
     async def test_process_broadcast_message(self, basic_durable_agent):

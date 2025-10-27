@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock, Mock
 from dapr_agents.agents.durableagent.agent import DurableAgent
-from dapr_agents.agents.durableagent.state import DurableAgentWorkflowEntry
-from dapr_agents.agents.durableagent.state import DurableAgentWorkflowState
+from dapr_agents.agents.storage import DurableAgentWorkflowEntry
+from dapr_agents.agents.storage import DurableAgentWorkflowState
 from dapr_agents.tool.base import AgentTool
 
 
@@ -65,12 +65,13 @@ def patch_dapr_check(monkeypatch):
     )
 
     # Patch out agent registration logic (skip state store entirely)
-    def mock_register_agentic_system(self):
+    def mock_register_agent(self, store_name, store_key, agent_name, agent_metadata):
         pass
 
-    monkeypatch.setattr(
-        agentic.AgenticWorkflow, "register_agentic_system", mock_register_agentic_system
-    )
+    # register_agent is now in AgentBase
+    from dapr_agents.agents.base import AgentBase
+
+    monkeypatch.setattr(AgentBase, "register_agent", mock_register_agent)
 
     yield
 
