@@ -68,7 +68,7 @@ async def main():
             storage=Storage(
             name="statestore",
             # Optional
-            local_directory="./temporary-state",
+            local_directory="./local-state",
             session_id="agent_session",
         ),
             # llm=llm, # if you don't set the llm attribute, it will be by default set to DaprChatClient()

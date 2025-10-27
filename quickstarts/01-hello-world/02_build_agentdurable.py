@@ -19,7 +19,7 @@ async def main():
         storage=Storage(
             name="statestore",
             # Optional
-            local_directory="./temporary-state",
+            local_directory="./local-state",
             session_id="session",
         ),
         llm=OpenAIChatClient(model="gpt-3.5-turbo"),

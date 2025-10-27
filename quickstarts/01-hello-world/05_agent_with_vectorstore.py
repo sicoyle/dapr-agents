@@ -114,7 +114,7 @@ async def main():
         storage=Storage(
             name="statestore",
             # Optional
-            local_directory="./temporary-state",
+            local_directory="./local-state",
             session_id="session",
         ),
         # Note: Regular Agent always uses in-memory conversation history
