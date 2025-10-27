@@ -398,7 +398,9 @@ class TestDurableAgent:
         basic_durable_agent.finalize_workflow(
             instance_id, final_output, "2024-01-01T00:00:00Z"
         )
-        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][
+            instance_id
+        ]
         assert instance_data["output"] == final_output
         assert instance_data["end_time"] is not None
 
@@ -448,7 +450,9 @@ class TestDurableAgent:
             assert result["execution_result"] == "tool_result"
 
             # Verify state was updated atomically
-            instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
+            instance_data = basic_durable_agent.storage._current_state["instances"][
+                instance_id
+            ]
             assert len(instance_data["messages"]) == 1  # Tool message added
             assert (
                 len(instance_data["tool_history"]) == 1
@@ -488,7 +492,9 @@ class TestDurableAgent:
 
         # Verify instance was created
         assert instance_id in basic_durable_agent.storage._current_state["instances"]
-        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][
+            instance_id
+        ]
         assert instance_data["input"] == input_data
         assert instance_data["source"] == source
         assert (
@@ -515,7 +521,9 @@ class TestDurableAgent:
         )
 
         assert instance_id in basic_durable_agent.storage._current_state["instances"]
-        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][
+            instance_id
+        ]
         assert (
             instance_data["triggering_workflow_instance_id"]
             == triggering_workflow_instance_id
@@ -526,7 +534,9 @@ class TestDurableAgent:
 
         # Test that existing instance is not overwritten
         original_input = "Original input"
-        basic_durable_agent.storage._current_state["instances"][instance_id]["input"] = original_input
+        basic_durable_agent.storage._current_state["instances"][instance_id][
+            "input"
+        ] = original_input
 
         basic_durable_agent._ensure_instance_exists(
             instance_id, "different-parent", "2024-01-02T00:00:00Z"
@@ -534,7 +544,9 @@ class TestDurableAgent:
 
         # Input should remain unchanged
         assert (
-            basic_durable_agent.storage._current_state["instances"][instance_id]["input"]
+            basic_durable_agent.storage._current_state["instances"][instance_id][
+                "input"
+            ]
             == original_input
         )
 
@@ -565,7 +577,9 @@ class TestDurableAgent:
             )
 
         # Verify message was added to instance
-        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][
+            instance_id
+        ]
         assert len(instance_data["messages"]) == 1
         assert instance_data["messages"][0]["role"] == "user"
         assert instance_data["messages"][0]["content"] == "Hello, world!"
@@ -595,7 +609,9 @@ class TestDurableAgent:
             basic_durable_agent._save_assistant_message(instance_id, assistant_message)
 
         # Verify message was added to instance
-        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][
+            instance_id
+        ]
         assert len(instance_data["messages"]) == 1
         assert instance_data["messages"][0]["role"] == "assistant"
         assert instance_data["messages"][0]["content"] == "Hello back!"
@@ -693,7 +709,9 @@ class TestDurableAgent:
         )
 
         # Verify instance was updated
-        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][
+            instance_id
+        ]
         assert len(instance_data["messages"]) == 1
         assert instance_data["messages"][0]["role"] == "assistant"
         assert len(instance_data["tool_history"]) == 1

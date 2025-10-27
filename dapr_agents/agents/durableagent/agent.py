@@ -757,7 +757,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         instance["tool_history"].append(tool_result)
         tool_record = ToolExecutionRecord(**tool_result)
         self.tool_history.append(tool_record)
-        
+
         self.save_state()
 
         # Print for visibility
