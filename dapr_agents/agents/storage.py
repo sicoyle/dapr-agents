@@ -15,10 +15,10 @@ class Storage(BaseModel):
 
     For regular Agent:
     - If `name` is None: Pure in-memory operation (no persistence, no registration)
-    - If `name` is provided: 
+    - If `name` is provided:
         - Conversation history: Persistent in Dapr state store
         - Agent registration: Registered for discovery by orchestrators
-    
+
     For DurableAgent:
     - Requires `name` to be provided
     - Conversation history: Persistent in Dapr state store (via workflow instances)
@@ -86,12 +86,12 @@ class Storage(BaseModel):
         session_id = self._get_session_id()
         session_key = self._get_session_key(session_id)
         sessions_index_key = self._get_sessions_index_key()
-        
+
         # Get or create session data
         has_session, session_data = state_store_client.try_get_state(session_key)
 
         is_new_session = not has_session or not session_data
-        
+
         if is_new_session:
             # Create new session
             session_data = {
@@ -110,7 +110,7 @@ class Storage(BaseModel):
         # Add instance to session if not already present
         if instance_id not in session_data.get("workflow_instances", []):
             session_data["workflow_instances"].append(instance_id)
-        
+
         # Update last active timestamp
         session_data["last_active"] = datetime.now().isoformat()
 
@@ -120,18 +120,20 @@ class Storage(BaseModel):
         # Update the sessions index if this is a new session
         if is_new_session:
             has_index, index_data = state_store_client.try_get_state(sessions_index_key)
-            
+
             if not has_index or not index_data:
                 index_data = {"sessions": []}
             else:
                 if isinstance(index_data, str):
                     index_data = json.loads(index_data)
-            
+
             # Add session to index if not already present
             if session_id not in index_data.get("sessions", []):
                 index_data["sessions"].append(session_id)
                 index_data["last_updated"] = datetime.now().isoformat()
-                self._save_state_with_metadata(state_store_client, sessions_index_key, index_data)
+                self._save_state_with_metadata(
+                    state_store_client, sessions_index_key, index_data
+                )
 
     def get_session_workflows(self, state_store_client) -> List[str]:
         """
@@ -159,23 +161,23 @@ class Storage(BaseModel):
     def get_all_sessions(self, state_store_client) -> List[str]:
         """
         Get all session IDs for this agent.
-        
+
         Args:
             state_store_client: The Dapr state store client
-            
+
         Returns:
             List of session IDs
         """
         sessions_index_key = self._get_sessions_index_key()
         has_index, index_data = state_store_client.try_get_state(sessions_index_key)
-        
+
         if not has_index or not index_data:
             return []
-        
+
         # Deserialize if it's a JSON string
         if isinstance(index_data, str):
             index_data = json.loads(index_data)
-        
+
         return index_data.get("sessions", [])
 
     def reset_session(self, state_store_client) -> None:
@@ -206,11 +208,13 @@ class Storage(BaseModel):
             if has_index and index_data:
                 if isinstance(index_data, str):
                     index_data = json.loads(index_data)
-                
+
                 if session_id in index_data.get("sessions", []):
                     index_data["sessions"].remove(session_id)
                     index_data["last_updated"] = datetime.now().isoformat()
-                    self._save_state_with_metadata(state_store_client, sessions_index_key, index_data)
+                    self._save_state_with_metadata(
+                        state_store_client, sessions_index_key, index_data
+                    )
 
     def _save_state_with_metadata(
         self, state_store_client, key: str, data: Any
@@ -235,20 +239,18 @@ class Storage(BaseModel):
     def add_message(self, message: Union[Dict[str, Any], "BaseMessage"]) -> None:
         """
         Add a single message to storage.
-        
+
         For regular Agent:
         - If name is None: Uses in-memory list
         - If name is set: Stores in Dapr state store
-        
+
         For DurableAgent: Uses workflow instance messages directly (doesn't call this method).
 
         Args:
             message (Union[Dict[str, Any], BaseMessage]): The message to add
         """
-        msg_dict = (
-            message.model_dump() if hasattr(message, "model_dump") else message
-        )
-        
+        msg_dict = message.model_dump() if hasattr(message, "model_dump") else message
+
         if self.is_persistent():
             # Save to state store
             messages = self.get_messages()
@@ -261,11 +263,11 @@ class Storage(BaseModel):
     def add_messages(self, messages: List[Dict[str, Any]]) -> None:
         """
         Add multiple messages to storage.
-        
+
         For regular Agent:
         - If name is None: Uses in-memory list
         - If name is set: Stores in Dapr state store
-        
+
         For DurableAgent: Uses workflow instance messages directly (doesn't call this method).
 
         Args:
@@ -283,11 +285,11 @@ class Storage(BaseModel):
     def get_messages(self) -> List[Dict[str, Any]]:
         """
         Get all messages from storage.
-        
+
         For regular Agent:
         - If name is None: Returns in-memory list
         - If name is set: Loads from Dapr state store
-        
+
         For DurableAgent: Use get_chat_history() instead (aggregates from workflow instances).
 
         Returns:
@@ -303,11 +305,11 @@ class Storage(BaseModel):
     def reset_memory(self) -> None:
         """
         Clear all messages from storage.
-        
+
         For regular Agent:
         - If name is None: Clears in-memory list
         - If name is set: Deletes from Dapr state store
-        
+
         For DurableAgent: Use reset_session() instead (clears workflow instances).
         """
         if self.is_persistent():
@@ -316,37 +318,41 @@ class Storage(BaseModel):
         else:
             # In-memory mode
             self._in_memory_messages.clear()
-    
+
     def _get_messages_key(self) -> str:
         """Get the state store key for conversation messages."""
         session_id = self._get_session_id()
         return f"{self._agent_name}_messages_{session_id}"
-    
+
     def _save_messages_to_store(self, messages: List[Dict[str, Any]]) -> None:
         """Save messages to the Dapr state store."""
         from dapr.clients import DaprClient
-        
+
         key = self._get_messages_key()
         data = json.dumps({"messages": messages})
-        
+
         with DaprClient() as client:
             client.save_state(
                 store_name=self.name,
                 key=key,
                 value=data,
-                state_metadata={"contentType": "application/json"}
+                state_metadata={"contentType": "application/json"},
             )
-    
+
     def _load_messages_from_store(self) -> List[Dict[str, Any]]:
         """Load messages from the Dapr state store."""
         from dapr.clients import DaprClient
-        
+
         key = self._get_messages_key()
-        
+
         with DaprClient() as client:
             response = client.get_state(store_name=self.name, key=key)
             if response.data:
-                data = json.loads(response.data) if isinstance(response.data, (str, bytes)) else response.data
+                data = (
+                    json.loads(response.data)
+                    if isinstance(response.data, (str, bytes))
+                    else response.data
+                )
                 return data.get("messages", [])
             return []
 

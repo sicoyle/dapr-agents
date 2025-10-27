@@ -3,6 +3,7 @@ import logging
 import os
 import tempfile
 import threading
+from datetime import datetime
 from typing import Optional, Union
 
 from pydantic import BaseModel, ValidationError
@@ -17,27 +18,140 @@ class StateManagementMixin:
     Mixin providing workflow state initialization, validation, and persistence.
     """
 
+    def _reconcile_workflow_statuses(self) -> None:
+        """
+        Reconcile workflow statuses between our Redis state and Dapr's actual workflow state.
+        
+        This method checks Dapr's actual status and updates our state to match, 
+        preventing stale "running" workflows from blocking new executions.
+        """
+        from dapr.clients import DaprClient
+
+        instances = self.storage._current_state.get("instances", {})
+        updated_instances = []
+
+        for instance_id, instance_data in instances.items():
+            our_status = instance_data.get("status", "").lower()
+
+            # Only check running instances (completed/failed instances are already finalized)
+            if our_status in ["running", "pending"]:
+                try:
+                    # Query Dapr for the actual workflow status
+                    with DaprClient() as client:
+                        state = client.get_workflow(
+                            instance_id=instance_id,
+                        )
+
+                        dapr_status = state.runtime_status.upper()
+
+                        # If Dapr says FAILED/TERMINATED but we say RUNNING, update our state
+                        if dapr_status in ["FAILED", "TERMINATED", "CANCELED"]:
+                            logger.warning(
+                                f"Workflow {instance_id} is {dapr_status} in Dapr but 'running' in Redis. "
+                                f"Updating Redis state to match Dapr."
+                            )
+                            instance_data["status"] = dapr_status.lower()
+                            instance_data["end_time"] = datetime.now().isoformat()
+                            updated_instances.append(instance_id)
+
+                            # Save the updated instance back to Redis
+                            instance_key = self.storage._get_instance_key(instance_id)
+                            self.storage._save_state_with_metadata(
+                                self._state_store_client, instance_key, instance_data
+                            )
+
+                        elif dapr_status == "COMPLETED":
+                            logger.info(
+                                f"Workflow {instance_id} completed in Dapr. Updating Redis state."
+                            )
+                            instance_data["status"] = "completed"
+                            if not instance_data.get("end_time"):
+                                instance_data["end_time"] = datetime.now().isoformat()
+                            updated_instances.append(instance_id)
+
+                            # Save the updated instance
+                            instance_key = self.storage._get_instance_key(instance_id)
+                            self.storage._save_state_with_metadata(
+                                self._state_store_client, instance_key, instance_data
+                            )
+
+                except Exception as e:
+                    logger.debug(
+                        f"Could not query Dapr status for workflow {instance_id}: {e}. "
+                        f"Instance may have been purged or not exist in Dapr yet."
+                    )
+
+        if updated_instances:
+            logger.info(
+                f"Reconciled {len(updated_instances)} workflow status(es) with Dapr: {updated_instances}"
+            )
+
+    def _has_valid_message_sequence(self, instance_data: dict) -> bool:
+        """
+        Validate that all assistant messages with tool_calls have corresponding tool responses.
+        This prevents loading instances with incomplete tool call sequences that would break LLM calls.
+
+        Args:
+            instance_data: The workflow instance data to validate
+
+        Returns:
+            bool: True if message sequence is valid, False otherwise
+        """
+        messages = instance_data.get("messages", [])
+
+        # Collect all tool_call_ids that need responses
+        pending_tool_calls = set()
+
+        for msg in messages:
+            msg_dict = (
+                msg
+                if isinstance(msg, dict)
+                else (msg.model_dump() if hasattr(msg, "model_dump") else {})
+            )
+            role = msg_dict.get("role")
+
+            if role == "assistant" and msg_dict.get("tool_calls"):
+                # Add all tool_call_ids from this assistant message
+                for tool_call in msg_dict.get("tool_calls", []):
+                    if isinstance(tool_call, dict):
+                        pending_tool_calls.add(tool_call.get("id"))
+
+            elif role == "tool":
+                # Remove this tool_call_id as it has a response
+                tool_call_id = msg_dict.get("tool_call_id")
+                if tool_call_id in pending_tool_calls:
+                    pending_tool_calls.remove(tool_call_id)
+
+        # If there are still pending tool calls, the sequence is invalid
+        if pending_tool_calls:
+            logger.debug(
+                f"Invalid message sequence: pending tool_call_ids: {pending_tool_calls}"
+            )
+            return False
+
+        return True
+
     # TODO: Delete this once we rm orchestrators in favor of agents as tools.
     @property
     def state(self) -> dict:
         """
         Get the current workflow state.
-        
+
         Returns:
             dict: The current workflow state.
         """
-        return self.storage._current_state if hasattr(self, 'storage') else {}
+        return self.storage._current_state if hasattr(self, "storage") else {}
 
     # TODO: Delete this once we rm orchestrators in favor of agents as tools.
     @state.setter
     def state(self, value: dict) -> None:
         """
         Set the current workflow state.
-        
+
         Args:
             value (dict): The new workflow state.
         """
-        if hasattr(self, 'storage'):
+        if hasattr(self, "storage"):
             self.storage._current_state = value
 
     def initialize_state(self) -> None:
@@ -104,8 +218,9 @@ class StateManagementMixin:
                 # Deserialize JSON string if necessary
                 if isinstance(state_data, str):
                     import json
+
                     state_data = json.loads(state_data)
-                
+
                 if not isinstance(state_data, dict):
                     raise TypeError(
                         f"Invalid state type retrieved: {type(state_data)}. Expected dict."
@@ -114,40 +229,87 @@ class StateManagementMixin:
             else:
                 self.storage._current_state = {}
 
-            # Load workflow instances from the current session
-            session_id = self.storage._get_session_id()
-            session_key = self.storage._get_session_key(session_id)
-            has_session, session_data = self._state_store_client.try_get_state(session_key)
-            
+            # TODO(@Sicoyle): below here I do need to double check the restarting app with inflight workflow logic...
+
+            # Load workflow instances from ALL sessions to support workflow resumption after restart
+            # This ensures that if the app crashes mid-workflow and restarts, all in-flight
+            # workflows across all sessions will be loaded and can be resumed by Dapr
             # Always ensure "instances" key exists
             self.storage._current_state.setdefault("instances", {})
-            
-            if has_session and session_data:
-                # Handle JSON string if necessary
-                if isinstance(session_data, str):
+
+            # Get all sessions for this agent
+            sessions_index_key = self.storage._get_sessions_index_key()
+            has_index, index_data = self._state_store_client.try_get_state(
+                sessions_index_key
+            )
+
+            if has_index and index_data:
+                # Deserialize if it's a JSON string
+                if isinstance(index_data, str):
                     import json
 
-                    session_data = json.loads(session_data)
+                    index_data = json.loads(index_data)
 
-                instance_ids = session_data.get("workflow_instances", [])
+                session_ids = index_data.get("sessions", [])
+                logger.debug(
+                    f"Found {len(session_ids)} session(s) for agent '{self.storage._agent_name}'"
+                )
 
-                # Load each instance
-                for instance_id in instance_ids:
-                    instance_key = self.storage._get_instance_key(instance_id)
-                    (
-                        has_instance,
-                        instance_data,
-                    ) = self._state_store_client.try_get_state(instance_key)
-                    if has_instance and instance_data:
+                # Load workflow instances from each session
+                for session_id in session_ids:
+                    session_key = self.storage._get_session_key(session_id)
+                    has_session, session_data = self._state_store_client.try_get_state(
+                        session_key
+                    )
+
+                    if has_session and session_data:
                         # Deserialize if it's a JSON string
-                        if isinstance(instance_data, str):
-                            instance_data = json.loads(instance_data)
-                        self.storage._current_state["instances"][
-                            instance_id
-                        ] = instance_data
+                        if isinstance(session_data, str):
+                            session_data = json.loads(session_data)
+
+                        instance_ids = session_data.get("workflow_instances", [])
                         logger.debug(
-                            f"Loaded workflow instance {instance_id} from key '{instance_key}'"
+                            f"Loading {len(instance_ids)} instance(s) from session '{session_id}'"
                         )
+
+                        # Load each instance
+                        for instance_id in instance_ids:
+                            instance_key = self.storage._get_instance_key(instance_id)
+                            (
+                                has_instance,
+                                instance_data,
+                            ) = self._state_store_client.try_get_state(instance_key)
+                            if has_instance and instance_data:
+                                # Deserialize if it's a JSON string
+                                if isinstance(instance_data, str):
+                                    instance_data = json.loads(instance_data)
+
+                                # Validate message sequence before loading, but ONLY for completed workflows
+                                # Running workflows are expected to have incomplete sequences mid-execution
+                                status = instance_data.get("status", "").lower()
+                                if status in ["running", "pending"]:
+                                    # Always load running/pending instances (they're allowed to be incomplete)
+                                    self.storage._current_state["instances"][
+                                        instance_id
+                                    ] = instance_data
+                                    logger.debug(
+                                        f"Loaded active workflow instance {instance_id} from key '{instance_key}' (session: {session_id}, status: {status})"
+                                    )
+                                elif self._has_valid_message_sequence(instance_data):
+                                    # For completed/failed instances, validate message sequence
+                                    self.storage._current_state["instances"][
+                                        instance_id
+                                    ] = instance_data
+                                    logger.debug(
+                                        f"Loaded completed workflow instance {instance_id} from key '{instance_key}' (session: {session_id}, status: {status})"
+                                    )
+                                else:
+                                    logger.warning(
+                                        f"Skipping completed instance {instance_id} due to invalid message sequence (incomplete tool calls, status: {status})"
+                                    )
+
+            # Reconcile workflow statuses with Dapr's actual state
+            self._reconcile_workflow_statuses()
 
             logger.debug(
                 f"Set self.storage._current_state to loaded data: {self.storage._current_state}"
