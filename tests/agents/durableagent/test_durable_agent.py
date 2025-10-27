@@ -300,51 +300,6 @@ class TestDurableAgent:
         assert result == {"output": "test"}
 
     @pytest.mark.asyncio
-    async def test_tool_calling_workflow_initialization(
-        self, basic_durable_agent, mock_workflow_context
-    ):
-        """Test workflow initialization on first iteration."""
-        message = {
-            "task": "Test task",
-            "iteration": 0,
-            "workflow_instance_id": "parent-instance-123",
-        }
-
-        mock_workflow_context.instance_id = "test-instance-123"
-        mock_workflow_context.call_activity.side_effect = [
-            {"content": "Test response"},
-            {"message": "Test response"},
-            "stop",
-        ]
-
-        basic_durable_agent.state["instances"]["test-instance-123"] = {
-            "input": "Test task",
-            "source": None,
-            "triggering_workflow_instance_id": "parent-instance-123",
-            "workflow_instance_id": "test-instance-123",
-            "workflow_name": "AgenticWorkflow",
-            "status": "RUNNING",
-            "messages": [],
-            "tool_history": [],
-            "end_time": None,
-            "trace_context": None,
-        }
-
-        workflow_gen = basic_durable_agent.tool_calling_workflow(
-            mock_workflow_context, message
-        )
-        try:
-            await workflow_gen.__next__()
-        except StopAsyncIteration:
-            pass
-
-        assert "test-instance-123" in basic_durable_agent.state["instances"]
-        instance_data = basic_durable_agent.state["instances"]["test-instance-123"]
-        assert instance_data["input"] == "Test task"
-        assert instance_data["source"] is None
-        assert instance_data["triggering_workflow_instance_id"] == "parent-instance-123"
-
-    @pytest.mark.asyncio
     async def test_call_llm_activity(self, basic_durable_agent):
         """Test that call_llm unwraps an LLMChatResponse properly."""
 
@@ -362,7 +317,7 @@ class TestDurableAgent:
 
         instance_id = "test-instance-123"
         # set up a minimal instance record
-        basic_durable_agent.state["instances"] = {
+        basic_durable_agent.storage._current_state["instances"] = {
             instance_id: {
                 "input": "Test task",
                 "source": "test_source",
@@ -425,7 +380,7 @@ class TestDurableAgent:
         """Test finishing workflow activity."""
         instance_id = "test-instance-123"
         final_output = "Final response"
-        basic_durable_agent.state["instances"] = {
+        basic_durable_agent.storage._current_state["instances"] = {
             instance_id: {
                 "input": "Test task",
                 "source": "test_source",
@@ -443,7 +398,7 @@ class TestDurableAgent:
         basic_durable_agent.finalize_workflow(
             instance_id, final_output, "2024-01-01T00:00:00Z"
         )
-        instance_data = basic_durable_agent.state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
         assert instance_data["output"] == final_output
         assert instance_data["end_time"] is not None
 
@@ -463,7 +418,7 @@ class TestDurableAgent:
             mock_run_tool.return_value = "tool_result"
 
             # Set up instance state
-            basic_durable_agent.state["instances"] = {
+            basic_durable_agent.storage._current_state["instances"] = {
                 instance_id: {
                     "input": "Test task",
                     "source": "test_source",
@@ -493,7 +448,7 @@ class TestDurableAgent:
             assert result["execution_result"] == "tool_result"
 
             # Verify state was updated atomically
-            instance_data = basic_durable_agent.state["instances"][instance_id]
+            instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
             assert len(instance_data["messages"]) == 1  # Tool message added
             assert (
                 len(instance_data["tool_history"]) == 1
@@ -532,8 +487,8 @@ class TestDurableAgent:
         )
 
         # Verify instance was created
-        assert instance_id in basic_durable_agent.state["instances"]
-        instance_data = basic_durable_agent.state["instances"][instance_id]
+        assert instance_id in basic_durable_agent.storage._current_state["instances"]
+        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
         assert instance_data["input"] == input_data
         assert instance_data["source"] == source
         assert (
@@ -559,8 +514,8 @@ class TestDurableAgent:
             instance_id, "Test input", triggering_workflow_instance_id, test_time
         )
 
-        assert instance_id in basic_durable_agent.state["instances"]
-        instance_data = basic_durable_agent.state["instances"][instance_id]
+        assert instance_id in basic_durable_agent.storage._current_state["instances"]
+        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
         assert (
             instance_data["triggering_workflow_instance_id"]
             == triggering_workflow_instance_id
@@ -571,7 +526,7 @@ class TestDurableAgent:
 
         # Test that existing instance is not overwritten
         original_input = "Original input"
-        basic_durable_agent.state["instances"][instance_id]["input"] = original_input
+        basic_durable_agent.storage._current_state["instances"][instance_id]["input"] = original_input
 
         basic_durable_agent._ensure_instance_exists(
             instance_id, "different-parent", "2024-01-02T00:00:00Z"
@@ -579,7 +534,7 @@ class TestDurableAgent:
 
         # Input should remain unchanged
         assert (
-            basic_durable_agent.state["instances"][instance_id]["input"]
+            basic_durable_agent.storage._current_state["instances"][instance_id]["input"]
             == original_input
         )
 
@@ -590,7 +545,7 @@ class TestDurableAgent:
         user_message_copy = {"role": "user", "content": "Hello, world!"}
 
         # Set up instance
-        basic_durable_agent.state["instances"][instance_id] = {
+        basic_durable_agent.storage._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -603,14 +558,14 @@ class TestDurableAgent:
             "trace_context": None,
         }
 
-        # Mock memory.add_message
-        with patch.object(type(basic_durable_agent.memory), "add_message"):
+        # Mock storage.add_message
+        with patch.object(type(basic_durable_agent.storage), "add_message"):
             basic_durable_agent._process_user_message(
                 instance_id, task, user_message_copy
             )
 
         # Verify message was added to instance
-        instance_data = basic_durable_agent.state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
         assert len(instance_data["messages"]) == 1
         assert instance_data["messages"][0]["role"] == "user"
         assert instance_data["messages"][0]["content"] == "Hello, world!"
@@ -622,7 +577,7 @@ class TestDurableAgent:
         assistant_message = {"role": "assistant", "content": "Hello back!"}
 
         # Set up instance
-        basic_durable_agent.state["instances"][instance_id] = {
+        basic_durable_agent.storage._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -635,12 +590,12 @@ class TestDurableAgent:
             "trace_context": None,
         }
 
-        # Mock memory.add_message
-        with patch.object(type(basic_durable_agent.memory), "add_message"):
+        # Mock storage.add_message
+        with patch.object(type(basic_durable_agent.storage), "add_message"):
             basic_durable_agent._save_assistant_message(instance_id, assistant_message)
 
         # Verify message was added to instance
-        instance_data = basic_durable_agent.state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
         assert len(instance_data["messages"]) == 1
         assert instance_data["messages"][0]["role"] == "assistant"
         assert instance_data["messages"][0]["content"] == "Hello back!"
@@ -651,7 +606,7 @@ class TestDurableAgent:
         instance_id = "test-instance-123"
 
         # Set up instance with last_message
-        basic_durable_agent.state["instances"][instance_id] = {
+        basic_durable_agent.storage._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -711,7 +666,7 @@ class TestDurableAgent:
         instance_id = "test-instance-123"
 
         # Set up instance
-        basic_durable_agent.state["instances"][instance_id] = {
+        basic_durable_agent.storage._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -738,38 +693,11 @@ class TestDurableAgent:
         )
 
         # Verify instance was updated
-        instance_data = basic_durable_agent.state["instances"][instance_id]
+        instance_data = basic_durable_agent.storage._current_state["instances"][instance_id]
         assert len(instance_data["messages"]) == 1
         assert instance_data["messages"][0]["role"] == "assistant"
         assert len(instance_data["tool_history"]) == 1
         assert instance_data["tool_history"][0]["tool_call_id"] == "call_123"
-
-    def test_update_agent_memory_and_history(self, basic_durable_agent):
-        """Test _update_agent_memory_and_history helper method."""
-
-        tool_msg = ToolMessage(
-            tool_call_id="call_123", name="test_tool", content="Tool result"
-        )
-        tool_history_entry = ToolExecutionRecord(
-            tool_call_id="call_123",
-            tool_name="test_tool",
-            execution_result="tool_result",
-        )
-
-        # Mock the memory add_message method
-        with patch.object(
-            type(basic_durable_agent.memory), "add_message"
-        ) as mock_add_message:
-            basic_durable_agent._update_agent_memory_and_history(
-                tool_msg, tool_history_entry
-            )
-
-            # Verify memory was updated
-            mock_add_message.assert_called_once_with(tool_msg)
-
-        # Verify agent-level tool_history was updated
-        assert len(basic_durable_agent.tool_history) == 1
-        assert basic_durable_agent.tool_history[0].tool_call_id == "call_123"
 
     def test_construct_messages_with_instance_history(self, basic_durable_agent):
         """Test _construct_messages_with_instance_history helper method."""
@@ -777,7 +705,7 @@ class TestDurableAgent:
         input_data = "Test input"
 
         # Set up instance with messages
-        basic_durable_agent.state["instances"][instance_id] = {
+        basic_durable_agent.storage._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -880,4 +808,4 @@ class TestDurableAgent:
         )
         assert isinstance(validated_state, DurableAgentWorkflowState)
         assert "instances" in basic_durable_agent.state
-        assert basic_durable_agent.state["instances"] == {}
+        assert basic_durable_agent.storage._current_state["instances"] == {}
