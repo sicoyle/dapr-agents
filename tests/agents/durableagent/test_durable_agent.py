@@ -198,9 +198,7 @@ class TestDurableAgent:
             llm=mock_llm,
             storage=storage,
             max_iterations=5,
-            state_store_name="teststatestore",
             message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
         )
 
     @pytest.fixture
@@ -219,9 +217,7 @@ class TestDurableAgent:
             storage=storage,
             tools=[mock_tool],
             max_iterations=5,
-            state_store_name="teststatestore",
             message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
         )
 
     def test_durable_agent_initialization(self, mock_llm):
@@ -234,9 +230,7 @@ class TestDurableAgent:
             instructions=["Be helpful"],
             llm=mock_llm,
             storage=storage,
-            state_store_name="teststatestore",
             message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
         )
 
         assert agent.name == "TestDurableAgent"
@@ -245,7 +239,6 @@ class TestDurableAgent:
         assert agent.instructions == ["Be helpful"]
         assert agent.max_iterations == 10  # default value
         assert agent.tool_history == []
-        assert agent.state_store_name == "teststatestore"
         assert agent.message_bus_name == "testpubsub"
         assert agent.agent_topic_name == "TestDurableAgent"
         assert agent.state is not None
@@ -262,9 +255,7 @@ class TestDurableAgent:
             llm=mock_llm,
             storage=storage,
             agent_topic_name="custom-topic",
-            state_store_name="teststatestore",
             message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
         )
 
         assert agent.agent_topic_name == "custom-topic"
@@ -277,9 +268,7 @@ class TestDurableAgent:
             goal="Help with testing",
             llm=mock_llm,
             storage=storage,
-            state_store_name="teststatestore",
             message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
         )
 
         assert agent.name == "Test Durable Assistant"
