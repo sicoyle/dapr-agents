@@ -229,8 +229,6 @@ class StateManagementMixin:
             else:
                 self.storage._current_state = {}
 
-            # TODO(@Sicoyle): below here I do need to double check the restarting app with inflight workflow logic...
-
             # Load workflow instances from ALL sessions to support workflow resumption after restart
             # This ensures that if the app crashes mid-workflow and restarts, all in-flight
             # workflows across all sessions will be loaded and can be resumed by Dapr
