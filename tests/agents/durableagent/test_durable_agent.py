@@ -187,8 +187,7 @@ class TestDurableAgent:
     def basic_durable_agent(self, mock_llm):
         """Create a basic durable agent instance for testing."""
         storage = Storage.model_construct(
-            name="teststatestore",
-            session_id="test_session"
+            name="teststatestore", session_id="test_session"
         )
         return DurableAgent(
             name="TestDurableAgent",
@@ -205,8 +204,7 @@ class TestDurableAgent:
     def durable_agent_with_tools(self, mock_llm, mock_tool):
         """Create a durable agent with tools for testing."""
         storage = Storage.model_construct(
-            name="teststatestore",
-            session_id="test_session"
+            name="teststatestore", session_id="test_session"
         )
         return DurableAgent(
             name="ToolDurableAgent",
