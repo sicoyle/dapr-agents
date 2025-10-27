@@ -254,9 +254,6 @@ class TestAgentBaseClass:
 
     def test_chat_history_with_vector_memory_and_task(self):
         """Test chat history retrieval with storage."""
-        from tests.agents.mocks.vectorstore import MockVectorStore
-
-        mock_vector_store = MockVectorStore()
         mock_llm = MockLLMClient()
         agent = TestAgentBase(llm=mock_llm)
 

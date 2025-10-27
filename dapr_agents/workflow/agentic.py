@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import random
 import time
 from typing import Any, Callable, Dict, Optional, Tuple, Type, List
 
@@ -328,15 +329,6 @@ class AgenticWorkflow(
             agent_name (str): The name of the agent to register.
             agent_metadata (dict): The metadata to register for the agent.
         """
-        import json
-        import time
-        from dapr.clients.grpc._response import StateResponse
-        from dapr.clients.grpc._state import StateOptions, Concurrency, Consistency
-        from dapr.clients.grpc._request import (
-            TransactionalStateOperation,
-            TransactionOperationType,
-        )
-
         # Only proceed if agent has Dapr client
         if not hasattr(self, "_dapr_client"):
             logger.debug(
@@ -399,8 +391,6 @@ class AgenticWorkflow(
             except Exception as e:
                 logger.error(f"Error on transaction attempt: {attempt}: {e}")
                 # Add random jitter
-                import random
-
                 delay = 1 + random.uniform(0, 1)  # 1-2 seconds
                 logger.info(
                     f"Sleeping for {delay:.2f} seconds before retrying transaction..."
