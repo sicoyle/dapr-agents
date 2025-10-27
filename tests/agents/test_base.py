@@ -19,7 +19,7 @@ class TestAgentBase(AgentBase):
     def run(self, input_data):
         """Implementation of abstract method for testing."""
         return f"Processed: {input_data}"
-    
+
     def get_chat_history(self, task=None):
         """Implementation of abstract method for testing."""
         return self.storage.get_messages()

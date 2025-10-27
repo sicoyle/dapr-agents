@@ -109,7 +109,9 @@ class MockDaprClient:
     """Mock DaprClient that supports context manager protocol"""
 
     def __init__(self):
-        self.get_state = MagicMock(return_value=Mock(data=None, json=lambda: {}, etag="test-etag"))
+        self.get_state = MagicMock(
+            return_value=Mock(data=None, json=lambda: {}, etag="test-etag")
+        )
         self.save_state = MagicMock()
         self.delete_state = MagicMock()
         self.query_state = MagicMock()

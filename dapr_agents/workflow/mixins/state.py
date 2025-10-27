@@ -21,8 +21,8 @@ class StateManagementMixin:
     def _reconcile_workflow_statuses(self) -> None:
         """
         Reconcile workflow statuses between our Redis state and Dapr's actual workflow state.
-        
-        This method checks Dapr's actual status and updates our state to match, 
+
+        This method checks Dapr's actual status and updates our state to match,
         preventing stale "running" workflows from blocking new executions.
         """
         from dapr.clients import DaprClient
