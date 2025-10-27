@@ -186,13 +186,17 @@ class TestDurableAgent:
     @pytest.fixture
     def basic_durable_agent(self, mock_llm):
         """Create a basic durable agent instance for testing."""
+        storage = Storage.model_construct(
+            name="teststatestore",
+            session_id="test_session"
+        )
         return DurableAgent(
             name="TestDurableAgent",
             role="Test Durable Assistant",
             goal="Help with testing",
             instructions=["Be helpful", "Test things"],
             llm=mock_llm,
-            storage=Storage(name="teststatestore", session_id="test_session"),
+            storage=storage,
             max_iterations=5,
             state_store_name="teststatestore",
             message_bus_name="testpubsub",
@@ -202,13 +206,17 @@ class TestDurableAgent:
     @pytest.fixture
     def durable_agent_with_tools(self, mock_llm, mock_tool):
         """Create a durable agent with tools for testing."""
+        storage = Storage.model_construct(
+            name="teststatestore",
+            session_id="test_session"
+        )
         return DurableAgent(
             name="ToolDurableAgent",
             role="Tool Durable Assistant",
             goal="Execute tools",
             instructions=["Use tools when needed"],
             llm=mock_llm,
-            storage=Storage(name="teststatestore", session_id="test_session"),
+            storage=storage,
             tools=[mock_tool],
             max_iterations=5,
             state_store_name="teststatestore",
@@ -218,13 +226,14 @@ class TestDurableAgent:
 
     def test_durable_agent_initialization(self, mock_llm):
         """Test durable agent initialization with basic parameters."""
+        storage = Storage.model_construct(name="teststatestore")
         agent = DurableAgent(
             name="TestDurableAgent",
             role="Test Durable Assistant",
             goal="Help with testing",
             instructions=["Be helpful"],
             llm=mock_llm,
-            storage=Storage(name="teststatestore"),
+            storage=storage,
             state_store_name="teststatestore",
             message_bus_name="testpubsub",
             agents_registry_store_name="testregistry",
@@ -245,12 +254,13 @@ class TestDurableAgent:
 
     def test_durable_agent_initialization_with_custom_topic(self, mock_llm):
         """Test durable agent initialization with custom topic name."""
+        storage = Storage.model_construct(name="teststatestore")
         agent = DurableAgent(
             name="TestDurableAgent",
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            storage=Storage(name="teststatestore"),
+            storage=storage,
             agent_topic_name="custom-topic",
             state_store_name="teststatestore",
             message_bus_name="testpubsub",
@@ -261,11 +271,12 @@ class TestDurableAgent:
 
     def test_durable_agent_initialization_name_from_role(self, mock_llm):
         """Test durable agent initialization with name derived from role."""
+        storage = Storage.model_construct(name="teststatestore")
         agent = DurableAgent(
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            storage=Storage(name="teststatestore"),
+            storage=storage,
             state_store_name="teststatestore",
             message_bus_name="testpubsub",
             agents_registry_store_name="testregistry",

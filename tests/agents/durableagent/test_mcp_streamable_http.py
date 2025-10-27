@@ -140,15 +140,18 @@ def mock_mcp_session():
 @pytest.fixture
 def durable_agent_with_mcp_tool(mock_mcp_tool, mock_mcp_session):
     from dapr_agents.tool.executor import AgentToolExecutor
+    from dapr_agents.agents.storage import Storage
 
     agent_tool = AgentTool.from_mcp(mock_mcp_tool, session=mock_mcp_session)
     tool_executor = AgentToolExecutor(tools=[agent_tool])
+    storage = Storage.model_construct(name="teststatestore")
     agent = DurableAgent(
         name="TestDurableAgent",
         role="Math Assistant",
         goal="Help humans do math",
         instructions=["Test math instructions"],
         tools=[agent_tool],
+        storage=storage,
         state=DurableAgentWorkflowState().model_dump(),
         state_store_name="teststatestore",
         message_bus_name="testpubsub",
@@ -254,14 +257,17 @@ async def test_add_tool_with_real_server_http(start_math_server_http):
 async def test_durable_agent_with_real_server_http(start_math_server_http):
     agent_tools = await get_agent_tools_from_http()
     from dapr_agents.tool.executor import AgentToolExecutor
+    from dapr_agents.agents.storage import Storage
 
     tool_executor = AgentToolExecutor(tools=agent_tools)
+    storage = Storage.model_construct(name="teststatestore")
     agent = DurableAgent(
         name="TestDurableAgent",
         role="Math Assistant",
         goal="Help humans do math",
         instructions=["Test math instructions"],
         tools=agent_tools,
+        storage=storage,
         state=DurableAgentWorkflowState().model_dump(),
         state_store_name="teststatestore",
         message_bus_name="testpubsub",

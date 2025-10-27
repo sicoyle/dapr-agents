@@ -2,6 +2,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from dapr_agents.workflow.orchestrators import RandomOrchestrator
+from dapr_agents.agents.storage import Storage
 
 
 @pytest.fixture
@@ -12,6 +13,7 @@ def orchestrator_config():
         "message_bus_name": "test-message-bus",
         "state_store_name": "test-state-store",
         "agents_registry_store_name": "test-registry-store",
+        "storage": Storage.model_construct(name="test-state-store"),
     }
 
 
