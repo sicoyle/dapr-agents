@@ -61,11 +61,11 @@ def patch_dapr_check(monkeypatch):
     def mock_agentic_post_init(self, __context: Any) -> None:
         self._text_formatter = Mock()
         self.client = Mock()
-        self._state_store_client = Mock()
+        self._client = Mock()
         # Configure the mock to return a tuple as expected by try_get_state
-        self._state_store_client.try_get_state.return_value = (False, None)
+        self._client.get_state.return_value = (False, None)
         # Configure the mock for save_state method
-        self._state_store_client.save_state.return_value = None
+        self._client.save_state.return_value = None
         self._agent_metadata = {
             "name": getattr(self, "name", "TestAgent"),
             "role": getattr(self, "role", "Test Role"),
@@ -113,8 +113,6 @@ class MockDaprClient:
             return_value=Mock(data=None, json=lambda: {}, etag="test-etag")
         )
         self.save_state = MagicMock()
-        self.delete_state = MagicMock()
-        self.query_state = MagicMock()
         self.execute_state_transaction = MagicMock()
 
     def __enter__(self):

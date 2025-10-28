@@ -194,7 +194,7 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
 
         # Update session index to track this workflow instance
         if not ctx.is_replaying:
-            self.storage._update_session_index(instance_id, self._state_store_client)
+            self.storage._update_session_index(instance_id)
 
         # Initialize plan as empty list - it will be set after turn 1
         plan = []

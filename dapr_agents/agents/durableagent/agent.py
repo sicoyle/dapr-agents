@@ -439,7 +439,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         if "instances" not in self.storage._current_state:
             self.storage._current_state["instances"] = {}
         self.storage._current_state["instances"][instance_id] = entry
-        self.storage._update_session_index(instance_id, self._state_store_client)
+        self.storage._update_session_index(instance_id)
 
     # Note: This is only really needed bc of the in-memory storage solutions.
     # With persistent storage, this is not needed as we rehydrate the conversation state from the database upon app restart.
@@ -493,6 +493,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         inst = self.storage._current_state["instances"][instance_id]
         inst["messages"].append(msg_object.model_dump(mode="json"))
         inst["last_message"] = msg_object.model_dump(mode="json")
+        # TODO: below uses the state mixin. When we remove the state mixin then this should be cleaned up below!
         self.save_state()
 
     def _call_llm(self, messages: List[Dict[str, Any]]) -> Dict[str, Any]:

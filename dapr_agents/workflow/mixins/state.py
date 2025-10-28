@@ -27,11 +27,11 @@ class StateManagementMixin:
         """
         from dapr.clients import DaprClient
 
-        instances = self.storage._current_state.get("instances", {})
+        instances = self.storage._current_state["instances"]
         updated_instances = []
 
         for instance_id, instance_data in instances.items():
-            our_status = instance_data.get("status", "").lower()
+            our_status = instance_data["status"].lower()
 
             # Only check running instances (completed/failed instances are already finalized)
             if our_status in ["running", "pending"]:
@@ -57,7 +57,7 @@ class StateManagementMixin:
                             # Save the updated instance back to Redis
                             instance_key = self.storage._get_instance_key(instance_id)
                             self.storage._save_state_with_metadata(
-                                self._state_store_client, instance_key, instance_data
+                                instance_key, instance_data
                             )
 
                         elif dapr_status == "COMPLETED":
@@ -65,14 +65,14 @@ class StateManagementMixin:
                                 f"Workflow {instance_id} completed in Dapr. Updating Redis state."
                             )
                             instance_data["status"] = "completed"
-                            if not instance_data.get("end_time"):
+                            if not instance_data["end_time"]:
                                 instance_data["end_time"] = datetime.now().isoformat()
                             updated_instances.append(instance_id)
 
                             # Save the updated instance
                             instance_key = self.storage._get_instance_key(instance_id)
                             self.storage._save_state_with_metadata(
-                                self._state_store_client, instance_key, instance_data
+                                instance_key, instance_data
                             )
 
                 except Exception as e:
@@ -97,7 +97,7 @@ class StateManagementMixin:
         Returns:
             bool: True if message sequence is valid, False otherwise
         """
-        messages = instance_data.get("messages", [])
+        messages = instance_data["messages"]
 
         # Collect all tool_call_ids that need responses
         pending_tool_calls = set()
@@ -108,17 +108,17 @@ class StateManagementMixin:
                 if isinstance(msg, dict)
                 else (msg.model_dump() if hasattr(msg, "model_dump") else {})
             )
-            role = msg_dict.get("role")
+            role = msg_dict.get("role", [])
 
-            if role == "assistant" and msg_dict.get("tool_calls"):
+            if role == "assistant" and msg_dict.get("tool_calls", []):
                 # Add all tool_call_ids from this assistant message
                 for tool_call in msg_dict.get("tool_calls", []):
                     if isinstance(tool_call, dict):
-                        pending_tool_calls.add(tool_call.get("id"))
+                        pending_tool_calls.add(tool_call["id"])
 
             elif role == "tool":
                 # Remove this tool_call_id as it has a response
-                tool_call_id = msg_dict.get("tool_call_id")
+                tool_call_id = msg_dict.get("tool_call_id", [])
                 if tool_call_id in pending_tool_calls:
                     pending_tool_calls.remove(tool_call_id)
 
@@ -198,7 +198,7 @@ class StateManagementMixin:
         """
         try:
             if (
-                not self._state_store_client
+                not self._dapr_client
                 or not self.storage.name
                 or not self.storage._key
             ):
@@ -208,23 +208,12 @@ class StateManagementMixin:
                 )
 
             # For durable agents, always load from database to ensure it's the source of truth
-            has_state, state_data = self._state_store_client.try_get_state(
+            response = self._dapr_client.get_state(
+                self.storage.name,
                 self.storage._key
             )
-            if has_state and state_data:
-                logger.debug(
-                    f"Existing state found for key '{self.storage._key}'. Validating it."
-                )
-                # Deserialize JSON string if necessary
-                if isinstance(state_data, str):
-                    import json
-
-                    state_data = json.loads(state_data)
-
-                if not isinstance(state_data, dict):
-                    raise TypeError(
-                        f"Invalid state type retrieved: {type(state_data)}. Expected dict."
-                    )
+            if response.data:
+                state_data = self._deserialize_state(response.data)
                 self.storage._current_state = state_data
             else:
                 self.storage._current_state = {}
@@ -237,17 +226,13 @@ class StateManagementMixin:
 
             # Get all sessions for this agent
             sessions_index_key = self.storage._get_sessions_index_key()
-            has_index, index_data = self._state_store_client.try_get_state(
+            response = self._dapr_client.get_state(
+                self.storage.name,
                 sessions_index_key
             )
 
-            if has_index and index_data:
-                # Deserialize if it's a JSON string
-                if isinstance(index_data, str):
-                    import json
-
-                    index_data = json.loads(index_data)
-
+            if response.data:
+                index_data = self._deserialize_state(response.data)
                 session_ids = index_data.get("sessions", [])
                 logger.debug(
                     f"Found {len(session_ids)} session(s) for agent '{self.storage._agent_name}'"
@@ -256,14 +241,13 @@ class StateManagementMixin:
                 # Load workflow instances from each session
                 for session_id in session_ids:
                     session_key = self.storage._get_session_key(session_id)
-                    has_session, session_data = self._state_store_client.try_get_state(
+                    response = self._dapr_client.get_state(
+                        self.storage.name,
                         session_key
                     )
 
-                    if has_session and session_data:
-                        # Deserialize if it's a JSON string
-                        if isinstance(session_data, str):
-                            session_data = json.loads(session_data)
+                    if response.data:
+                        session_data = self._deserialize_state(response.data)
 
                         instance_ids = session_data.get("workflow_instances", [])
                         logger.debug(
@@ -273,18 +257,13 @@ class StateManagementMixin:
                         # Load each instance
                         for instance_id in instance_ids:
                             instance_key = self.storage._get_instance_key(instance_id)
-                            (
-                                has_instance,
-                                instance_data,
-                            ) = self._state_store_client.try_get_state(instance_key)
-                            if has_instance and instance_data:
-                                # Deserialize if it's a JSON string
-                                if isinstance(instance_data, str):
-                                    instance_data = json.loads(instance_data)
+                            response = self._dapr_client.get_state(self.storage.name, instance_key)
+                            if response.data:
+                                instance_data = self._deserialize_state(response.data)
 
                                 # Validate message sequence before loading, but ONLY for completed workflows
                                 # Running workflows are expected to have incomplete sequences mid-execution
-                                status = instance_data.get("status", "").lower()
+                                status = instance_data["status"].lower()
                                 if status in ["running", "pending"]:
                                     # Always load running/pending instances (they're allowed to be incomplete)
                                     self.storage._current_state["instances"][
@@ -313,11 +292,6 @@ class StateManagementMixin:
                 f"Set self.storage._current_state to loaded data: {self.storage._current_state}"
             )
             return self.storage._current_state
-
-            logger.debug(
-                f"No existing state found for key '{self.storage._key}'. Initializing empty state."
-            )
-            return {}
         except Exception as e:
             logger.error(f"Failed to load state for key '{self.storage._key}': {e}")
             raise RuntimeError(f"Error loading workflow state: {e}") from e
@@ -412,7 +386,7 @@ class StateManagementMixin:
         """
         try:
             if (
-                not self._state_store_client
+                not self._dapr_client
                 or not self.storage.name
                 or not self.storage._key
             ):
@@ -454,7 +428,7 @@ class StateManagementMixin:
                         instance_json = instance_data
                     else:
                         instance_json = json.dumps(instance_data)
-                    self._state_store_client.save_state(instance_key, instance_json)
+                    self._dapr_client.save_state(self.storage.name, instance_key, instance_json)
                     logger.debug(
                         f"Saved workflow instance {instance_id} to key '{instance_key}'"
                     )
@@ -465,7 +439,7 @@ class StateManagementMixin:
             }
             if other_state:
                 other_state_json = json.dumps(other_state)
-                self._state_store_client.save_state(self.storage._key, other_state_json)
+                self._dapr_client.save_state(self.storage.name, self.storage._key, other_state_json)
                 logger.debug(f"Saved non-instance state to key '{self.storage._key}'")
 
             if self.storage.local_directory is not None:
@@ -479,3 +453,25 @@ class StateManagementMixin:
         except Exception as e:
             logger.error(f"Failed to save state for key '{self.storage._key}': {e}")
             raise
+
+    def _deserialize_state(self, raw: Union[bytes, str, dict]) -> dict:
+        """
+        Convert Dapr's raw payload (bytes, JSON string, or already a dict) into a dict.
+        Raises helpful errors on failure.
+        """
+        if isinstance(raw, dict):
+            return raw
+
+        if isinstance(raw, bytes):
+            try:
+                raw = raw.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError("State bytes are not valid UTF-8") from exc
+
+        if isinstance(raw, str):
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"State is not valid JSON: {exc}") from exc
+
+        raise TypeError(f"Unsupported state type {type(raw)!r}")

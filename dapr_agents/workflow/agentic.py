@@ -20,7 +20,6 @@ from pydantic import BaseModel, Field, PrivateAttr
 
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
 from dapr_agents.memory import MemoryBase, ConversationVectorMemory
-from dapr_agents.storage.daprstores.statestore import DaprStateStore
 from dapr_agents.workflow.base import WorkflowApp
 from dapr_agents.workflow.mixins import (
     MessagingMixin,
@@ -76,7 +75,6 @@ class AgenticWorkflow(
     )
 
     # Private internal attributes (not schema/validated)
-    _state_store_client: Optional[DaprStateStore] = PrivateAttr(default=None)
     _text_formatter: ColorTextFormatter = PrivateAttr(default=ColorTextFormatter)
     _agent_metadata: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _workflow_name: str = PrivateAttr(default=None)
@@ -109,7 +107,6 @@ class AgenticWorkflow(
         # Set storage key based on agent name
         self.storage._set_key(self.name)
 
-        self._state_store_client = DaprStateStore(store_name=self.storage.name)
         logger.info(f"State store '{self.storage.name}' initialized.")
         self.initialize_state()
         super().model_post_init(__context)
@@ -143,7 +140,7 @@ class AgenticWorkflow(
 
         # Get messages from storage
         if self.storage._current_state is None:
-            logger.warning("Agent state is None, initializing empty state")
+            logger.debug("Agent state is None, initializing empty state")
             self.storage._current_state = {}
 
         # Get messages from all instances
