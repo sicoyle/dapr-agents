@@ -11,7 +11,7 @@ from dapr.clients import DaprClient
 
 logger = logging.getLogger(__name__)
 
-class Storage(BaseModel):
+class MemoryStore(BaseModel):
     """
     Unified storage for both Agent and DurableAgent.
 
@@ -19,12 +19,10 @@ class Storage(BaseModel):
     - If `name` is None: Pure in-memory operation (no persistence, no registration)
     - If `name` is provided:
         - Conversation history: Persistent in Dapr state store
-        - Agent registration: Registered for discovery by orchestrators
 
     For DurableAgent:
     - Requires `name` to be provided
     - Conversation history: Persistent in Dapr state store (via workflow instances)
-    - Agent registration: Registered for discovery
     - Workflow state: Full workflow instance tracking with sessions
     """
 
@@ -100,7 +98,7 @@ class Storage(BaseModel):
             try:
                 state_data = json.loads(state_data)
             except json.JSONDecodeError:
-                logger.error(f"Failed to parse JSON for key '{self.storage._key}': {state_data}")
+                logger.error(f"Failed to parse JSON for key '{self.memory_store._key}': {state_data}")
                 state_data = {}
 
         if response.data:

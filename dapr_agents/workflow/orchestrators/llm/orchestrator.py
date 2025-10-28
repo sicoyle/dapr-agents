@@ -37,7 +37,7 @@ from dapr_agents.workflow.orchestrators.llm.utils import (
     restructure_plan,
     update_step_statuses,
 )
-from dapr_agents.agents.storage import Storage
+from dapr_agents.agents.memory_store import MemoryStore
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +54,8 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         default=None,
         description="The current workflow instance ID for this orchestrator.",
     )
-    memory: Storage = Field(
-        default_factory=lambda: Storage(
+    memory: MemoryStore = Field(
+        default_factory=lambda: MemoryStore(
             name="workflowstatestore", session_id="orchestrator_session"
         ),
         description="Persistent storage with session-based state hydration.",
@@ -194,7 +194,7 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
 
         # Update session index to track this workflow instance
         if not ctx.is_replaying:
-            self.storage._update_session_index(instance_id)
+            self.memory_store._update_session_index(instance_id)
 
         # Initialize plan as empty list - it will be set after turn 1
         plan = []

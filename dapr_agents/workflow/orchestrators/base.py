@@ -1,7 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Optional
-
 from dapr.ext.workflow import DaprWorkflowContext
 from pydantic import Field, model_validator
 
@@ -33,19 +32,19 @@ class OrchestratorWorkflowBase(AgenticWorkflow, ABC):
         super().model_post_init(__context)
 
         # Prepare agent metadata
-        self._agent_metadata = {
+        agent_metadata = {
             "name": self.name,
             "topic_name": self.orchestrator_topic_name,
             "pubsub_name": self.message_bus_name,
             "orchestrator": True,
         }
 
-        if self.storage and self.storage.name:
+        if self.memory_store and self.memory_store.name:
             self.register_agent(
-                store_name=self.storage.name,
+                store_name=self.registry_store,
                 store_key="agent_registry",
                 agent_name=self.name,
-                agent_metadata=self._agent_metadata,
+                agent_metadata=self._serialize_metadata(agent_metadata),
             )
 
         # Start the runtime if it's not already running
@@ -79,3 +78,21 @@ class OrchestratorWorkflowBase(AgenticWorkflow, ABC):
     async def trigger_agent(self, name: str, instance_id: str, **kwargs) -> None:
         """Trigger a specific agent to perform an action."""
         pass
+
+    
+    def _serialize_metadata(self, metadata: Any) -> Any:
+        """
+        Recursively convert Pydantic models (e.g., AgentTool), lists, dicts to JSON-serializable format.
+        Handles mixed tools: [AgentTool(...), "string", ...] → [{"name": "..."}, "string", ...]
+        """
+        def convert(obj: Any) -> Any:
+            if hasattr(obj, "model_dump"):
+                return obj.model_dump()
+            if hasattr(obj, "dict"):
+                return obj.dict()
+            if isinstance(obj, (list, tuple)):
+                return [convert(i) for i in obj]
+            if isinstance(obj, dict):
+                return {k: convert(v) for k, v in obj.items()}
+            return obj
+        return convert(metadata)

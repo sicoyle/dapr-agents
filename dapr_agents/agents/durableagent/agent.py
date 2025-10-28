@@ -8,7 +8,7 @@ from dapr.ext.workflow import DaprWorkflowContext  # type: ignore
 from pydantic import Field, model_validator
 
 from dapr_agents.agents.base import AgentBase
-from dapr_agents.agents.storage import DurableAgentWorkflowState
+from dapr_agents.agents.memory_store import DurableAgentWorkflowState
 from dapr_agents.types import (
     AgentError,
     AssistantMessage,
@@ -27,7 +27,7 @@ from .schemas import (
     InternalTriggerAction,
     TriggerAction,
 )
-from dapr_agents.agents.storage import (
+from dapr_agents.agents.memory_store import (
     DurableAgentMessage,
     DurableAgentWorkflowEntry,
 )
@@ -58,13 +58,13 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             List[Dict[str, Any]]: The chat history as dictionaries.
         """
         # Get instance-specific chat history
-        if self.storage._current_state is None:
+        if self.memory_store._current_state is None:
             logger.warning("Agent state is None, initializing empty state")
-            self.storage._current_state = {}
+            self.memory_store._current_state = {}
 
         # Get messages from all instances
         all_messages = []
-        instance_data = self.storage._current_state.get("instances", {})
+        instance_data = self.memory_store._current_state.get("instances", {})
         logger.debug(f"Current state instances: {instance_data}")
 
         for instance in instance_data.values():
@@ -73,7 +73,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             all_messages.extend(messages)
 
         # Get long-term memory from workflow state (for broadcast messages and persistent context)
-        long_term_memory = self.storage._current_state.get("chat_history", [])
+        long_term_memory = self.memory_store._current_state.get("chat_history", [])
         all_messages.extend(long_term_memory)
 
         return all_messages
@@ -114,29 +114,29 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         self._workflow_name = "AgenticWorkflow"
 
         # Initialize state structure if it doesn't exist
-        if not self.storage._current_state:
-            self.storage._current_state = {"instances": {}}
+        if not self.memory_store._current_state:
+            self.memory_store._current_state = {"instances": {}}
 
-        if not self.storage.name:
+        if not self.memory_store.name:
             raise ValueError("DurableAgent must have a name for persistent storage")
 
         # Load the current workflow instance ID from state using session_id
-        logger.debug(f"State after loading: {self.storage._current_state}")
-        if self.storage._current_state and self.storage._current_state.get("instances"):
+        logger.debug(f"State after loading: {self.memory_store._current_state}")
+        if self.memory_store._current_state and self.memory_store._current_state.get("instances"):
             logger.debug(
-                f"Found {len(self.storage._current_state['instances'])} instances in state"
+                f"Found {len(self.memory_store._current_state['instances'])} instances in state"
             )
-            for instance_id, instance_data in self.storage._current_state[
+            for instance_id, instance_data in self.memory_store._current_state[
                 "instances"
             ].items():
                 stored_workflow_name = instance_data.get("workflow_name")
                 stored_session_id = instance_data.get("session_id")
                 logger.debug(
-                    f"Instance {instance_id}: workflow_name={stored_workflow_name}, session_id={stored_session_id}, current_workflow_name={self._workflow_name}, current_session_id={self.storage.session_id}"
+                    f"Instance {instance_id}: workflow_name={stored_workflow_name}, session_id={stored_session_id}, current_workflow_name={self._workflow_name}, current_session_id={self.memory_store.session_id}"
                 )
                 if (
                     stored_workflow_name == self._workflow_name
-                    and stored_session_id == self.storage.session_id
+                    and stored_session_id == self.memory_store.session_id
                 ):
                     self.workflow_instance_id = instance_id
                     logger.debug(
@@ -167,7 +167,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
         # Update session ID if provided
         if session_id is not None:
-            self.storage.session_id = session_id
+            self.memory_store.session_id = session_id
 
         # Set up signal handlers for graceful shutdown when using run() method
         self.setup_signal_handlers()
@@ -428,7 +428,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             "workflow_instance_id": instance_id,
             "triggering_workflow_instance_id": triggering_workflow_instance_id,
             "workflow_name": self._workflow_name,
-            "session_id": self.storage.session_id,
+            "session_id": self.memory_store.session_id,
             "start_time": start_time_str,
             "trace_context": trace_context,
             "status": DaprWorkflowStatus.RUNNING.value,
@@ -436,10 +436,10 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             "tool_history": [],
             "end_time": None,
         }
-        if "instances" not in self.storage._current_state:
-            self.storage._current_state["instances"] = {}
-        self.storage._current_state["instances"][instance_id] = entry
-        self.storage._update_session_index(instance_id)
+        if "instances" not in self.memory_store._current_state:
+            self.memory_store._current_state["instances"] = {}
+        self.memory_store._current_state["instances"][instance_id] = entry
+        self.memory_store._update_session_index(instance_id)
 
     # Note: This is only really needed bc of the in-memory storage solutions.
     # With persistent storage, this is not needed as we rehydrate the conversation state from the database upon app restart.
@@ -451,9 +451,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         time: Optional[datetime] = None,
     ) -> None:
         """Ensure the instance entry exists in the state."""
-        if instance_id not in self.storage._current_state.get("instances", {}):
-            if "instances" not in self.storage._current_state:
-                self.storage._current_state["instances"] = {}
+        if instance_id not in self.memory_store._current_state.get("instances", {}):
+            if "instances" not in self.memory_store._current_state:
+                self.memory_store._current_state["instances"] = {}
 
             # Handle time parameter - it might be a datetime object or a string
             if time:
@@ -464,14 +464,14 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             else:
                 start_time = datetime.now(timezone.utc).isoformat()
 
-            self.storage._current_state["instances"][instance_id] = {
+            self.memory_store._current_state["instances"][instance_id] = {
                 "input": input,
                 "start_time": start_time,
                 "source": "user_input",
                 "workflow_instance_id": instance_id,
                 "triggering_workflow_instance_id": triggering_workflow_instance_id,
                 "workflow_name": self._workflow_name,
-                "session_id": self.storage.session_id,
+                "session_id": self.memory_store.session_id,
                 "messages": [],
                 "tool_history": [],
                 "status": DaprWorkflowStatus.RUNNING.value,
@@ -490,7 +490,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             return
 
         msg_object = DurableAgentMessage(**user_message_copy)
-        inst = self.storage._current_state["instances"][instance_id]
+        inst = self.memory_store._current_state["instances"][instance_id]
         inst["messages"].append(msg_object.model_dump(mode="json"))
         inst["last_message"] = msg_object.model_dump(mode="json")
         # TODO: below uses the state mixin. When we remove the state mixin then this should be cleaned up below!
@@ -520,7 +520,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         assistant_message["name"] = self.name
         agent_msg = DurableAgentMessage(**assistant_message)
 
-        inst = self.storage._current_state["instances"][instance_id]
+        inst = self.memory_store._current_state["instances"][instance_id]
         messages_list = inst["messages"]
 
         # Check for duplicate by message ID (idempotent for workflow replay)
@@ -641,7 +641,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             agent_msg: The DurableAgentMessage object
             tool_history_entry: The ToolExecutionRecord object
         """
-        wf_instance = self.storage._current_state["instances"][instance_id]
+        wf_instance = self.memory_store._current_state["instances"][instance_id]
         logger.debug(f"Before appending - instance state: {wf_instance}")
 
         # Check if message already exists (idempotent operation for workflow replay)
@@ -680,7 +680,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         Returns:
             The last message dict or None if not found
         """
-        instance_data = self.storage._current_state.get("instances", {}).get(
+        instance_data = self.memory_store._current_state.get("instances", {}).get(
             instance_id
         )
         if instance_data is not None:
@@ -739,14 +739,14 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         # Atomically persist both the assistant's tool call and the tool result
         # Get existing input or use placeholder
         existing_input = (
-            self.storage._current_state["instances"][instance_id]["input"]
-            if instance_id in self.storage._current_state.get("instances", {})
+            self.memory_store._current_state["instances"][instance_id]["input"]
+            if instance_id in self.memory_store._current_state.get("instances", {})
             else "Tool execution"
         )
         self._ensure_instance_exists(instance_id, existing_input, time=time)
 
         # Save both the assistant's tool call and the tool result atomically
-        instance = self.storage._current_state["instances"][instance_id]
+        instance = self.memory_store._current_state["instances"][instance_id]
         instance["messages"].append(
             {
                 "role": "tool",
@@ -826,14 +826,14 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         """
         # Ensure the instance entry exists
         existing_input = (
-            self.storage._current_state["instances"][instance_id]["input"]
-            if instance_id in self.storage._current_state.get("instances", {})
+            self.memory_store._current_state["instances"][instance_id]["input"]
+            if instance_id in self.memory_store._current_state.get("instances", {})
             else "Workflow completion"
         )
         self._ensure_instance_exists(
             instance_id, existing_input, triggering_workflow_instance_id, time
         )
-        instance = self.storage._current_state["instances"][instance_id]
+        instance = self.memory_store._current_state["instances"][instance_id]
         instance["output"] = final_output
         # Convert time to string for JSON serialization
         if time:
@@ -889,9 +889,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             agent_msg = DurableAgentMessage(**message.model_dump())
 
             # Persist to global chat history
-            if "chat_history" not in self.storage._current_state:
-                self.storage._current_state["chat_history"] = []
-            self.storage._current_state["chat_history"].append(
+            if "chat_history" not in self.memory_store._current_state:
+                self.memory_store._current_state["chat_history"] = []
+            self.memory_store._current_state["chat_history"].append(
                 agent_msg.model_dump(mode="json")
             )
             # Save the state after processing the broadcast message
@@ -942,13 +942,13 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             )
 
         # Get instance-specific chat history
-        if self.storage._current_state is None:
+        if self.memory_store._current_state is None:
             logger.warning(
                 f"Agent state is None for instance {instance_id}, initializing empty state"
             )
-            self.storage._current_state = {}
+            self.memory_store._current_state = {}
 
-        instance_data = self.storage._current_state.get("instances", {}).get(
+        instance_data = self.memory_store._current_state.get("instances", {}).get(
             instance_id
         )
         if instance_data is not None:
@@ -957,7 +957,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             instance_messages = []
 
         # Get long-term memory from workflow state (for broadcast messages and persistent context)
-        long_term_memory_data = self.storage._current_state.get("chat_history", [])
+        long_term_memory_data = self.memory_store._current_state.get("chat_history", [])
         long_term_memory_messages = []
         for msg in long_term_memory_data:
             if isinstance(msg, dict):

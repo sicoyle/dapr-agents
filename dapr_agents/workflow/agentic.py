@@ -3,8 +3,7 @@ import json
 import logging
 import random
 import time
-from typing import Any, Callable, Dict, Optional, Tuple, Type, List
-
+from typing import Any, Callable, Dict, Optional, Tuple, Type, List, Union
 from cloudevents.http.conversion import from_http
 from cloudevents.http.event import CloudEvent
 from dapr.clients import DaprClient
@@ -27,7 +26,7 @@ from dapr_agents.workflow.mixins import (
     ServiceMixin,
     StateManagementMixin,
 )
-from dapr_agents.agents.storage import Storage
+from dapr_agents.agents.memory_store import MemoryStore
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +53,14 @@ class AgenticWorkflow(
         description="Default topic for broadcasting messages. Set explicitly for multi-agent setups.",
     )
 
-    storage: Storage = Field(
+    memory_store: MemoryStore = Field(
         ...,
         description="The durable storage for workflow state and agent registration.",
+    )
+
+    registry_store: Optional[str] = Field(
+        default=None,
+        description="Agent registry store name for storing static agent information."
     )
 
     # TODO: test this is respected by runtime.
@@ -76,7 +80,6 @@ class AgenticWorkflow(
 
     # Private internal attributes (not schema/validated)
     _text_formatter: ColorTextFormatter = PrivateAttr(default=ColorTextFormatter)
-    _agent_metadata: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _workflow_name: str = PrivateAttr(default=None)
     _dapr_client: Optional[DaprClient] = PrivateAttr(default=None)
     _is_running: bool = PrivateAttr(default=False)
@@ -105,10 +108,13 @@ class AgenticWorkflow(
         self._text_formatter = ColorTextFormatter()
 
         # Set storage key based on agent name
-        self.storage._set_key(self.name)
-
-        logger.info(f"State store '{self.storage.name}' initialized.")
+        self.memory_store._set_key(self.name)
+        
+        logger.info(f"State store '{self.memory_store.name}' initialized.")
         self.initialize_state()
+        if self.registry_store is None:
+            self.registry_store = self.memory_store.name
+
         super().model_post_init(__context)
 
     def get_chat_history(self, task: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -139,18 +145,18 @@ class AgenticWorkflow(
                     return vector_messages
 
         # Get messages from storage
-        if self.storage._current_state is None:
+        if self.memory_store._current_state is None:
             logger.debug("Agent state is None, initializing empty state")
-            self.storage._current_state = {}
+            self.memory_store._current_state = {}
 
         # Get messages from all instances
         all_messages = []
-        for instance in self.storage._current_state.get("instances", {}).values():
+        for instance in self.memory_store._current_state.get("instances", {}).values():
             messages = instance.get("messages", [])
             all_messages.extend(messages)
 
         # Get long-term memory from workflow state
-        long_term_memory = self.storage._current_state.get("chat_history", [])
+        long_term_memory = self.memory_store._current_state.get("chat_history", [])
         all_messages.extend(long_term_memory)
 
         # If we have vector memory but no task, also include vector memory messages
@@ -211,12 +217,12 @@ class AgenticWorkflow(
         """
         try:
             agents_metadata = (
-                self.get_data_from_store(self.storage.name, "agent_registry") or {}
+                self.get_data_from_store(self.memory_store.name, "agent_registry") or {}
             )
 
             if agents_metadata:
                 logger.info(
-                    f"Agents found in '{self.storage.name}' for key 'agent_registry'."
+                    f"Agents found in '{self.memory_store.name}' for key 'agent_registry'."
                 )
                 filtered = {
                     name: metadata
@@ -231,7 +237,7 @@ class AgenticWorkflow(
                 return filtered
 
             logger.info(
-                f"No agents found in '{self.storage.name}' for key 'agent_registry'."
+                f"No agents found in '{self.memory_store.name}' for key 'agent_registry'."
             )
             return {}
         except Exception as e:
@@ -358,7 +364,7 @@ class AgenticWorkflow(
                     )
                     # raise an exception to retry the entire operation
                     raise Exception(f"No etag found for key: {store_key}")
-                existing_data = json.loads(response.data) if response.data else {}
+                existing_data = self._deserialize_state(response.data) if response.data else {}
                 if (agent_name, agent_metadata) in existing_data.items():
                     logger.debug(f"agent {agent_name} already registered.")
                     return None
@@ -396,3 +402,25 @@ class AgenticWorkflow(
         raise Exception(
             f"Failed to update state store key: {store_key} after 20 attempts."
         )
+
+    def _deserialize_state(self, raw: Union[bytes, str, dict]) -> dict:
+        """
+        Convert Dapr's raw payload (bytes, JSON string, or already a dict) into a dict.
+        Raises helpful errors on failure.
+        """
+        if isinstance(raw, dict):
+            return raw
+
+        if isinstance(raw, bytes):
+            try:
+                raw = raw.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError("State bytes are not valid UTF-8") from exc
+
+        if isinstance(raw, str):
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"State is not valid JSON: {exc}") from exc
+
+        raise TypeError(f"Unsupported state type {type(raw)!r}")

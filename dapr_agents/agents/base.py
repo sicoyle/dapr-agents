@@ -1,9 +1,4 @@
-from dapr_agents.memory import (
-    MemoryBase,
-    ConversationListMemory,
-    ConversationVectorMemory,
-)
-from dapr_agents.agents.storage import Storage
+from dapr_agents.agents.memory_store import MemoryStore
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
 from dapr_agents.types import MessagePlaceHolder, BaseMessage, ToolExecutionRecord
 from dapr_agents.tool.executor import AgentToolExecutor
@@ -11,6 +6,7 @@ from dapr_agents.prompt.base import PromptTemplateBase
 from dapr_agents.prompt import ChatPromptTemplate
 from dapr_agents.tool.base import AgentTool
 import re
+import json
 from datetime import datetime
 import logging
 import asyncio
@@ -97,13 +93,17 @@ class AgentBase(BaseModel, ABC):
         default="jinja2",
         description="The format used for rendering the prompt template.",
     )
-    storage: Optional["Storage"] = Field(
+    memory_store: Optional["MemoryStore"] = Field(
         default=None,
         description=(
             "Storage for conversation history. "
             "If None, a default in-memory Storage will be created. "
             "For persistent storage, specify the name of the Dapr State Store to use. "
         ),
+    )
+    registry_store: Optional[str] = Field(
+        default=None,
+        description="Agent registry store name for storing static agent information. Defaults to memory_store state store name if not provided."
     )
 
     DEFAULT_SYSTEM_PROMPT: ClassVar[str]
@@ -175,15 +175,15 @@ Your role is {role}.
             self.llm = get_default_llm()
 
         # Initialize storage if not provided (in-memory by default)
-        if self.storage is None:
-            self.storage = Storage()
+        if self.memory_store is None:
+            self.memory_store = MemoryStore()
             logger.debug("Initialized default in-memory Storage")
 
         # Initialize Dapr client if storage is persistent
         # This is needed for state store access and agent registration
         if (
-            self.storage
-            and self.storage.name
+            self.memory_store
+            and self.memory_store.name
             and (not hasattr(self, "_dapr_client") or self._dapr_client is None)
         ):
             from dapr.clients import DaprClient
@@ -195,22 +195,26 @@ Your role is {role}.
 
         # Register agent if it has persistent storage
         # This applies to both Agent and DurableAgent with persistent storage
-        if self.storage and self.storage.name:
-            self._agent_metadata = {
+        if self.memory_store and self.memory_store.name:
+            self.registry_store = self.memory_store.name
+            agent_metadata = {
                 "name": self.name,
                 "role": self.role,
                 "goal": self.goal,
+                "tool_choice": self.tool_choice,
                 "instructions": self.instructions,
                 "topic_name": getattr(self, "agent_topic_name", None),
                 "pubsub_name": getattr(self, "message_bus_name", None),
                 "orchestrator": False,
-                "statestore_name": self.storage.name,
+                "statestore_name": self.memory_store.name,
+                "registry_name": self.registry_store,
             }
+            
             self.register_agent(
-                store_name=self.storage.name,
+                store_name=self.registry_store,
                 store_key="agent_registry",
                 agent_name=self.name,
-                agent_metadata=self._agent_metadata,
+                agent_metadata=self._serialize_metadata(agent_metadata),
             )
 
         # Centralize prompt template selection logic
@@ -593,6 +597,7 @@ Your role is {role}.
         # TODO: rm the custom retry logic here and use the DaprClient retry_policy instead.
         for attempt in range(1, 21):
             try:
+                # Get current registry and etag
                 response: StateResponse = self._dapr_client.get_state(
                     store_name=store_name, key=store_key
                 )
@@ -612,15 +617,24 @@ Your role is {role}.
                             consistency=Consistency.strong,
                         ),
                     )
-                    # raise an exception to retry the entire operation
-                    raise Exception(f"No etag found for key: {store_key}")
-                existing_data = json.loads(response.data) if response.data else {}
-                if (agent_name, agent_metadata) in existing_data.items():
-                    logger.debug(f"agent {agent_name} already registered.")
-                    return None
-                agent_data = {agent_name: agent_metadata}
-                merged_data = {**existing_data, **agent_data}
-                logger.debug(f"merged data: {merged_data} etag: {response.etag}")
+
+                    # reread to obtain the freshly minted ETag
+                    resp = self._dapr_client.get_state(store_name=store_name, key=store_key)
+                    if not resp.etag:
+                        raise RuntimeError("ETag still missing after init")
+                    
+                existing = self._deserialize_state(resp.data) if resp.data else {}
+
+                if existing.get(agent_name) == agent_metadata:
+                    logger.debug(f"Agent '{agent_name}' already registered")
+                    return
+                
+                safe_metadata = self._serialize_metadata(agent_metadata)
+
+                merged = {**existing, agent_name: safe_metadata}
+                merged_json = json.dumps(merged)
+
+                logger.debug(f"merged data: {merged_json} etag: {response.etag}")
                 try:
                     # using the transactional API to be able to later support the Dapr outbox pattern
                     self._dapr_client.execute_state_transaction(
@@ -628,7 +642,7 @@ Your role is {role}.
                         operations=[
                             TransactionalStateOperation(
                                 key=store_key,
-                                data=json.dumps(merged_data),
+                                data=merged_json,
                                 etag=response.etag,
                                 operation_type=TransactionOperationType.upsert,
                             )
@@ -674,3 +688,42 @@ Your role is {role}.
 
         self.prompt_template = self.prompt_template.pre_fill_variables(**kwargs)
         logger.debug(f"Pre-filled prompt template with variables: {kwargs.keys()}")
+
+    def _deserialize_state(self, raw: Union[bytes, str, dict]) -> dict:
+        """
+        Convert Dapr's raw payload (bytes, JSON string, or already a dict) into a dict.
+        Raises helpful errors on failure.
+        """
+        if isinstance(raw, dict):
+            return raw
+
+        if isinstance(raw, bytes):
+            try:
+                raw = raw.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError("State bytes are not valid UTF-8") from exc
+
+        if isinstance(raw, str):
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"State is not valid JSON: {exc}") from exc
+
+        raise TypeError(f"Unsupported state type {type(raw)!r}")
+    
+    def _serialize_metadata(self, metadata: Any) -> Any:
+        """
+        Recursively convert Pydantic models (e.g., AgentTool), lists, dicts to JSON-serializable format.
+        Handles mixed tools: [AgentTool(...), "string", ...] → [{"name": "..."}, "string", ...]
+        """
+        def convert(obj: Any) -> Any:
+            if hasattr(obj, "model_dump"):
+                return obj.model_dump()
+            if hasattr(obj, "dict"):
+                return obj.dict()
+            if isinstance(obj, (list, tuple)):
+                return [convert(i) for i in obj]
+            if isinstance(obj, dict):
+                return {k: convert(v) for k, v in obj.items()}
+            return obj
+        return convert(metadata)
