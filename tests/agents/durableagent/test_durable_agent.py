@@ -10,16 +10,17 @@ from unittest.mock import AsyncMock, Mock, patch, MagicMock
 import pytest
 from dapr.ext.workflow import DaprWorkflowContext
 
-from dapr_agents.agents.durableagent.agent import DurableAgent
+from dapr_agents import (
+    DurableAgent
+)
+from dapr_agents.agents.memory_store import (
+    DurableAgentMessage,
+    DurableAgentWorkflowState,
+    MemoryStore
+)
 from dapr_agents.agents.durableagent.schemas import (
     AgentTaskResponse,
     BroadcastMessage,
-)
-from dapr_agents.agents.storage import (
-    Storage,
-    DurableAgentMessage,
-    DurableAgentWorkflowEntry,
-    DurableAgentWorkflowState,
 )
 from dapr_agents.llm import OpenAIChatClient
 from dapr_agents.tool.base import AgentTool
@@ -28,7 +29,6 @@ from dapr_agents.types import (
     LLMChatCandidate,
     LLMChatResponse,
     ToolExecutionRecord,
-    ToolMessage,
 )
 
 
@@ -66,17 +66,6 @@ def patch_dapr_check(monkeypatch):
         self._client.get_state.return_value = (False, None)
         # Configure the mock for save_state method
         self._client.save_state.return_value = None
-        self._agent_metadata = {
-            "name": getattr(self, "name", "TestAgent"),
-            "role": getattr(self, "role", "Test Role"),
-            "goal": getattr(self, "goal", "Test Goal"),
-            "instructions": getattr(self, "instructions", []),
-            "topic_name": getattr(
-                self, "agent_topic_name", getattr(self, "name", "TestAgent")
-            ),
-            "pubsub_name": getattr(self, "message_bus_name", "testpubsub"),
-            "orchestrator": False,
-        }
         self._workflow_name = "AgenticWorkflow"
         self._is_running = False
         self._shutdown_event = asyncio.Event()
@@ -137,11 +126,10 @@ class TestDurableAgent:
         mock_client = MockDaprClient()
         mock_client.get_state.return_value = Mock(data=None)  # Default empty state
 
-        # Patch both the client import locations
+        # Patch DaprClient factory to return our mock; MemoryStore will pick it up
         monkeypatch.setattr("dapr.clients.DaprClient", lambda: mock_client)
-        monkeypatch.setattr(
-            "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
-        )
+        from dapr_agents.agents.memory_store import MemoryStore as _MS
+        monkeypatch.setattr(_MS, "_update_session_index", lambda self, instance_id: None)
 
         yield
         if "OPENAI_API_KEY" in os.environ:
@@ -184,7 +172,7 @@ class TestDurableAgent:
     @pytest.fixture
     def basic_durable_agent(self, mock_llm):
         """Create a basic durable agent instance for testing."""
-        storage = Storage.model_construct(
+        memory_store = MemoryStore(
             name="teststatestore", session_id="test_session"
         )
         return DurableAgent(
@@ -193,7 +181,7 @@ class TestDurableAgent:
             goal="Help with testing",
             instructions=["Be helpful", "Test things"],
             llm=mock_llm,
-            storage=storage,
+            memory_store=memory_store,
             max_iterations=5,
             message_bus_name="testpubsub",
         )
@@ -201,7 +189,7 @@ class TestDurableAgent:
     @pytest.fixture
     def durable_agent_with_tools(self, mock_llm, mock_tool):
         """Create a durable agent with tools for testing."""
-        storage = Storage.model_construct(
+        memory_store = MemoryStore(
             name="teststatestore", session_id="test_session"
         )
         return DurableAgent(
@@ -210,7 +198,7 @@ class TestDurableAgent:
             goal="Execute tools",
             instructions=["Use tools when needed"],
             llm=mock_llm,
-            storage=storage,
+            memory_store=memory_store,
             tools=[mock_tool],
             max_iterations=5,
             message_bus_name="testpubsub",
@@ -218,14 +206,14 @@ class TestDurableAgent:
 
     def test_durable_agent_initialization(self, mock_llm):
         """Test durable agent initialization with basic parameters."""
-        storage = Storage.model_construct(name="teststatestore")
+        memory_store = MemoryStore(name="teststatestore")
         agent = DurableAgent(
             name="TestDurableAgent",
             role="Test Durable Assistant",
             goal="Help with testing",
             instructions=["Be helpful"],
             llm=mock_llm,
-            storage=storage,
+            memory_store=memory_store,
             message_bus_name="testpubsub",
         )
 
@@ -243,13 +231,13 @@ class TestDurableAgent:
 
     def test_durable_agent_initialization_with_custom_topic(self, mock_llm):
         """Test durable agent initialization with custom topic name."""
-        storage = Storage.model_construct(name="teststatestore")
+        memory_store = MemoryStore(name="teststatestore")
         agent = DurableAgent(
             name="TestDurableAgent",
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            storage=storage,
+            memory_store=memory_store,
             agent_topic_name="custom-topic",
             message_bus_name="testpubsub",
         )
@@ -258,29 +246,17 @@ class TestDurableAgent:
 
     def test_durable_agent_initialization_name_from_role(self, mock_llm):
         """Test durable agent initialization with name derived from role."""
-        storage = Storage.model_construct(name="teststatestore")
+        memory_store = MemoryStore(name="teststatestore")
         agent = DurableAgent(
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            storage=storage,
+            memory_store=memory_store,
             message_bus_name="testpubsub",
         )
 
         assert agent.name == "Test Durable Assistant"
         assert agent.agent_topic_name == "Test Durable Assistant"
-
-    def test_durable_agent_metadata(self, basic_durable_agent):
-        """Test durable agent metadata creation."""
-        metadata = basic_durable_agent._agent_metadata
-
-        assert metadata is not None
-        assert metadata["name"] == "TestDurableAgent"
-        assert metadata["role"] == "Test Durable Assistant"
-        assert metadata["goal"] == "Help with testing"
-        assert metadata["topic_name"] == "TestDurableAgent"
-        assert metadata["pubsub_name"] == "testpubsub"
-        assert metadata["orchestrator"] is False
 
     @pytest.fixture
     def mock_wf_client(self):
@@ -315,7 +291,7 @@ class TestDurableAgent:
 
         instance_id = "test-instance-123"
         # set up a minimal instance record
-        basic_durable_agent.storage._current_state["instances"] = {
+        basic_durable_agent.memory_store._current_state["instances"] = {
             instance_id: {
                 "input": "Test task",
                 "source": "test_source",
@@ -378,7 +354,7 @@ class TestDurableAgent:
         """Test finishing workflow activity."""
         instance_id = "test-instance-123"
         final_output = "Final response"
-        basic_durable_agent.storage._current_state["instances"] = {
+        basic_durable_agent.memory_store._current_state["instances"] = {
             instance_id: {
                 "input": "Test task",
                 "source": "test_source",
@@ -396,7 +372,7 @@ class TestDurableAgent:
         basic_durable_agent.finalize_workflow(
             instance_id, final_output, "2024-01-01T00:00:00Z"
         )
-        instance_data = basic_durable_agent.storage._current_state["instances"][
+        instance_data = basic_durable_agent.memory_store._current_state["instances"][
             instance_id
         ]
         assert instance_data["output"] == final_output
@@ -418,7 +394,7 @@ class TestDurableAgent:
             mock_run_tool.return_value = "tool_result"
 
             # Set up instance state
-            basic_durable_agent.storage._current_state["instances"] = {
+            basic_durable_agent.memory_store._current_state["instances"] = {
                 instance_id: {
                     "input": "Test task",
                     "source": "test_source",
@@ -448,7 +424,7 @@ class TestDurableAgent:
             assert result["execution_result"] == "tool_result"
 
             # Verify state was updated atomically
-            instance_data = basic_durable_agent.storage._current_state["instances"][
+            instance_data = basic_durable_agent.memory_store._current_state["instances"][
                 instance_id
             ]
             assert len(instance_data["messages"]) == 1  # Tool message added
@@ -489,8 +465,8 @@ class TestDurableAgent:
         )
 
         # Verify instance was created
-        assert instance_id in basic_durable_agent.storage._current_state["instances"]
-        instance_data = basic_durable_agent.storage._current_state["instances"][
+        assert instance_id in basic_durable_agent.memory_store._current_state["instances"]
+        instance_data = basic_durable_agent.memory_store._current_state["instances"][
             instance_id
         ]
         assert instance_data["input"] == input_data
@@ -518,8 +494,8 @@ class TestDurableAgent:
             instance_id, "Test input", triggering_workflow_instance_id, test_time
         )
 
-        assert instance_id in basic_durable_agent.storage._current_state["instances"]
-        instance_data = basic_durable_agent.storage._current_state["instances"][
+        assert instance_id in basic_durable_agent.memory_store._current_state["instances"]
+        instance_data = basic_durable_agent.memory_store._current_state["instances"][
             instance_id
         ]
         assert (
@@ -532,7 +508,7 @@ class TestDurableAgent:
 
         # Test that existing instance is not overwritten
         original_input = "Original input"
-        basic_durable_agent.storage._current_state["instances"][instance_id][
+        basic_durable_agent.memory_store._current_state["instances"][instance_id][
             "input"
         ] = original_input
 
@@ -542,7 +518,7 @@ class TestDurableAgent:
 
         # Input should remain unchanged
         assert (
-            basic_durable_agent.storage._current_state["instances"][instance_id][
+            basic_durable_agent.memory_store._current_state["instances"][instance_id][
                 "input"
             ]
             == original_input
@@ -555,7 +531,7 @@ class TestDurableAgent:
         user_message_copy = {"role": "user", "content": "Hello, world!"}
 
         # Set up instance
-        basic_durable_agent.storage._current_state["instances"][instance_id] = {
+        basic_durable_agent.memory_store._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -568,14 +544,14 @@ class TestDurableAgent:
             "trace_context": None,
         }
 
-        # Mock storage.add_message
-        with patch.object(type(basic_durable_agent.storage), "add_message"):
+        # Mock memory_store.add_message
+        with patch.object(type(basic_durable_agent.memory_store), "add_message"):
             basic_durable_agent._process_user_message(
                 instance_id, task, user_message_copy
             )
 
         # Verify message was added to instance
-        instance_data = basic_durable_agent.storage._current_state["instances"][
+        instance_data = basic_durable_agent.memory_store._current_state["instances"][
             instance_id
         ]
         assert len(instance_data["messages"]) == 1
@@ -589,7 +565,7 @@ class TestDurableAgent:
         assistant_message = {"role": "assistant", "content": "Hello back!"}
 
         # Set up instance
-        basic_durable_agent.storage._current_state["instances"][instance_id] = {
+        basic_durable_agent.memory_store._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -602,12 +578,12 @@ class TestDurableAgent:
             "trace_context": None,
         }
 
-        # Mock storage.add_message
-        with patch.object(type(basic_durable_agent.storage), "add_message"):
+        # Mock memory_store.add_message
+        with patch.object(type(basic_durable_agent.memory_store), "add_message"):
             basic_durable_agent._save_assistant_message(instance_id, assistant_message)
 
         # Verify message was added to instance
-        instance_data = basic_durable_agent.storage._current_state["instances"][
+        instance_data = basic_durable_agent.memory_store._current_state["instances"][
             instance_id
         ]
         assert len(instance_data["messages"]) == 1
@@ -620,7 +596,7 @@ class TestDurableAgent:
         instance_id = "test-instance-123"
 
         # Set up instance with last_message
-        basic_durable_agent.storage._current_state["instances"][instance_id] = {
+        basic_durable_agent.memory_store._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -680,7 +656,7 @@ class TestDurableAgent:
         instance_id = "test-instance-123"
 
         # Set up instance
-        basic_durable_agent.storage._current_state["instances"][instance_id] = {
+        basic_durable_agent.memory_store._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -707,7 +683,7 @@ class TestDurableAgent:
         )
 
         # Verify instance was updated
-        instance_data = basic_durable_agent.storage._current_state["instances"][
+        instance_data = basic_durable_agent.memory_store._current_state["instances"][
             instance_id
         ]
         assert len(instance_data["messages"]) == 1
@@ -721,7 +697,7 @@ class TestDurableAgent:
         input_data = "Test input"
 
         # Set up instance with messages
-        basic_durable_agent.storage._current_state["instances"][instance_id] = {
+        basic_durable_agent.memory_store._current_state["instances"][instance_id] = {
             "input": "Test task",
             "source": "test_source",
             "triggering_workflow_instance_id": None,
@@ -791,7 +767,7 @@ class TestDurableAgent:
             store_name="test_store",
             store_key="agent_registry",
             agent_name=basic_durable_agent.name,
-            agent_metadata=basic_durable_agent._agent_metadata,
+            agent_metadata="test metadata",
         )
 
     @pytest.mark.asyncio
@@ -820,8 +796,8 @@ class TestDurableAgent:
     def test_durable_agent_state_initialization(self, basic_durable_agent):
         """Test that the agent state is properly initialized."""
         validated_state = DurableAgentWorkflowState.model_validate(
-            basic_durable_agent.state
+            basic_durable_agent.memory_store._current_state
         )
         assert isinstance(validated_state, DurableAgentWorkflowState)
-        assert "instances" in basic_durable_agent.state
-        assert basic_durable_agent.storage._current_state["instances"] == {}
+        assert "instances" in basic_durable_agent.memory_store._current_state
+        assert basic_durable_agent.memory_store._current_state["instances"] == {}

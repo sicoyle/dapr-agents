@@ -22,7 +22,7 @@ class TestAgentBase(AgentBase):
 
     def get_chat_history(self, task=None):
         """Implementation of abstract method for testing."""
-        return self.storage.get_messages()
+        return self.memory_store.get_messages()
 
 
 class TestAgentBaseClass:
@@ -81,7 +81,6 @@ class TestAgentBaseClass:
         assert basic_agent.instructions == ["Test instruction 1", "Test instruction 2"]
         assert basic_agent.max_iterations == 10
         assert basic_agent.template_format == "jinja2"
-        assert basic_agent.storage is not None
         assert basic_agent.llm is not None
 
     def test_agent_creation_with_minimal_fields(self, minimal_agent):
@@ -192,7 +191,7 @@ class TestAgentBaseClass:
         # Use a dictionary as the mock message
         mock_message = {"foo": "bar"}
         # Add a message to storage directly
-        basic_agent.storage._in_memory_messages = [mock_message]
+        basic_agent.memory_store._in_memory_messages = [mock_message]
         result = basic_agent.get_last_message()
         assert result == {"foo": "bar"}
 
@@ -258,7 +257,7 @@ class TestAgentBaseClass:
         agent = TestAgentBase(llm=mock_llm)
 
         # Add messages to storage directly
-        agent.storage._in_memory_messages = [Mock(), Mock()]
+        agent.memory_store._in_memory_messages = [Mock(), Mock()]
         result = agent.chat_history
         assert isinstance(result, list)
         if len(result) > 0:
@@ -269,7 +268,7 @@ class TestAgentBaseClass:
         agent = TestAgentBase(llm=mock_llm_client)
 
         # Add a message to storage directly
-        agent.storage._in_memory_messages = [Mock(spec=MessageContent)]
+        agent.memory_store._in_memory_messages = [Mock(spec=MessageContent)]
         result = agent.chat_history
         assert isinstance(result, list)
         assert isinstance(result[0], Mock)
@@ -317,7 +316,7 @@ class TestAgentBaseClass:
     def test_validate_storage_failure(self, mock_llm_client):
         """Test validation fails when storage initialization fails."""
         with patch(
-            "dapr_agents.agents.storage.Storage.__new__",
+            "dapr_agents.agents.memory_store.MemoryStore.__init__",
             side_effect=Exception("Storage error"),
         ):
             with pytest.raises(Exception, match="Storage error"):

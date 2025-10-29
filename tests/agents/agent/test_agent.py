@@ -268,7 +268,7 @@ class TestAgent:
     @pytest.mark.asyncio
     async def test_agent_with_memory_context(self, basic_agent):
         """Test agent using storage context when no input is provided."""
-        basic_agent.storage.add_message(UserMessage(content="Previous message"))
+        basic_agent.memory_store.add_message(UserMessage(content="Previous message"))
 
         mock_response = Mock(spec=LLMChatResponse)
         assistant_msg = AssistantMessage(content="Response")
