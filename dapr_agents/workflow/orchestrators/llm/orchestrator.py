@@ -1051,7 +1051,7 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
             not self.memory_store._current_state
             or "instances" not in self.memory_store._current_state
         ):
-            raise ValueError(f"No workflow instances found in local state.")
+            raise ValueError("No workflow instances found in local state.")
 
         workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
         if not workflow_entry:
@@ -1169,7 +1169,7 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
             not self.memory_store._current_state
             or "instances" not in self.memory_store._current_state
         ):
-            raise ValueError(f"No workflow instances found in local state.")
+            raise ValueError("No workflow instances found in local state.")
 
         workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
         if not workflow_entry:
@@ -1228,7 +1228,7 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
             not self.memory_store._current_state
             or "instances" not in self.memory_store._current_state
         ):
-            raise ValueError(f"No workflow instances found in local state.")
+            raise ValueError("No workflow instances found in local state.")
 
         workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
         if not workflow_entry:
