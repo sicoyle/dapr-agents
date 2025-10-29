@@ -21,10 +21,11 @@ from dapr_agents.types import AssistantMessage, UserMessage
 
 logger = logging.getLogger(__name__)
 
+
 class LLMOrchestratorBase(OrchestratorBase):
     """
-    A base class for LLM-driven orchestrators. This class manages the memory, LLM client, 
-    and workflow state, and provides mechanisms for handling state persistence, 
+    A base class for LLM-driven orchestrators. This class manages the memory, LLM client,
+    and workflow state, and provides mechanisms for handling state persistence,
     compensation, and broadcasting messages across agents.
 
     Responsibilities:
@@ -34,7 +35,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         • Broadcast messages and trigger actions via pub/sub and agent registry.
         • Compensation utilities for maintaining state consistency on failures.
     """
-    
+
     def __init__(
         self,
         *,
@@ -128,7 +129,9 @@ class LLMOrchestratorBase(OrchestratorBase):
             return dict(message)
         if hasattr(message, "__dict__"):
             return dict(message.__dict__)
-        raise TypeError(f"Unsupported message type for serialization: {type(message)!r}")
+        raise TypeError(
+            f"Unsupported message type for serialization: {type(message)!r}"
+        )
 
     @staticmethod
     def _convert_plan_objects_to_dicts(plan_objects: List[Any]) -> List[Dict[str, Any]]:
@@ -143,12 +146,17 @@ class LLMOrchestratorBase(OrchestratorBase):
         """
         if not plan_objects:
             return []
-        return [obj.model_dump() if hasattr(obj, "model_dump") else dict(obj) for obj in plan_objects]
+        return [
+            obj.model_dump() if hasattr(obj, "model_dump") else dict(obj)
+            for obj in plan_objects
+        ]
 
-    def _ensure_instance_row(self, instance_id: str, *, input_text: Optional[str] = None) -> None:
+    def _ensure_instance_row(
+        self, instance_id: str, *, input_text: Optional[str] = None
+    ) -> None:
         """
         Ensures an entry exists for the workflow instance in the state.
-        
+
         This delegates to ensure_instance_exists() which uses the entry_factory
         configured in LLMOrchestratorStateConfig to create proper model instances.
 
@@ -157,10 +165,16 @@ class LLMOrchestratorBase(OrchestratorBase):
             input_text (Optional[str]): The initial input text (if any) for the workflow.
         """
         container = self._get_entry_container()
-        logger.debug("_ensure_instance_row: container type=%s, instance_id=%s, exists=%s", 
-                    type(container).__name__ if container else None, instance_id, instance_id in container if container else False)
+        logger.debug(
+            "_ensure_instance_row: container type=%s, instance_id=%s, exists=%s",
+            type(container).__name__ if container else None,
+            instance_id,
+            instance_id in container if container else False,
+        )
         if container and instance_id not in container:
-            logger.debug("_ensure_instance_row: Creating new instance via ensure_instance_exists")
+            logger.debug(
+                "_ensure_instance_row: Creating new instance via ensure_instance_exists"
+            )
             # Use the parent class method which properly handles entry_factory
             self.ensure_instance_exists(
                 instance_id=instance_id,
@@ -170,7 +184,10 @@ class LLMOrchestratorBase(OrchestratorBase):
             )
             # Check what was created
             entry = container.get(instance_id)
-            logger.debug("_ensure_instance_row: Created entry type=%s", type(entry).__name__ if entry else None)
+            logger.debug(
+                "_ensure_instance_row: Created entry type=%s",
+                type(entry).__name__ if entry else None,
+            )
 
     def update_workflow_state(
         self,
@@ -195,18 +212,32 @@ class LLMOrchestratorBase(OrchestratorBase):
 
         container = self._get_entry_container()
         if not container or instance_id not in container:
-            logger.error("Cannot update state - instance %s not found in container", instance_id)
+            logger.error(
+                "Cannot update state - instance %s not found in container", instance_id
+            )
             return
-        
+
         entry = container[instance_id]
-        logger.info("update_workflow_state: entry type=%s, hasattr(plan)=%s", type(entry).__name__, hasattr(entry, "plan"))
+        logger.info(
+            "update_workflow_state: entry type=%s, hasattr(plan)=%s",
+            type(entry).__name__,
+            hasattr(entry, "plan"),
+        )
 
         if plan is not None:
-            logger.info("Updating plan: entry type=%s, plan length=%d", type(entry).__name__, len(plan))
+            logger.info(
+                "Updating plan: entry type=%s, plan length=%d",
+                type(entry).__name__,
+                len(plan),
+            )
             if hasattr(entry, "plan"):
                 logger.debug("Entry is a Pydantic model, setting plan attribute")
                 from dapr_agents.agents.orchestrators.llm.state import PlanStep
-                entry.plan = [PlanStep(**step_dict) if isinstance(step_dict, dict) else step_dict for step_dict in plan]  # type: ignore[attr-defined]
+
+                entry.plan = [
+                    PlanStep(**step_dict) if isinstance(step_dict, dict) else step_dict
+                    for step_dict in plan
+                ]  # type: ignore[attr-defined]
             else:
                 # Fallback for dict-based state
                 logger.info("Entry is a dict, setting plan key")
@@ -214,8 +245,12 @@ class LLMOrchestratorBase(OrchestratorBase):
 
         if message is not None:
             msg = self._serialize_message(message)
-            logger.info("Processing message: entry type=%s, hasattr(messages)=%s", type(entry).__name__, hasattr(entry, "messages"))
-            
+            logger.info(
+                "Processing message: entry type=%s, hasattr(messages)=%s",
+                type(entry).__name__,
+                hasattr(entry, "messages"),
+            )
+
             if hasattr(entry, "messages"):
                 # Entry is a Pydantic model - need to convert dict to message model
                 if self._message_coercer:
@@ -237,15 +272,19 @@ class LLMOrchestratorBase(OrchestratorBase):
                 role = msg.get("role", "user")
                 content = msg.get("content", "")
                 if role == "assistant":
-                    self.memory.add_message(AssistantMessage(content=content, name=msg.get("name")))
+                    self.memory.add_message(
+                        AssistantMessage(content=content, name=msg.get("name"))
+                    )
                 elif role == "user":
-                    self.memory.add_message(UserMessage(content=content, name=msg.get("name")))
+                    self.memory.add_message(
+                        UserMessage(content=content, name=msg.get("name"))
+                    )
             except Exception:
                 logger.info("Failed to mirror message into memory.", exc_info=True)
 
         if final_output is not None:
             end_time_value = self._coerce_datetime(wf_time)
-            
+
             if hasattr(entry, "output"):
                 entry.output = final_output  # type: ignore[attr-defined]
                 entry.end_time = end_time_value  # type: ignore[attr-defined]
@@ -255,7 +294,7 @@ class LLMOrchestratorBase(OrchestratorBase):
                 entry["end_time"] = end_time_value.isoformat()
 
         self.save_state()
-    
+
     async def rollback_workflow_initialization(self, instance_id: str) -> None:
         """Clears a partially-created plan for an instance."""
         try:
@@ -271,7 +310,9 @@ class LLMOrchestratorBase(OrchestratorBase):
         except Exception:
             logger.exception("Failed to rollback workflow initialization.")
 
-    async def rollback_agent_trigger(self, instance_id: str, step_id: int, substep_id: Optional[float]) -> None:
+    async def rollback_agent_trigger(
+        self, instance_id: str, step_id: int, substep_id: Optional[float]
+    ) -> None:
         """Reverts a step from `in_progress` back to `not_started`."""
         from dapr_agents.workflow.orchestrators.llm.utils import find_step_in_plan
 
@@ -279,16 +320,27 @@ class LLMOrchestratorBase(OrchestratorBase):
             container = self._get_entry_container()
             entry = container.get(instance_id) if container else None
             if entry:
-                plan = getattr(entry, "plan", None) if hasattr(entry, "plan") else entry.get("plan", [])
+                plan = (
+                    getattr(entry, "plan", None)
+                    if hasattr(entry, "plan")
+                    else entry.get("plan", [])
+                )
                 step_entry = find_step_in_plan(plan, step_id, substep_id)
                 if step_entry and step_entry.get("status") == "in_progress":
                     step_entry["status"] = "not_started"
                     self.update_workflow_state(instance_id=instance_id, plan=plan)
-                    logger.debug("Rolled back agent trigger for %s (%s/%s)", instance_id, step_id, substep_id)
+                    logger.debug(
+                        "Rolled back agent trigger for %s (%s/%s)",
+                        instance_id,
+                        step_id,
+                        substep_id,
+                    )
         except Exception:
             logger.exception("Failed to rollback agent trigger.")
 
-    async def rollback_agent_response_processing(self, instance_id: str, agent: str, step_id: int, substep_id: Optional[float]) -> None:
+    async def rollback_agent_response_processing(
+        self, instance_id: str, agent: str, step_id: int, substep_id: Optional[float]
+    ) -> None:
         """Undo the last task history entry and revert `completed` -> `in_progress` if needed."""
         from dapr_agents.workflow.orchestrators.llm.utils import find_step_in_plan
 
@@ -296,18 +348,35 @@ class LLMOrchestratorBase(OrchestratorBase):
             container = self._get_entry_container()
             entry = container.get(instance_id) if container else None
             if entry:
-                hist = getattr(entry, "task_history", None) if hasattr(entry, "task_history") else entry.get("task_history", [])
+                hist = (
+                    getattr(entry, "task_history", None)
+                    if hasattr(entry, "task_history")
+                    else entry.get("task_history", [])
+                )
                 for i in range(len(hist) - 1, -1, -1):
                     t = hist[i]
-                    if t.get("agent") == agent and t.get("step") == step_id and t.get("substep") == substep_id:
+                    if (
+                        t.get("agent") == agent
+                        and t.get("step") == step_id
+                        and t.get("substep") == substep_id
+                    ):
                         hist.pop(i)
                         break
-                plan = getattr(entry, "plan", None) if hasattr(entry, "plan") else entry.get("plan", [])
+                plan = (
+                    getattr(entry, "plan", None)
+                    if hasattr(entry, "plan")
+                    else entry.get("plan", [])
+                )
                 step_entry = find_step_in_plan(plan, step_id, substep_id)
                 if step_entry and step_entry.get("status") == "completed":
                     step_entry["status"] = "in_progress"
                     self.update_workflow_state(instance_id=instance_id, plan=plan)
-            logger.debug("Rolled back response processing for agent=%s step=%s substep=%s", agent, step_id, substep_id)
+            logger.debug(
+                "Rolled back response processing for agent=%s step=%s substep=%s",
+                agent,
+                step_id,
+                substep_id,
+            )
         except Exception:
             logger.exception("Failed to rollback agent response processing.")
 
@@ -348,7 +417,11 @@ class LLMOrchestratorBase(OrchestratorBase):
             logger.exception("Failed to ensure workflow state consistency.")
 
     async def compensate_failed_activity(
-        self, *, instance_id: str, failed_activity: str, activity_context: Dict[str, Any]
+        self,
+        *,
+        instance_id: str,
+        failed_activity: str,
+        activity_context: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Generic compensator for multi-step activities."""
         actions: List[str] = []
@@ -358,7 +431,9 @@ class LLMOrchestratorBase(OrchestratorBase):
                 actions.append("cleared_partial_plan")
             elif failed_activity == "execute_agent_task_with_progress_tracking":
                 await self.rollback_agent_trigger(
-                    instance_id, activity_context.get("step_id"), activity_context.get("substep_id")
+                    instance_id,
+                    activity_context.get("step_id"),
+                    activity_context.get("substep_id"),
                 )
                 actions.append("reverted_step_status")
             elif failed_activity == "process_agent_response_with_progress":
@@ -374,10 +449,18 @@ class LLMOrchestratorBase(OrchestratorBase):
                 actions.append("reverted_finalization")
 
             await self.ensure_workflow_state_consistency(instance_id)
-            return {"status": "compensated", "failed_activity": failed_activity, "compensation_actions": actions}
+            return {
+                "status": "compensated",
+                "failed_activity": failed_activity,
+                "compensation_actions": actions,
+            }
         except Exception as exc:
             logger.exception("Compensation failed for %s", failed_activity)
-            return {"status": "compensation_failed", "failed_activity": failed_activity, "error": str(exc)}
+            return {
+                "status": "compensation_failed",
+                "failed_activity": failed_activity,
+                "error": str(exc),
+            }
 
     async def execute_with_compensation(
         self, activity_coro, *, activity_name: str, instance_id: str, **kwargs: Any
@@ -389,7 +472,9 @@ class LLMOrchestratorBase(OrchestratorBase):
             logger.error("Activity %s failed: %s", activity_name, exc)
             ctx = {"instance_id": instance_id, "error": str(exc), **kwargs}
             result = await self.compensate_failed_activity(
-                instance_id=instance_id, failed_activity=activity_name, activity_context=ctx
+                instance_id=instance_id,
+                failed_activity=activity_name,
+                activity_context=ctx,
             )
             if result.get("status") != "compensated":
                 logger.error("Compensation failed: %s", result)
@@ -454,10 +539,16 @@ class LLMOrchestratorBase(OrchestratorBase):
             # Store TaskResult model instance directly instead of dict to avoid serialization warnings
             entry.task_history.append(task_result)  # type: ignore[attr-defined]
         else:
-            entry.setdefault("task_history", []).append(task_result.model_dump(mode="json"))
+            entry.setdefault("task_history", []).append(
+                task_result.model_dump(mode="json")
+            )
 
         # Get current plan from entry
-        current_plan = getattr(entry, "plan", None) if hasattr(entry, "plan") else entry.get("plan", plan)
+        current_plan = (
+            getattr(entry, "plan", None)
+            if hasattr(entry, "plan")
+            else entry.get("plan", plan)
+        )
 
         # Persist state with updated plan
         self.update_workflow_state(instance_id=instance_id, plan=current_plan)
@@ -525,7 +616,9 @@ class LLMOrchestratorBase(OrchestratorBase):
         self.update_workflow_state(instance_id=instance_id, plan=updated_plan)
 
         # Get agents metadata for pub/sub
-        agents_metadata = self.list_team_agents(include_self=False, team=self.effective_team())
+        agents_metadata = self.list_team_agents(
+            include_self=False, team=self.effective_team()
+        )
 
         # Send message to agent with specific task instruction
         trigger = TriggerAction(task=instruction, workflow_instance_id=instance_id)
@@ -673,12 +766,16 @@ class LLMOrchestratorBase(OrchestratorBase):
 
             # Mark the step or substep as completed
             step_entry["status"] = "completed"
-            status_updates.append({"step": step, "substep": substep, "status": "completed"})
+            status_updates.append(
+                {"step": step, "substep": substep, "status": "completed"}
+            )
             logger.debug("Marked step %s/%s as completed", step, substep)
 
             # If it's a substep, check if all sibling substeps are completed
             if substep is not None:
-                parent_step = find_step_in_plan(plan, step)  # Get parent without substep
+                parent_step = find_step_in_plan(
+                    plan, step
+                )  # Get parent without substep
                 if parent_step:
                     # Ensure "substeps" is a valid list before iteration
                     substeps = parent_step.get("substeps", [])

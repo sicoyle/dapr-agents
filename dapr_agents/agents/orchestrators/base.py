@@ -67,7 +67,9 @@ class OrchestratorBase(AgentComponents):
             try:
                 self.register_agentic_system(metadata=meta)
             except Exception:  # noqa: BLE001
-                logger.warning("Could not register orchestrator in registry.", exc_info=True)
+                logger.warning(
+                    "Could not register orchestrator in registry.", exc_info=True
+                )
 
         # Runtime wiring
         self._runtime: wf.WorkflowRuntime = runtime or wf.WorkflowRuntime()
@@ -126,18 +128,24 @@ class OrchestratorBase(AgentComponents):
             self._runtime = runtime
             self._runtime_owned = False
             self._registered = False
-            logger.info("Attached injected WorkflowRuntime (owned=%s).", self._runtime_owned)
+            logger.info(
+                "Attached injected WorkflowRuntime (owned=%s).", self._runtime_owned
+            )
 
         if auto_register and not self._registered:
             self.register_workflows(self._runtime)
             self._registered = True
             logger.info("Registered workflows/activities on WorkflowRuntime.")
-        
+
         try:
             self._runtime.start()
             logger.info("WorkflowRuntime started (owned=%s).", self._runtime_owned)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("WorkflowRuntime.start() raised (likely already running): %s", exc, exc_info=True)
+            logger.warning(
+                "WorkflowRuntime.start() raised (likely already running): %s",
+                exc,
+                exc_info=True,
+            )
 
         self._started = True
 
@@ -150,14 +158,18 @@ class OrchestratorBase(AgentComponents):
             try:
                 self._runtime.shutdown()
             except Exception:  # noqa: BLE001
-                logger.debug("Error while shutting down orchestrator runtime", exc_info=True)
+                logger.debug(
+                    "Error while shutting down orchestrator runtime", exc_info=True
+                )
 
         self._started = False
 
     # ------------------------------------------------------------------
     # Registration hook
     # ------------------------------------------------------------------
-    def register_workflows(self, runtime: wf.WorkflowRuntime) -> None:  # pragma: no cover
+    def register_workflows(
+        self, runtime: wf.WorkflowRuntime
+    ) -> None:  # pragma: no cover
         """
         Hook for subclasses to register workflows and activities.
 
@@ -180,7 +192,9 @@ class OrchestratorBase(AgentComponents):
         """Override the default text formatter."""
         self._text_formatter = formatter
 
-    def print_interaction(self, source_agent_name: str, target_agent_name: str, message: str) -> None:
+    def print_interaction(
+        self, source_agent_name: str, target_agent_name: str, message: str
+    ) -> None:
         """
         Print a formatted interaction between two agents.
 
@@ -202,7 +216,9 @@ class OrchestratorBase(AgentComponents):
     # ------------------------------------------------------------------
     # Team/registry convenience
     # ------------------------------------------------------------------
-    def list_team_agents(self, *, team: Optional[str] = None, include_self: bool = True) -> Dict[str, Any]:
+    def list_team_agents(
+        self, *, team: Optional[str] = None, include_self: bool = True
+    ) -> Dict[str, Any]:
         """
         Convenience wrapper over `get_agents_metadata`.
 
@@ -222,7 +238,9 @@ class OrchestratorBase(AgentComponents):
     # ------------------------------------------------------------------
     # Event helpers
     # ------------------------------------------------------------------
-    def raise_workflow_event(self, instance_id: str, event_name: str, *, data: Any | None = None) -> None:
+    def raise_workflow_event(
+        self, instance_id: str, event_name: str, *, data: Any | None = None
+    ) -> None:
         """
         Raise an external event for a running workflow instance.
 
@@ -237,13 +255,17 @@ class OrchestratorBase(AgentComponents):
         """
         try:
             payload = self._serialize_event_data(data)
-            logger.info("Raising workflow event '%s' for instance '%s'", event_name, instance_id)
+            logger.info(
+                "Raising workflow event '%s' for instance '%s'", event_name, instance_id
+            )
             self._workflow_client.raise_workflow_event(
                 instance_id=instance_id,
                 event_name=event_name,
                 data=payload,
             )
-            logger.info("Raised workflow event '%s' for instance '%s'", event_name, instance_id)
+            logger.info(
+                "Raised workflow event '%s' for instance '%s'", event_name, instance_id
+            )
         except Exception as exc:  # noqa: BLE001
             logger.error(
                 "Failed to raise workflow event '%s' for instance '%s'. Data=%s Error=%s",

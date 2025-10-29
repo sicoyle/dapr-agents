@@ -46,8 +46,12 @@ class SignalMixin:
         self._shutdown_event: Optional[asyncio.Event] = None
         self._cleanup_handlers: Optional[Callable[[], None]] = None
         self._shutdown_task_scheduled: bool = False
-        self._signal_loop: Optional[asyncio.AbstractEventLoop] = None  # loop used for handler install
-        self._last_signal: Optional[int] = None  # last observed signal number (-1 if programmatic)
+        self._signal_loop: Optional[
+            asyncio.AbstractEventLoop
+        ] = None  # loop used for handler install
+        self._last_signal: Optional[
+            int
+        ] = None  # last observed signal number (-1 if programmatic)
 
     # ------------------- Public API -------------------
 
@@ -83,7 +87,9 @@ class SignalMixin:
             try:
                 loop = asyncio.get_event_loop()
             except RuntimeError as exc:
-                raise RuntimeError("No asyncio event loop available to install signal handlers.") from exc
+                raise RuntimeError(
+                    "No asyncio event loop available to install signal handlers."
+                ) from exc
 
         self._signal_loop = loop
         self._cleanup_handlers = install_signal_handlers(loop, self._on_signal)
@@ -113,7 +119,9 @@ class SignalMixin:
             RuntimeError: If handlers/event have not been installed first.
         """
         if self._shutdown_event is None:
-            raise RuntimeError("Call install_signal_handlers() before wait_for_shutdown().")
+            raise RuntimeError(
+                "Call install_signal_handlers() before wait_for_shutdown()."
+            )
         await self._shutdown_event.wait()
 
     def is_shutdown_requested(self) -> bool:
@@ -194,7 +202,9 @@ class SignalMixin:
                 try:
                     loop = asyncio.get_event_loop()
                 except RuntimeError:
-                    logger.debug("No event loop available to schedule graceful shutdown.")
+                    logger.debug(
+                        "No event loop available to schedule graceful shutdown."
+                    )
                     return
 
         def _mark_done(task: asyncio.Task) -> None:
@@ -223,6 +233,7 @@ class SignalMixin:
 
         # Try to bounce into the captured loop thread.
         try:
+
             def _spawn() -> None:
                 t = loop.create_task(self.graceful_shutdown())
                 t.add_done_callback(_mark_done)
@@ -231,7 +242,10 @@ class SignalMixin:
             return
         except Exception:
             # If scheduling on the captured loop failed, reset the gate so callers can retry.
-            logger.debug("Failed to schedule via call_soon_threadsafe; attempting fallback.", exc_info=True)
+            logger.debug(
+                "Failed to schedule via call_soon_threadsafe; attempting fallback.",
+                exc_info=True,
+            )
             self._shutdown_task_scheduled = False
 
         # Fallback: try the *current* running loop (e.g., called from a different alive loop).
@@ -283,5 +297,7 @@ class SignalMixin:
             return
         self._shutdown_task_scheduled = True
 
-        logger.debug("Shutdown requested (signal=%s); scheduling graceful shutdown.", sig)
+        logger.debug(
+            "Shutdown requested (signal=%s); scheduling graceful shutdown.", sig
+        )
         self._schedule_graceful_shutdown()

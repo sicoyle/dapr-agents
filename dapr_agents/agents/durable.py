@@ -162,7 +162,9 @@ class DurableAgent(AgentBase):
         # Propagate OTel/parent workflow relations if present.
         otel_span_context = message.get("_otel_span_context")
         if "workflow_instance_id" in message:
-            metadata["triggering_workflow_instance_id"] = message["workflow_instance_id"]
+            metadata["triggering_workflow_instance_id"] = message[
+                "workflow_instance_id"
+            ]
 
         trigger_instance_id = metadata.get("triggering_workflow_instance_id")
         source = metadata.get("source") or "direct"
@@ -288,7 +290,9 @@ class DurableAgent(AgentBase):
         )
 
         if not ctx.is_replaying:
-            verdict = "max_iterations_reached" if turn == self.max_iterations else "completed"
+            verdict = (
+                "max_iterations_reached" if turn == self.max_iterations else "completed"
+            )
             logger.info(
                 "Workflow %s finalized for agent %s with verdict=%s",
                 ctx.instance_id,
@@ -317,12 +321,16 @@ class DurableAgent(AgentBase):
         logger.info("Agent %s received broadcast from %s", self.name, source)
         logger.debug("Full broadcast message: %s", message)
         # Store as a user message from the broadcasting agent (kept in persistent memory).
-        self.memory.add_message(UserMessage(name=source, content=message_content, role="user"))
+        self.memory.add_message(
+            UserMessage(name=source, content=message_content, role="user")
+        )
 
     # ------------------------------------------------------------------
     # Activities
     # ------------------------------------------------------------------
-    def record_initial_entry(self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]) -> None:
+    def record_initial_entry(
+        self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
+    ) -> None:
         """
         Record the initial entry for a workflow instance.
 
@@ -369,7 +377,9 @@ class DurableAgent(AgentBase):
         entry.status = DaprWorkflowStatus.RUNNING.value
         self.save_state()
 
-    def call_llm(self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def call_llm(
+        self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Ask the LLM to generate the next assistant message.
 
@@ -422,7 +432,9 @@ class DurableAgent(AgentBase):
         self.save_state()
         return as_dict
 
-    async def run_tool(self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def run_tool(
+        self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Execute a single tool call and persist results to state/memory.
 
@@ -484,13 +496,16 @@ class DurableAgent(AgentBase):
         if entry is not None and hasattr(entry, "messages"):
             # Skip if this tool_call_id already recorded
             try:
-                existing_ids = {getattr(m, "id", None) or getattr(m, "tool_call_id", None)
-                                for m in getattr(entry, "messages")}
+                existing_ids = {
+                    getattr(m, "id", None) or getattr(m, "tool_call_id", None)
+                    for m in getattr(entry, "messages")
+                }
             except Exception:
                 existing_ids = set()
             if agent_message["id"] not in existing_ids:
                 tool_message_model = (
-                    self._message_coercer(agent_message) if getattr(self, "_message_coercer", None)
+                    self._message_coercer(agent_message)
+                    if getattr(self, "_message_coercer", None)
                     else self._message_dict_to_message_model(agent_message)
                 )
                 entry.messages.append(tool_message_model)
@@ -505,7 +520,9 @@ class DurableAgent(AgentBase):
         self.save_state()
         return tool_result
 
-    def broadcast_message_to_agents(self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]) -> None:
+    def broadcast_message_to_agents(
+        self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
+    ) -> None:
         """
         Broadcast a message to all agents via pub/sub (if a broadcast topic is set).
 
@@ -514,11 +531,15 @@ class DurableAgent(AgentBase):
         """
         message = payload.get("message", {})
         if not isinstance(message, dict) or not self.broadcast_topic_name:
-            logger.debug("Skipping broadcast because payload is invalid or topic is unset.")
+            logger.debug(
+                "Skipping broadcast because payload is invalid or topic is unset."
+            )
             return
 
         try:
-            agents_metadata = self.get_agents_metadata(exclude_self=False, exclude_orchestrator=False)
+            agents_metadata = self.get_agents_metadata(
+                exclude_self=False, exclude_orchestrator=False
+            )
         except Exception:  # noqa: BLE001
             logger.exception("Unable to load agents metadata; broadcast aborted.")
             return
@@ -541,7 +562,9 @@ class DurableAgent(AgentBase):
         except Exception:  # noqa: BLE001
             logger.exception("Failed to publish broadcast message.")
 
-    def send_response_back(self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]) -> None:
+    def send_response_back(
+        self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
+    ) -> None:
         """
         Send the final response back to the triggering agent.
 
@@ -552,7 +575,9 @@ class DurableAgent(AgentBase):
         target_agent = payload.get("target_agent", "")
         target_instance_id = payload.get("target_instance_id", "")
         if not target_agent or not target_instance_id:
-            logger.debug("Target agent or instance missing; skipping response publication.")
+            logger.debug(
+                "Target agent or instance missing; skipping response publication."
+            )
             return
 
         response["role"] = "user"
@@ -574,7 +599,9 @@ class DurableAgent(AgentBase):
         except Exception:  # noqa: BLE001
             logger.exception("Failed to publish response to %s", target_agent)
 
-    def finalize_workflow(self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]) -> None:
+    def finalize_workflow(
+        self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
+    ) -> None:
         """
         Finalize a workflow instance by setting status, output, and end time.
 
@@ -593,7 +620,9 @@ class DurableAgent(AgentBase):
             return
 
         entry.status = (
-            DaprWorkflowStatus.COMPLETED.value if final_output else DaprWorkflowStatus.FAILED.value
+            DaprWorkflowStatus.COMPLETED.value
+            if final_output
+            else DaprWorkflowStatus.FAILED.value
         )
         entry.end_time = self._coerce_datetime(end_time)
         if hasattr(entry, "output"):
@@ -627,22 +656,33 @@ class DurableAgent(AgentBase):
             self._runtime = runtime
             self._runtime_owned = False
             self._registered = False
-            logger.info("Attached injected WorkflowRuntime (owned=%s).", self._runtime_owned)
+            logger.info(
+                "Attached injected WorkflowRuntime (owned=%s).", self._runtime_owned
+            )
 
         if auto_register and not self._registered:
             self.register_workflows(self._runtime)
             self._registered = True
-            logger.info("Registered workflows/activities on WorkflowRuntime for agent '%s'.", self.name)
+            logger.info(
+                "Registered workflows/activities on WorkflowRuntime for agent '%s'.",
+                self.name,
+            )
 
         # Always try to start; treat as idempotent.
         try:
             self._runtime.start()
-            logger.info("WorkflowRuntime started for agent '%s' (owned=%s).", self.name, self._runtime_owned)
+            logger.info(
+                "WorkflowRuntime started for agent '%s' (owned=%s).",
+                self.name,
+                self._runtime_owned,
+            )
         except Exception as exc:  # noqa: BLE001
             # Most common benign case: runtime already running
             logger.warning(
                 "WorkflowRuntime.start() raised for agent '%s' (likely already running): %s",
-                self.name, exc, exc_info=True
+                self.name,
+                exc,
+                exc_info=True,
             )
 
         self._started = True
@@ -656,7 +696,9 @@ class DurableAgent(AgentBase):
             try:
                 self._runtime.shutdown()
             except Exception:  # noqa: BLE001
-                logger.debug("Error while shutting down workflow runtime", exc_info=True)
+                logger.debug(
+                    "Error while shutting down workflow runtime", exc_info=True
+                )
 
         self._started = False
 

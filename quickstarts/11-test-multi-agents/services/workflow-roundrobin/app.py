@@ -16,7 +16,7 @@ from dapr_agents.storage.daprstores.stateservice import StateStoreService
 from dapr_agents.workflow.runners import AgentRunner
 from dapr_agents.workflow.utils.core import wait_for_shutdown
 
-# ----------------------------------------------------------------------------- 
+# -----------------------------------------------------------------------------
 # Boot
 # -----------------------------------------------------------------------------
 load_dotenv()
@@ -63,14 +63,13 @@ async def main() -> None:
     # -------------------------------------------------------------------------
     pubsub_config = AgentPubSubConfig(
         pubsub_name=pubsub_name,
-        agent_topic=orchestrator_topic,   # RoundRobinOrchestrator subscribes here
+        agent_topic=orchestrator_topic,  # RoundRobinOrchestrator subscribes here
         broadcast_topic=broadcast_topic,  # optional fan-out to agents
     )
 
     state_config = AgentStateConfig(
         store=StateStoreService(
-            store_name=workflow_state_store_name,
-            key_prefix="fellowship.roundrobin:"
+            store_name=workflow_state_store_name, key_prefix="fellowship.roundrobin:"
         ),
     )
 

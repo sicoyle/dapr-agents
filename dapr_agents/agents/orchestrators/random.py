@@ -156,7 +156,10 @@ class RandomOrchestrator(OrchestratorBase):
                         turn,
                         instance_id,
                     )
-                result = {"name": "timeout", "content": "⏰ Timeout occurred. Continuing..."}
+                result = {
+                    "name": "timeout",
+                    "content": "⏰ Timeout occurred. Continuing...",
+                }
             else:
                 result = yield event_task
                 # Normalize
@@ -179,12 +182,16 @@ class RandomOrchestrator(OrchestratorBase):
             task = result.get("content")
 
         if final_output is None:
-            raise RuntimeError("Random workflow completed without producing a final output.")
+            raise RuntimeError(
+                "Random workflow completed without producing a final output."
+            )
 
         return final_output
 
     @message_router(message_model=AgentTaskResponse)
-    def process_agent_response(self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]) -> None:
+    def process_agent_response(
+        self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]
+    ) -> None:
         """
         Route agent responses back into the workflow via an external event.
 
@@ -235,8 +242,7 @@ class RandomOrchestrator(OrchestratorBase):
 
         try:
             agents_metadata = self.list_team_agents(
-                include_self=False,
-                team=self.effective_team()
+                include_self=False, team=self.effective_team()
             )
         except Exception:
             logger.exception("Unable to load agents metadata; broadcast aborted.")
@@ -250,7 +256,7 @@ class RandomOrchestrator(OrchestratorBase):
             await broadcast_message(
                 message=broadcast_payload,
                 broadcast_topic=self.broadcast_topic_name,  # type: ignore[union-attr]
-                message_bus=self.message_bus_name,          # type: ignore[union-attr]
+                message_bus=self.message_bus_name,  # type: ignore[union-attr]
                 source=self.name,
                 agents_metadata=agents_metadata,
             )
@@ -267,8 +273,7 @@ class RandomOrchestrator(OrchestratorBase):
         """Pick a random agent from the registry, avoiding the most recent speaker when possible."""
         try:
             agents_metadata = self.list_team_agents(
-                include_self=False,
-                team=self.effective_team()
+                include_self=False, team=self.effective_team()
             )
         except Exception:
             logger.exception("Unable to load agents metadata; broadcast aborted.")
@@ -298,22 +303,21 @@ class RandomOrchestrator(OrchestratorBase):
             return
 
         trigger = TriggerAction(workflow_instance_id=instance_id)
-        
+
         try:
             agents_metadata = self.list_team_agents(
-                include_self=False,
-                team=self.effective_team()
+                include_self=False, team=self.effective_team()
             )
         except Exception:
             logger.exception("Unable to load agents metadata; broadcast aborted.")
-            return        
+            return
 
         async def _trigger() -> None:
             await send_message_to_agent(
                 source=self.name,
                 target_agent=name,
                 message=trigger,
-                agents_metadata=agents_metadata
+                agents_metadata=agents_metadata,
             )
 
         try:

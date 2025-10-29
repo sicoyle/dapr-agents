@@ -15,7 +15,7 @@ from dapr_agents.storage.daprstores.base import DaprStoreBase
 
 
 def _coerce_state_options(
-    state_options: Optional[Union[StateOptions, Dict[str, Any]]]
+    state_options: Optional[Union[StateOptions, Dict[str, Any]]],
 ) -> Optional[StateOptions]:
     """
     Convert a dict of state options into a `StateOptions` instance, or pass

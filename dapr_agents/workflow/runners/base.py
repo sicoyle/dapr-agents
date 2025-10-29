@@ -79,7 +79,7 @@ class WorkflowRunner(SignalMixin):
         self._pubsub_closers: List[Callable[[], None]] = []
         self._wired_pubsub = False
         self._wired_http = False
-    
+
     def __enter__(self) -> "WorkflowRunner":
         """
         Enter a synchronous context.
@@ -105,7 +105,11 @@ class WorkflowRunner(SignalMixin):
             None
         """
         if exc_type:
-            logger.error("[%s] Context exited with exception", self._name, exc_info=(exc_type, exc, tb))
+            logger.error(
+                "[%s] Context exited with exception",
+                self._name,
+                exc_info=(exc_type, exc, tb),
+            )
         else:
             logger.debug("[%s] Context exited cleanly (sync).", self._name)
 
@@ -141,7 +145,11 @@ class WorkflowRunner(SignalMixin):
             None
         """
         if exc_type:
-            logger.error("[%s] Async context exited with exception", self._name, exc_info=(exc_type, exc, tb))
+            logger.error(
+                "[%s] Async context exited with exception",
+                self._name,
+                exc_info=(exc_type, exc, tb),
+            )
         else:
             logger.debug("[%s] Async context exited cleanly.", self._name)
 
@@ -210,8 +218,10 @@ class WorkflowRunner(SignalMixin):
             try:
                 self._wf_client.close()
             except Exception:
-                logger.debug("Ignoring error while closing DaprWorkflowClient", exc_info=True)
-    
+                logger.debug(
+                    "Ignoring error while closing DaprWorkflowClient", exc_info=True
+                )
+
     def register_routes(
         self,
         *,
@@ -261,9 +271,13 @@ class WorkflowRunner(SignalMixin):
         use_routes = routes is not None
 
         if use_targets and use_routes:
-            raise ValueError("Provide either `targets` (discovery) OR `routes` (explicit), not both.")
+            raise ValueError(
+                "Provide either `targets` (discovery) OR `routes` (explicit), not both."
+            )
         if not use_targets and not use_routes:
-            raise ValueError("You must provide `targets` (discovery) OR `routes` (explicit).")
+            raise ValueError(
+                "You must provide `targets` (discovery) OR `routes` (explicit)."
+            )
 
         # ---- Discovery mode (targets) ----
         if use_targets:
@@ -296,7 +310,7 @@ class WorkflowRunner(SignalMixin):
         # ---- Explicit mode (routes) ----
         specs = list(routes or [])
         pubsub_specs = [r for r in specs if isinstance(r, PubSubRouteSpec)]
-        http_specs   = [r for r in specs if isinstance(r, HttpRouteSpec)]
+        http_specs = [r for r in specs if isinstance(r, HttpRouteSpec)]
 
         if pubsub_specs and not self._wired_pubsub and self._dapr_client is not None:
             closers = register_message_routes(
@@ -372,7 +386,12 @@ class WorkflowRunner(SignalMixin):
             raise ValueError("workflow must be a callable (already registered).")
 
         chosen_id = instance_id or uuid.uuid4().hex
-        logger.debug("[%s] Scheduling workflow %s id=%s", self._name, getattr(workflow, "__name__", workflow), chosen_id)
+        logger.debug(
+            "[%s] Scheduling workflow %s id=%s",
+            self._name,
+            getattr(workflow, "__name__", workflow),
+            chosen_id,
+        )
 
         try:
             with self._client_lock:
@@ -398,7 +417,9 @@ class WorkflowRunner(SignalMixin):
         fetch_payloads: bool = ...,
         detach: Literal[True],
         log: bool = ...,
-    ) -> str: ...
+    ) -> str:
+        ...
+
     @overload
     async def run_workflow_async(
         self,
@@ -410,7 +431,8 @@ class WorkflowRunner(SignalMixin):
         fetch_payloads: bool = ...,
         detach: Literal[False] = ...,
         log: bool = ...,
-    ) -> Optional[str]: ...
+    ) -> Optional[str]:
+        ...
 
     async def run_workflow_async(
         self,
@@ -448,7 +470,11 @@ class WorkflowRunner(SignalMixin):
         if detach:
             logger.info("[%s] Running in detached mode", self._name)
             if log:
-                asyncio.create_task(self._await_and_log_state(instance, effective_timeout, fetch_payloads))
+                asyncio.create_task(
+                    self._await_and_log_state(
+                        instance, effective_timeout, fetch_payloads
+                    )
+                )
             return instance
 
         logger.info("[%s] Waiting for workflow completion...", self._name)
@@ -463,7 +489,7 @@ class WorkflowRunner(SignalMixin):
         instance_id: str,
         *,
         fetch_payloads: bool = True,
-       timeout_in_seconds: Optional[int] = None,
+        timeout_in_seconds: Optional[int] = None,
     ) -> Optional[WorkflowState]:
         """
         Block until a workflow completes and return its final state.
@@ -507,6 +533,7 @@ class WorkflowRunner(SignalMixin):
         Returns:
             WorkflowState | None: Final state, or None on timeout/error.
         """
+
         def _wait() -> Optional[WorkflowState]:
             with self._client_lock:
                 return self._wf_client.wait_for_workflow_completion(
@@ -514,6 +541,7 @@ class WorkflowRunner(SignalMixin):
                     fetch_payloads=fetch_payloads,
                     timeout_in_seconds=timeout_in_seconds,
                 )
+
         return await asyncio.to_thread(_wait)
 
     async def _await_and_log_state(
@@ -534,10 +562,16 @@ class WorkflowRunner(SignalMixin):
             None
         """
         try:
-            state = await self._await_state(instance_id, timeout_in_seconds, fetch_payloads)
+            state = await self._await_state(
+                instance_id, timeout_in_seconds, fetch_payloads
+            )
             self._log_state(instance_id, state)
         except Exception:
-            logger.exception("[%s] %s: error while monitoring workflow outcome", self._name, instance_id)
+            logger.exception(
+                "[%s] %s: error while monitoring workflow outcome",
+                self._name,
+                instance_id,
+            )
 
     def _log_state(self, instance_id: str, state: Optional[WorkflowState]) -> None:
         """
@@ -551,13 +585,21 @@ class WorkflowRunner(SignalMixin):
             None
         """
         if not state:
-            logger.warning("[%s] %s: no state returned (timeout or missing).", self._name, instance_id)
+            logger.warning(
+                "[%s] %s: no state returned (timeout or missing).",
+                self._name,
+                instance_id,
+            )
             return
 
         status = getattr(state.runtime_status, "name", str(state.runtime_status))
         if status == "COMPLETED":
-            logger.info("[%s] %s completed. Final Output=%s",
-                        self._name, instance_id, getattr(state, "serialized_output", None))
+            logger.info(
+                "[%s] %s completed. Final Output=%s",
+                self._name,
+                instance_id,
+                getattr(state, "serialized_output", None),
+            )
             return
 
         fd = getattr(state, "failure_details", None)

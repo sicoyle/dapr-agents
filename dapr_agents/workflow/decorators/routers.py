@@ -37,20 +37,22 @@ def message_router(
             Whether to treat this as a broadcast subscription.
         message_model (Optional[Any]):
             The message model class or Union[...] to use for validation.
-    
+
     Returns:
         Callable[[Callable[..., Any]], Callable[..., Any]]:
             The decorated function.
     """
-    def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
 
+    def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         # Resolve message model(s)
         if message_model is None:
             # Back-compat fallback: try to infer from a `message` param if present, but not required.
             try:
                 hints = get_type_hints(f, globalns=f.__globals__)
             except Exception:
-                logger.debug("Failed to resolve type hints for %s", f.__name__, exc_info=True)
+                logger.debug(
+                    "Failed to resolve type hints for %s", f.__name__, exc_info=True
+                )
                 hints = getattr(f, "__annotations__", {}) or {}
             inferred = hints.get("message")
             models = extract_message_models(inferred) if inferred else []
@@ -58,7 +60,9 @@ def message_router(
             models = extract_message_models(message_model)
 
         if not models:
-            raise TypeError("`@message_router` requires `message_model` (class or Union[...]).")
+            raise TypeError(
+                "`@message_router` requires `message_model` (class or Union[...])."
+            )
 
         for m in models:
             if not is_supported_model(m):
@@ -67,7 +71,8 @@ def message_router(
         data = {
             "pubsub": pubsub,
             "topic": topic,
-            "dead_letter_topic": dead_letter_topic or (f"{topic}_DEAD" if topic else None),
+            "dead_letter_topic": dead_letter_topic
+            or (f"{topic}_DEAD" if topic else None),
             "is_broadcast": broadcast,
             "message_schemas": models,
             "message_types": [m.__name__ for m in models],
@@ -78,7 +83,11 @@ def message_router(
 
         logger.debug(
             "@message_router: '%s' => models %s (topic=%s, pubsub=%s, broadcast=%s)",
-            f.__name__, [m.__name__ for m in models], topic, pubsub, broadcast,
+            f.__name__,
+            [m.__name__ for m in models],
+            topic,
+            pubsub,
+            broadcast,
         )
         return f
 
@@ -96,7 +105,7 @@ def http_router(
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Tag a callable as a **plain-HTTP** endpoint with schema metadata for its JSON body.
-    
+
     Args:
         func (Optional[Callable[..., Any]]):
             The function to decorate (if used without parentheses).
@@ -110,11 +119,12 @@ def http_router(
             A list of tags for grouping endpoints.
         response_model (Optional[Type[Any]]):
             The response model class to use for validation.
-    
+
     Returns:
         Callable[[Callable[..., Any]], Callable[..., Any]]:
             The decorated function.
     """
+
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         if path is None:
             raise ValueError("`@http_router` requires `path`.")
@@ -123,13 +133,17 @@ def http_router(
         try:
             hints = get_type_hints(f, globalns=f.__globals__)
         except Exception:
-            logger.debug("Failed to fully resolve type hints for %s", f.__name__, exc_info=True)
+            logger.debug(
+                "Failed to fully resolve type hints for %s", f.__name__, exc_info=True
+            )
             hints = getattr(f, "__annotations__", {}) or {}
 
         raw_hint = hints.get("request")
         models = extract_message_models(raw_hint) if raw_hint is not None else []
         if not models:
-            raise TypeError("`@http_router` requires a type-hinted `request` parameter.")
+            raise TypeError(
+                "`@http_router` requires a type-hinted `request` parameter."
+            )
 
         for m in models:
             if not is_supported_model(m):
@@ -146,7 +160,13 @@ def http_router(
         }
         setattr(f, "_is_http_handler", True)
         setattr(f, "_http_route_data", deepcopy(data))
-        logger.debug("@http_router: '%s' => models %s (%s %s)", f.__name__, [m.__name__ for m in models], method_upper, path)
+        logger.debug(
+            "@http_router: '%s' => models %s (%s %s)",
+            f.__name__,
+            [m.__name__ for m in models],
+            method_upper,
+            path,
+        )
         return f
 
     return decorator if func is None else decorator(func)

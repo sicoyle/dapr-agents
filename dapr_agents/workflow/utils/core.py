@@ -91,6 +91,7 @@ def get_decorated_methods(instance: Any, attribute_name: str) -> Dict[str, Calla
 
     return discovered
 
+
 def to_payload(model: Any) -> Dict[str, Any]:
     """
     Convert supported message instances to a JSON-serializable dict.
@@ -123,6 +124,7 @@ def to_payload(model: Any) -> Dict[str, Any]:
         raise TypeError(
             f"Unsupported message payload type for serialization: {type(model)!r}"
         ) from e
+
 
 def coerce_to_model(model_type: Type[Any], value: Any) -> Any:
     """

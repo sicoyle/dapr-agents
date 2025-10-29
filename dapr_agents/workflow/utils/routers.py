@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 def extract_message_models(type_hint: Any) -> list[type]:
     """
     Turn a single class or a Union[...] into a list of concrete classes (filters None/Any).
-    
+
     Args:
         type_hint (Any):
             The type hint to extract classes from.
-    
+
     Returns:
         list[type]: A list of concrete classes extracted from the type hint.
     """
@@ -30,7 +30,9 @@ def extract_message_models(type_hint: Any) -> list[type]:
         return []
     origin = get_origin(type_hint)
     if origin in (Union, types.UnionType):
-        return [t for t in get_args(type_hint) if t is not NoneType and isinstance(t, type)]
+        return [
+            t for t in get_args(type_hint) if t is not NoneType and isinstance(t, type)
+        ]
     return [type_hint] if isinstance(type_hint, type) else []
 
 
@@ -73,13 +75,13 @@ def _maybe_json_body(body: Any) -> Any:
 def validate_message_model(model: Type[Any], event_data: dict) -> Any:
     """
     Validate/coerce event_data into model (dict, dataclass, Pydantic v1/v2).
-    
+
     Args:
         model (Type[Any]):
             The model class to validate against.
         event_data (dict):
             The event data to validate.
-    
+
     Returns:
         Any: The validated/coerced message instance.
     """
@@ -98,7 +100,7 @@ def validate_message_model(model: Type[Any], event_data: dict) -> Any:
         if hasattr(model, "model_validate"):  # Pydantic v2
             return model.model_validate(event_data)
 
-        if hasattr(model, "parse_obj"):       # Pydantic v1
+        if hasattr(model, "parse_obj"):  # Pydantic v1
             return model.parse_obj(event_data)
 
         raise TypeError(f"Unsupported model type: {model!r}")
@@ -113,11 +115,11 @@ def extract_cloudevent_data(
 ) -> Tuple[Any, dict]:
     """
     Extract CloudEvent .data and metadata from Dapr SubscriptionMessage or similar shapes.
-    
+
     Args:
         message (Union[SubscriptionMessage, dict, bytes, str]):
             The incoming CloudEvent message from Dapr pub/sub.
-    
+
     Returns:
         Tuple[Any, dict]: A tuple containing the event data and its metadata.
     """
@@ -181,7 +183,11 @@ def extract_cloudevent_data(
         raise ValueError(f"Unexpected message type: {type(message)!r}")
 
     if not isinstance(event_data, dict):
-        logger.debug("CloudEvent data is not a dict (type=%s); value=%r", type(event_data), event_data)
+        logger.debug(
+            "CloudEvent data is not a dict (type=%s); value=%r",
+            type(event_data),
+            event_data,
+        )
 
     return event_data, metadata
 
@@ -192,13 +198,13 @@ def parse_cloudevent(
 ) -> Tuple[Any, dict]:
     """
     Parse a pub/sub CloudEvent and validate its `.data` against model.
-    
+
     Args:
         message (Union[SubscriptionMessage, dict, bytes, str]):
             The incoming CloudEvent message from Dapr pub/sub.
         model (Optional[Type[Any]], optional):
             The model class to validate the event data against. Defaults to None.
-    
+
     Returns:
         Tuple[Any, dict]: A tuple containing the validated message and its metadata.
     """
@@ -229,7 +235,7 @@ def parse_http_json(
 ) -> Tuple[Any, dict]:
     """
     Parse a plain JSON HTTP body and validate against model (no CloudEvent semantics).
-    
+
     Args:
         body (Any):
             The incoming HTTP request body.
@@ -237,7 +243,7 @@ def parse_http_json(
             The model class to validate the body against. Defaults to None.
         attach_metadata (bool, optional):
             Whether to attach empty metadata dict. Defaults to False.
-    
+
     Returns:
         Tuple[Any, dict]: A tuple containing the validated message and its metadata.
     """

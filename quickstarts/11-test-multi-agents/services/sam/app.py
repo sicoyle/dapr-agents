@@ -78,12 +78,12 @@ async def main() -> None:
             "Advise on campsite selection (cover, water, distance from threats).",
             "Provide pragmatic alternatives to risky ideas and note trade-offs.",
             "Remind the party of the plan and next small step when confusion arises.",
-            "End with a short, encouraging line if stakes are high."
+            "End with a short, encouraging line if stakes are high.",
         ],
         style_guidelines=[
             "Warm, plain-spoken, and grounded.",
             "Emphasize practicality over poetry.",
-            "Stay loyal and supportive, especially under pressure."
+            "Stay loyal and supportive, especially under pressure.",
         ],
         modules=("supplies", "campcraft"),
     )

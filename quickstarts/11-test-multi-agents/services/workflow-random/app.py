@@ -65,7 +65,7 @@ async def main() -> None:
     # -------------------------------------------------------------------------
     pubsub_config = AgentPubSubConfig(
         pubsub_name=pubsub_name,
-        agent_topic=orchestrator_topic,   # <-- RandomOrchestrator subscribes here
+        agent_topic=orchestrator_topic,  # <-- RandomOrchestrator subscribes here
         broadcast_topic=broadcast_topic,  # <-- Optional (fanout to agents)
     )
 
@@ -73,8 +73,7 @@ async def main() -> None:
     # so you can extend later (metrics, audit, etc).
     state_config = AgentStateConfig(
         store=StateStoreService(
-            store_name=workflow_state_store_name,
-            key_prefix="fellowship.random:"
+            store_name=workflow_state_store_name, key_prefix="fellowship.random:"
         ),
     )
 

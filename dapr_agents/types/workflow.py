@@ -14,6 +14,7 @@ class DaprWorkflowStatus(str, Enum):
     SUSPENDED = "suspended"  # Workflow was temporarily paused
     PENDING = "pending"  # Workflow is waiting to start
 
+
 @dataclass
 class PubSubRouteSpec:
     """
@@ -28,6 +29,7 @@ class PubSubRouteSpec:
             first schema is used; otherwise `dict`.
         dead_letter_topic: Optional DLQ topic name.
     """
+
     pubsub_name: str
     topic: str
     handler_fn: Callable[..., Any]
@@ -51,6 +53,7 @@ class HttpRouteSpec:
         tags: Optional OpenAPI tags.
         response_model: Optional Pydantic response model for docs.
     """
+
     path: str
     handler_fn: Callable[..., Any]
     method: str = "POST"

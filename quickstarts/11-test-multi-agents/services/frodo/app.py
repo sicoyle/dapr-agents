@@ -84,7 +84,7 @@ async def main() -> None:
         style_guidelines=[
             "Keep tone steady, humble, and focused.",
             "Prefer concise, decisive recommendations with brief justification.",
-            "Avoid unnecessary bravado; safety first."
+            "Avoid unnecessary bravado; safety first.",
         ],
         # If you use prompt modules later, you can list them here:
         modules=("navigation", "risk-assessment"),

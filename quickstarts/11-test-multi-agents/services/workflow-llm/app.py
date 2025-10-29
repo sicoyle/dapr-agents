@@ -45,9 +45,7 @@ async def main() -> None:
 
     # Pub/Sub topics: orchestrator listens on orchestrator_topic for TriggerAction
     pubsub_name = os.getenv("PUBSUB_NAME", "messagepubsub")
-    orchestrator_topic = os.getenv(
-        "ORCHESTRATOR_TOPIC", "llm.orchestrator.requests"
-    )
+    orchestrator_topic = os.getenv("ORCHESTRATOR_TOPIC", "llm.orchestrator.requests")
     broadcast_topic = os.getenv("BROADCAST_TOPIC", "fellowship.broadcast")
 
     # (Optional) state & registry stores (by name, as configured in Dapr components)
@@ -74,8 +72,7 @@ async def main() -> None:
     # so you can extend later (metrics, audit, etc).
     state_config = LLMOrchestratorStateConfig(
         store=StateStoreService(
-            store_name=workflow_state_store_name,
-            key_prefix="llm.orchestrator:"
+            store_name=workflow_state_store_name, key_prefix="llm.orchestrator:"
         ),
     )
 
@@ -93,7 +90,10 @@ async def main() -> None:
         pubsub_config=pubsub_config,
         state_config=state_config,
         registry_config=registry_config,
-        agent_metadata={"type": "LLMOrchestrator", "description": "LLM-driven Orchestrator"},
+        agent_metadata={
+            "type": "LLMOrchestrator",
+            "description": "LLM-driven Orchestrator",
+        },
         max_iterations=max_iterations,
         timeout_seconds=timeout_seconds,
         runtime=wf.WorkflowRuntime(),  # you can inject your own if needed

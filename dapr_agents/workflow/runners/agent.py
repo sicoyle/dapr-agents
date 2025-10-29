@@ -103,8 +103,14 @@ class AgentRunner(WorkflowRunner):
         Raises:
             RuntimeError: If zero or multiple entry methods are found on the Agent.
         """
-        logger.debug("[%s] Start run: agent=%s payload=%s wait=%s timeout=%s",
-                     self._name, type(agent).__name__, payload, wait, timeout_in_seconds)
+        logger.debug(
+            "[%s] Start run: agent=%s payload=%s wait=%s timeout=%s",
+            self._name,
+            type(agent).__name__,
+            payload,
+            wait,
+            timeout_in_seconds,
+        )
 
         entry = self.discover_entry(agent)
         logger.debug("[%s] Discovered workflow entry: %s", self._name, entry.__name__)
@@ -131,7 +137,7 @@ class AgentRunner(WorkflowRunner):
     ) -> Optional[str]:
         """
         Synchronously run an Agent's workflow entry and wait for completion.
-        
+
         Args:
             agent: Agent instance containing exactly one bound method marked with `@workflow_entry`.
             payload: Workflow input (JSON-serializable dict or string).
@@ -186,7 +192,7 @@ class AgentRunner(WorkflowRunner):
 
     @staticmethod
     def _run_coro_in_new_loop_thread(
-        coro: "asyncio.Future[R] | asyncio.coroutines.Coroutine[Any, Any, R]"
+        coro: "asyncio.Future[R] | asyncio.coroutines.Coroutine[Any, Any, R]",
     ) -> R:
         """
         Execute an async coroutine in a brand-new event loop on a background thread,
@@ -219,7 +225,7 @@ class AgentRunner(WorkflowRunner):
         t = threading.Thread(target=_runner, daemon=True)
         t.start()
         return fut.result()
-    
+
     def register_routes(
         self,
         agent: Any,
@@ -234,7 +240,7 @@ class AgentRunner(WorkflowRunner):
     ) -> None:
         """
         Register message/HTTP routes for a single durable agent instance.
-        
+
         Args:
             agent: The agent instance whose routes should be registered.
             fastapi_app: Optional FastAPI app to register HTTP routes on. If omitted, no HTTP routes are registered.

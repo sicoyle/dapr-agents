@@ -89,9 +89,9 @@ class PromptTemplateFactory:
         template_format = template_format or spec.template_format
         system_message = spec.render_system_prompt()
 
-        messages: List[
-            Union[Tuple[str, str], Dict[str, Any], MessagePlaceHolder]
-        ] = [("system", system_message)]
+        messages: List[Union[Tuple[str, str], Dict[str, Any], MessagePlaceHolder]] = [
+            ("system", system_message)
+        ]
 
         if extra_sections:
             for section in extra_sections:
@@ -113,7 +113,9 @@ class PromptTemplateFactory:
         return template
 
 
-PROMPT_MODULE_REGISTRY: Dict[str, Callable[["AgentProfileConfig"], Optional[PromptSection]]] = {}
+PROMPT_MODULE_REGISTRY: Dict[
+    str, Callable[["AgentProfileConfig"], Optional[PromptSection]]
+] = {}
 
 
 def register_prompt_module(
@@ -122,6 +124,7 @@ def register_prompt_module(
 ) -> None:
     """Register a callable that returns an additional prompt section."""
     PROMPT_MODULE_REGISTRY[name] = factory
+
 
 def prompt_spec_from_profile(
     profile: AgentProfileConfig,
@@ -204,7 +207,7 @@ class PromptingAgentBase:
             )
 
         self._prefill_prompt_variables()
-    
+
     def to_prompt_spec(self) -> PromptSpec:
         return PromptSpec(
             name=self.name,
@@ -258,7 +261,7 @@ class PromptingAgentBase:
             variables["style_guidelines"] = "\n".join(self.style_guidelines)
 
         self.prompt_template = self.prompt_template.pre_fill_variables(**variables)
-    
+
     def build_initial_messages(
         self,
         user_input: Optional[Union[str, Dict[str, Any]]] = None,
@@ -280,7 +283,7 @@ class PromptingAgentBase:
             messages.append(user_input)
 
         return messages
-    
+
     @property
     def text_formatter(self) -> ColorTextFormatter:
         return self._text_formatter

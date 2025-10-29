@@ -124,7 +124,9 @@ async def publish_event_message(
         payload = message.model_dump()
     elif isinstance(message, dict):
         if not message_type:
-            raise ValueError("message_type must be provided when message is a dictionary.")
+            raise ValueError(
+                "message_type must be provided when message is a dictionary."
+            )
         payload = message
     elif is_dataclass(message):
         message_type = message_type or message.__class__.__name__
@@ -238,7 +240,9 @@ async def send_message_to_agent(
     """
     meta = agents_metadata.get(target_agent)
     if not meta:
-        logger_.warning("Target '%s' is not registered; skipping message.", target_agent)
+        logger_.warning(
+            "Target '%s' is not registered; skipping message.", target_agent
+        )
         return
 
     topic = meta.get("topic_name")

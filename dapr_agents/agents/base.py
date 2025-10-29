@@ -197,9 +197,13 @@ class AgentBase(AgentComponents):
             try:
                 self.register_agentic_system(metadata=merged_meta)
             except StateStoreError:
-                logger.warning("Could not register agent metadata; registry unavailable.")
+                logger.warning(
+                    "Could not register agent metadata; registry unavailable."
+                )
         else:
-            logger.debug("Registry configuration not provided; skipping agent registration.")
+            logger.debug(
+                "Registry configuration not provided; skipping agent registration."
+            )
 
     # ------------------------------------------------------------------
     # Presentation helpers
@@ -216,7 +220,9 @@ class AgentBase(AgentComponents):
         if hasattr(self, "prompting_helper"):
             self.prompting_helper._text_formatter = formatter
 
-    def print_interaction(self, source_agent_name: str, target_agent_name: str, message: str) -> None:
+    def print_interaction(
+        self, source_agent_name: str, target_agent_name: str, message: str
+    ) -> None:
         """
         Print a formatted interaction between two agents.
 
@@ -255,7 +261,9 @@ class AgentBase(AgentComponents):
         """
         return self.prompting_helper.build_initial_messages(
             user_input,
-            chat_history=self.get_chat_history() if self.prompting_helper.include_chat_history else None,
+            chat_history=self.get_chat_history()
+            if self.prompting_helper.include_chat_history
+            else None,
             **extra_variables,
         )
 
@@ -290,7 +298,9 @@ class AgentBase(AgentComponents):
         history = self.get_chat_history()
         return dict(history[-1]) if history else None
 
-    def get_last_user_message(self, messages: Sequence[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def get_last_user_message(
+        self, messages: Sequence[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
         """
         Return the most recent message authored by the user from a sequence.
 
@@ -309,7 +319,9 @@ class AgentBase(AgentComponents):
             result["content"] = content.strip()
         return result
 
-    def get_last_message_if_user(self, messages: Sequence[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def get_last_message_if_user(
+        self, messages: Sequence[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
         """
         Return the last message only if it is authored by the user.
 
@@ -455,9 +467,13 @@ class AgentBase(AgentComponents):
             return dict(message)
         if hasattr(message, "__dict__"):
             return dict(message.__dict__)
-        raise TypeError(f"Unsupported message type for serialization: {type(message)!r}")
+        raise TypeError(
+            f"Unsupported message type for serialization: {type(message)!r}"
+        )
 
-    def _get_last_user_message(self, messages: Sequence[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def _get_last_user_message(
+        self, messages: Sequence[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
         """Find the last user-role message from the given sequence."""
         for message in reversed(messages):
             if message.get("role") == "user":
@@ -467,7 +483,9 @@ class AgentBase(AgentComponents):
     # ------------------------------------------------------------------
     # State-aware message helpers (use AgentComponents' state model)
     # ------------------------------------------------------------------
-    def _construct_messages_with_instance_history(self, instance_id: str) -> List[Dict[str, Any]]:
+    def _construct_messages_with_instance_history(
+        self, instance_id: str
+    ) -> List[Dict[str, Any]]:
         """
         Build a conversation history combining persistent memory and per-instance messages.
 
@@ -493,7 +511,9 @@ class AgentBase(AgentComponents):
                 try:
                     persistent_memory.append(self._serialize_message(msg))
                 except TypeError:
-                    logger.debug("Unsupported memory message type %s; skipping.", type(msg))
+                    logger.debug(
+                        "Unsupported memory message type %s; skipping.", type(msg)
+                    )
         except Exception:  # noqa: BLE001
             logger.debug("Unable to load persistent memory.", exc_info=True)
 
@@ -553,10 +573,14 @@ class AgentBase(AgentComponents):
         if session_id is not None and hasattr(entry, "session_id"):
             entry.session_id = str(session_id)  # type: ignore[attr-defined]
 
-        self.memory.add_message(UserMessage(content=user_message_copy.get("content", "")))
+        self.memory.add_message(
+            UserMessage(content=user_message_copy.get("content", ""))
+        )
         self.save_state()
 
-    def _save_assistant_message(self, instance_id: str, assistant_message: Dict[str, Any]) -> None:
+    def _save_assistant_message(
+        self, instance_id: str, assistant_message: Dict[str, Any]
+    ) -> None:
         """
         Append an assistant message into the instance timeline and memory, and persist state.
 
@@ -572,7 +596,9 @@ class AgentBase(AgentComponents):
             return
 
         message_id = assistant_message.get("id")
-        if message_id and any(getattr(msg, "id", None) == message_id for msg in getattr(entry, "messages")):
+        if message_id and any(
+            getattr(msg, "id", None) == message_id for msg in getattr(entry, "messages")
+        ):
             return
 
         message_model = (
@@ -590,7 +616,9 @@ class AgentBase(AgentComponents):
     # ------------------------------------------------------------------
     # Small convenience wrappers
     # ------------------------------------------------------------------
-    def list_team_agents(self, *, team: Optional[str] = None, include_self: bool = True) -> Dict[str, Any]:
+    def list_team_agents(
+        self, *, team: Optional[str] = None, include_self: bool = True
+    ) -> Dict[str, Any]:
         """
         Convenience wrapper over `get_agents_metadata`.
 
