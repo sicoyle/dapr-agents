@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from pydantic import Field, ConfigDict
 from typing import List, Optional, Any
 from dapr_agents.service import APIServerBase
-from dapr_agents.utils import SignalHandlingMixin
+from dapr_agents.utils.signal.mixin import SignalMixin
 import uvicorn
 import asyncio
 import logging
@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class FastAPIServerBase(APIServerBase, SignalHandlingMixin):
+class FastAPIServerBase(APIServerBase, SignalMixin):
     """
     Abstract base class for FastAPI-based API server services.
     Provides core FastAPI functionality, with support for CORS, lifecycle management, and graceful shutdown.
@@ -72,6 +72,7 @@ class FastAPIServerBase(APIServerBase, SignalHandlingMixin):
 
         # Call the base post-initialization
         super().model_post_init(__context)
+        SignalMixin.__init__(self)
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI):
@@ -104,24 +105,27 @@ class FastAPIServerBase(APIServerBase, SignalHandlingMixin):
         self.server: uvicorn.Server = uvicorn.Server(config)
 
         # Set up signal handlers using the mixin
-        self.setup_signal_handlers()
+        self.install_signal_handlers()
 
-        # Start in background so we can inspect the actual port
-        server_task = asyncio.create_task(self.server.serve())
+        try:
+            # Start in background so we can inspect the actual port
+            server_task = asyncio.create_task(self.server.serve())
 
-        # Wait for startup to complete
-        while not self.server.started:
-            await asyncio.sleep(0.1)
+            # Wait for startup to complete
+            while not self.server.started:
+                await asyncio.sleep(0.1)
 
-        # Extract the real port from the bound socket
-        if self.server.servers:
-            sock = list(self.server.servers)[0].sockets[0]
-            actual_port = sock.getsockname()[1]
-            self.service_port = actual_port
-        else:
-            logger.warning(f"{self.service_name} could not determine bound port")
+            # Extract the real port from the bound socket
+            if self.server.servers:
+                sock = list(self.server.servers)[0].sockets[0]
+                actual_port = sock.getsockname()[1]
+                self.service_port = actual_port
+            else:
+                logger.warning(f"{self.service_name} could not determine bound port")
 
-        await server_task
+            await server_task
+        finally:
+            self.remove_signal_handlers()
 
     async def graceful_shutdown(self) -> None:
         """
