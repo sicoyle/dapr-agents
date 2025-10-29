@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock, Mock
 from dapr_agents.agents.durableagent.agent import DurableAgent
-from dapr_agents.agents.durableagent.state import DurableAgentWorkflowEntry
-from dapr_agents.agents.durableagent.state import DurableAgentWorkflowState
+from dapr_agents.agents.durableagent.state import AgentWorkflowEntry
+from dapr_agents.agents.durableagent.state import AgentWorkflowState
 from dapr_agents.tool.base import AgentTool
 
 
@@ -11,7 +11,7 @@ def patch_dapr_check(monkeypatch):
     monkeypatch.setattr(DurableAgent, "save_state", lambda self: None)
 
     # The following monkeypatches are for legacy compatibility with dict-like access in tests.
-    # If DurableAgentWorkflowState supports dict-like access natively, these can be removed.
+    # If AgentWorkflowState supports dict-like access natively, these can be removed.
     def _getitem(self, key):
         return getattr(self, key)
 
@@ -21,8 +21,8 @@ def patch_dapr_check(monkeypatch):
         setattr(self, key, default)
         return default
 
-    DurableAgentWorkflowState.__getitem__ = _getitem
-    DurableAgentWorkflowState.setdefault = _setdefault
+    AgentWorkflowState.__getitem__ = _getitem
+    AgentWorkflowState.setdefault = _setdefault
     # Patch DaprStateStore to use a mock DaprClient that supports context manager
     import dapr_agents.storage.daprstores.statestore as statestore
 
@@ -148,7 +148,7 @@ def durable_agent_with_mcp_tool(mock_mcp_tool, mock_mcp_session):
         goal="Help humans do math",
         instructions=["Test math instructions"],
         tools=[agent_tool],
-        state=DurableAgentWorkflowState().model_dump(),
+        state=AgentWorkflowState().model_dump(),
         state_store_name="teststatestore",
         message_bus_name="testpubsub",
         agents_registry_store_name="testregistry",
@@ -261,7 +261,7 @@ async def test_durable_agent_with_real_server_http(start_math_server_http):
         goal="Help humans do math",
         instructions=["Test math instructions"],
         tools=agent_tools,
-        state=DurableAgentWorkflowState().model_dump(),
+        state=AgentWorkflowState().model_dump(),
         state_store_name="teststatestore",
         message_bus_name="testpubsub",
         agents_registry_store_name="testregistry",

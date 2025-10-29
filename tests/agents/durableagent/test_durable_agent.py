@@ -16,9 +16,9 @@ from dapr_agents.agents.durableagent.schemas import (
     BroadcastMessage,
 )
 from dapr_agents.agents.durableagent.state import (
-    DurableAgentMessage,
-    DurableAgentWorkflowEntry,
-    DurableAgentWorkflowState,
+    AgentWorkflowMessage,
+    AgentWorkflowEntry,
+    AgentWorkflowState,
 )
 from dapr_agents.llm import OpenAIChatClient
 from dapr_agents.memory import ConversationDaprStateMemory
@@ -84,7 +84,7 @@ def patch_dapr_check(monkeypatch):
         self._topic_handlers = {}
 
         if not hasattr(self, "state") or self.state is None:
-            self.state = DurableAgentWorkflowState().model_dump()
+            self.state = AgentWorkflowState().model_dump()
 
         # Call the WorkflowApp model_post_init which we have mocked above.
         super(agentic.AgenticWorkflow, self).model_post_init(__context)
@@ -239,8 +239,8 @@ class TestDurableAgent:
         assert agent.message_bus_name == "testpubsub"
         assert agent.agent_topic_name == "TestDurableAgent"
         assert agent.state is not None
-        validated_state = DurableAgentWorkflowState.model_validate(agent.state)
-        assert isinstance(validated_state, DurableAgentWorkflowState)
+        validated_state = AgentWorkflowState.model_validate(agent.state)
+        assert isinstance(validated_state, AgentWorkflowState)
 
     def test_durable_agent_initialization_with_custom_topic(self, mock_llm):
         """Test durable agent initialization with custom topic name."""
@@ -661,7 +661,7 @@ class TestDurableAgent:
             "tool_history": [],
             "end_time": None,
             "trace_context": None,
-            "last_message": DurableAgentMessage(
+            "last_message": AgentWorkflowMessage(
                 role="assistant", content="Last message"
             ).model_dump(mode="json"),
         }
@@ -694,7 +694,7 @@ class TestDurableAgent:
         assert tool_msg.name == "test_tool"
         assert tool_msg.content == "tool_result"
 
-        # Verify agent message (DurableAgentMessage)
+        # Verify agent message (AgentWorkflowMessage)
         assert agent_msg.role == "tool"
         assert agent_msg.tool_call_id == "call_123"
         assert agent_msg.content == "tool_result"
@@ -725,7 +725,7 @@ class TestDurableAgent:
 
         # Create mock objects
 
-        agent_msg = DurableAgentMessage(role="assistant", content="Tool result")
+        agent_msg = AgentWorkflowMessage(role="assistant", content="Tool result")
         tool_history_entry = ToolExecutionRecord(
             tool_call_id="call_123",
             tool_name="test_tool",
@@ -784,10 +784,10 @@ class TestDurableAgent:
             "workflow_name": "AgenticWorkflow",
             "status": "RUNNING",
             "messages": [
-                DurableAgentMessage(role="user", content="Hello").model_dump(
+                AgentWorkflowMessage(role="user", content="Hello").model_dump(
                     mode="json"
                 ),
-                DurableAgentMessage(role="assistant", content="Hi there!").model_dump(
+                AgentWorkflowMessage(role="assistant", content="Hi there!").model_dump(
                     mode="json"
                 ),
             ],
@@ -869,9 +869,9 @@ class TestDurableAgent:
 
     def test_durable_agent_state_initialization(self, basic_durable_agent):
         """Test that the agent state is properly initialized."""
-        validated_state = DurableAgentWorkflowState.model_validate(
+        validated_state = AgentWorkflowState.model_validate(
             basic_durable_agent.state
         )
-        assert isinstance(validated_state, DurableAgentWorkflowState)
+        assert isinstance(validated_state, AgentWorkflowState)
         assert "instances" in basic_durable_agent.state
         assert basic_durable_agent.state["instances"] == {}
