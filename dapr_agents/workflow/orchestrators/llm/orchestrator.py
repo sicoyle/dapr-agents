@@ -76,20 +76,26 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
 
         if not self.memory_store._current_state:
             self.memory_store._current_state = {"instances": {}}
-        
+
         if not self.memory_store.name:
             raise ValueError("LLMOrchestrator must have a name for persistent storage")
 
         # Load the current workflow instance ID from state using session_id)
-        if self.memory_store._current_state and self.memory_store._current_state.get("instances"):
-            logger.debug(f"Found {len(self.memory_store._current_state['instances'])} instances in state")
+        if self.memory_store._current_state and self.memory_store._current_state.get(
+            "instances"
+        ):
+            logger.debug(
+                f"Found {len(self.memory_store._current_state['instances'])} instances in state"
+            )
 
             current_session_id = (
                 self.memory_store.session_id
                 if self.memory_store
                 else f"{self.name}_default_session"
             )
-            for instance_id, instance_data in self.memory_store._current_state["instances"].items():
+            for instance_id, instance_data in self.memory_store._current_state[
+                "instances"
+            ].items():
                 stored_workflow_name = instance_data.get("workflow_name")
                 stored_session_id = instance_data.get("session_id")
                 logger.debug(
@@ -235,10 +241,14 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
 
             # If plan is empty, read from workflow state
             if not plan_objects:
-                if (self.memory_store._current_state and 
-                    "instances" in self.memory_store._current_state and 
-                    instance_id in self.memory_store._current_state["instances"]):
-                    plan_objects = self.memory_store._current_state["instances"][instance_id].get("plan", [])
+                if (
+                    self.memory_store._current_state
+                    and "instances" in self.memory_store._current_state
+                    and instance_id in self.memory_store._current_state["instances"]
+                ):
+                    plan_objects = self.memory_store._current_state["instances"][
+                        instance_id
+                    ].get("plan", [])
                 else:
                     plan_objects = []
                 plan = plan_objects
@@ -664,7 +674,10 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         try:
             # Look for existing plan using session_id
             existing_plan = None
-            if self.memory_store._current_state and self.memory_store._current_state.get("instances"):
+            if (
+                self.memory_store._current_state
+                and self.memory_store._current_state.get("instances")
+            ):
                 logger.debug(
                     f"Found {len(self.memory_store._current_state['instances'])} instances in state"
                 )
@@ -720,7 +733,9 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
                         plan_objects = (
                             response.objects if hasattr(response, "objects") else []
                         )
-                        logger.debug(f"Plan generation response (Pydantic): {plan_objects}")
+                        logger.debug(
+                            f"Plan generation response (Pydantic): {plan_objects}"
+                        )
 
             # Format and broadcast message
             plan_dicts = self._convert_plan_objects_to_dicts(plan_objects)
@@ -1032,11 +1047,12 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         Raises:
             ValueError: If the workflow instance ID is not found in the local state.
         """
-        if not self.memory_store._current_state or "instances" not in self.memory_store._current_state:
-            raise ValueError(
-                f"No workflow instances found in local state."
-            )
-        
+        if (
+            not self.memory_store._current_state
+            or "instances" not in self.memory_store._current_state
+        ):
+            raise ValueError(f"No workflow instances found in local state.")
+
         workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
         if not workflow_entry:
             raise ValueError(
@@ -1069,7 +1085,9 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         workflow_entry["workflow_instance_id"] = instance_id
         workflow_entry["workflow_name"] = self._workflow_name
         workflow_entry["session_id"] = (
-            self.memory_store.session_id if self.memory_store else f"{self.name}_default_session"
+            self.memory_store.session_id
+            if self.memory_store
+            else f"{self.name}_default_session"
         )
 
         # Persist updated state
@@ -1147,9 +1165,12 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         )
 
         # Get the workflow entry from self.memory_store._current_state
-        if not self.memory_store._current_state or "instances" not in self.memory_store._current_state:
+        if (
+            not self.memory_store._current_state
+            or "instances" not in self.memory_store._current_state
+        ):
             raise ValueError(f"No workflow instances found in local state.")
-        
+
         workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
         if not workflow_entry:
             raise ValueError(f"No workflow entry found for instance_id: {instance_id}")
@@ -1203,9 +1224,12 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         await self.update_workflow_state(instance_id=instance_id, message=results)
 
         # Retrieve Workflow state
-        if not self.memory_store._current_state or "instances" not in self.memory_store._current_state:
+        if (
+            not self.memory_store._current_state
+            or "instances" not in self.memory_store._current_state
+        ):
             raise ValueError(f"No workflow instances found in local state.")
-        
+
         workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
         if not workflow_entry:
             raise ValueError(f"No workflow entry found for instance_id: {instance_id}")
@@ -1339,9 +1363,11 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         Rollback workflow initialization by clearing partial state.
         """
         try:
-            if (self.memory_store._current_state and 
-                "instances" in self.memory_store._current_state and 
-                instance_id in self.memory_store._current_state["instances"]):
+            if (
+                self.memory_store._current_state
+                and "instances" in self.memory_store._current_state
+                and instance_id in self.memory_store._current_state["instances"]
+            ):
                 # Clear the plan if it was partially created
                 self.memory_store._current_state["instances"][instance_id]["plan"] = []
                 self.save_state()
@@ -1356,15 +1382,21 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         Rollback agent trigger by reverting step status.
         """
         try:
-            if (self.memory_store._current_state and 
-                "instances" in self.memory_store._current_state):
-                workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
+            if (
+                self.memory_store._current_state
+                and "instances" in self.memory_store._current_state
+            ):
+                workflow_entry = self.memory_store._current_state["instances"].get(
+                    instance_id
+                )
                 if workflow_entry and "plan" in workflow_entry:
                     plan = workflow_entry["plan"]
                     step_entry = find_step_in_plan(plan, step_id, substep_id)
                     if step_entry and step_entry["status"] == "in_progress":
                         step_entry["status"] = "not_started"
-                        await self.update_workflow_state(instance_id=instance_id, plan=plan)
+                        await self.update_workflow_state(
+                            instance_id=instance_id, plan=plan
+                        )
                         logger.info(
                             f"Rolled back agent trigger for step {step_id}, substep {substep_id}"
                         )
@@ -1378,12 +1410,19 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         Rollback agent response processing by reverting changes.
         """
         try:
-            if (self.memory_store._current_state and 
-                "instances" in self.memory_store._current_state):
-                workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
+            if (
+                self.memory_store._current_state
+                and "instances" in self.memory_store._current_state
+            ):
+                workflow_entry = self.memory_store._current_state["instances"].get(
+                    instance_id
+                )
                 if workflow_entry:
                     # Remove the last task result if it was added
-                    if "task_history" in workflow_entry and workflow_entry["task_history"]:
+                    if (
+                        "task_history" in workflow_entry
+                        and workflow_entry["task_history"]
+                    ):
                         # Find and remove the last entry for this agent/step
                         task_history = workflow_entry["task_history"]
                         for i in range(len(task_history) - 1, -1, -1):
@@ -1417,9 +1456,13 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         Rollback workflow finalization to ensure consistent state.
         """
         try:
-            if (self.memory_store._current_state and 
-                "instances" in self.memory_store._current_state):
-                workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
+            if (
+                self.memory_store._current_state
+                and "instances" in self.memory_store._current_state
+            ):
+                workflow_entry = self.memory_store._current_state["instances"].get(
+                    instance_id
+                )
                 if workflow_entry:
                     # Clear final output if it was set
                     if "output" in workflow_entry:
@@ -1507,9 +1550,13 @@ class LLMOrchestrator(OrchestratorWorkflowBase):
         Ensures workflow state is consistent after compensation.
         """
         try:
-            if (self.memory_store._current_state and 
-                "instances" in self.memory_store._current_state):
-                workflow_entry = self.memory_store._current_state["instances"].get(instance_id)
+            if (
+                self.memory_store._current_state
+                and "instances" in self.memory_store._current_state
+            ):
+                workflow_entry = self.memory_store._current_state["instances"].get(
+                    instance_id
+                )
                 if not workflow_entry:
                     logger.warning(
                         f"No workflow entry found for {instance_id} during consistency check"

@@ -55,7 +55,9 @@ class StateManagementMixin:
                             updated_instances.append(instance_id)
 
                             # Save the updated instance back to Redis
-                            instance_key = self.memory_store._get_instance_key(instance_id)
+                            instance_key = self.memory_store._get_instance_key(
+                                instance_id
+                            )
                             self.memory_store._save_state_with_metadata(
                                 instance_key, instance_data
                             )
@@ -70,7 +72,9 @@ class StateManagementMixin:
                             updated_instances.append(instance_id)
 
                             # Save the updated instance
-                            instance_key = self.memory_store._get_instance_key(instance_id)
+                            instance_key = self.memory_store._get_instance_key(
+                                instance_id
+                            )
                             self.memory_store._save_state_with_metadata(
                                 instance_key, instance_data
                             )
@@ -170,7 +174,9 @@ class StateManagementMixin:
                 logger.debug(
                     "User provided a state as a Pydantic model. Converting to dict."
                 )
-                self.memory_store._current_state = self.memory_store._current_state.model_dump()
+                self.memory_store._current_state = (
+                    self.memory_store._current_state.model_dump()
+                )
 
             if not isinstance(self.memory_store._current_state, dict):
                 raise TypeError(
@@ -209,8 +215,7 @@ class StateManagementMixin:
 
             # For durable agents, always load from database to ensure it's the source of truth
             response = self._dapr_client.get_state(
-                self.memory_store.name,
-                self.memory_store._key
+                self.memory_store.name, self.memory_store._key
             )
             if response.data:
                 state_data = self._deserialize_state(response.data)
@@ -227,8 +232,7 @@ class StateManagementMixin:
             # Get all sessions for this agent
             sessions_index_key = self.memory_store._get_sessions_index_key()
             response = self._dapr_client.get_state(
-                self.memory_store.name,
-                sessions_index_key
+                self.memory_store.name, sessions_index_key
             )
 
             if response.data:
@@ -242,8 +246,7 @@ class StateManagementMixin:
                 for session_id in session_ids:
                     session_key = self.memory_store._get_session_key(session_id)
                     response = self._dapr_client.get_state(
-                        self.memory_store.name,
-                        session_key
+                        self.memory_store.name, session_key
                     )
 
                     if response.data:
@@ -256,8 +259,12 @@ class StateManagementMixin:
 
                         # Load each instance
                         for instance_id in instance_ids:
-                            instance_key = self.memory_store._get_instance_key(instance_id)
-                            response = self._dapr_client.get_state(self.memory_store.name, instance_key)
+                            instance_key = self.memory_store._get_instance_key(
+                                instance_id
+                            )
+                            response = self._dapr_client.get_state(
+                                self.memory_store.name, instance_key
+                            )
                             if response.data:
                                 instance_data = self._deserialize_state(response.data)
 
@@ -293,7 +300,9 @@ class StateManagementMixin:
             )
             return self.memory_store._current_state
         except Exception as e:
-            logger.error(f"Failed to load state for key '{self.memory_store._key}': {e}")
+            logger.error(
+                f"Failed to load state for key '{self.memory_store._key}': {e}"
+            )
             raise RuntimeError(f"Error loading workflow state: {e}") from e
 
     def get_local_state_file_path(self) -> str:
@@ -428,19 +437,27 @@ class StateManagementMixin:
                         instance_json = instance_data
                     else:
                         instance_json = json.dumps(instance_data)
-                    self._dapr_client.save_state(self.memory_store.name, instance_key, instance_json)
+                    self._dapr_client.save_state(
+                        self.memory_store.name, instance_key, instance_json
+                    )
                     logger.debug(
                         f"Saved workflow instance {instance_id} to key '{instance_key}'"
                     )
 
             # Save other state data (like chat_history) to main key
             other_state = {
-                k: v for k, v in self.memory_store._current_state.items() if k != "instances"
+                k: v
+                for k, v in self.memory_store._current_state.items()
+                if k != "instances"
             }
             if other_state:
                 other_state_json = json.dumps(other_state)
-                self._dapr_client.save_state(self.memory_store.name, self.memory_store._key, other_state_json)
-                logger.debug(f"Saved non-instance state to key '{self.memory_store._key}'")
+                self._dapr_client.save_state(
+                    self.memory_store.name, self.memory_store._key, other_state_json
+                )
+                logger.debug(
+                    f"Saved non-instance state to key '{self.memory_store._key}'"
+                )
 
             if self.memory_store.local_directory is not None:
                 self.save_state_to_disk(state_data=state_to_save)
@@ -451,7 +468,9 @@ class StateManagementMixin:
                     f"State reloaded after saving for key '{self.memory_store._key}'."
                 )
         except Exception as e:
-            logger.error(f"Failed to save state for key '{self.memory_store._key}': {e}")
+            logger.error(
+                f"Failed to save state for key '{self.memory_store._key}': {e}"
+            )
             raise
 
     def _deserialize_state(self, raw: Union[bytes, str, dict]) -> dict:

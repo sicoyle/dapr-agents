@@ -60,7 +60,7 @@ class AgenticWorkflow(
 
     registry_store: Optional[str] = Field(
         default=None,
-        description="Agent registry store name for storing static agent information."
+        description="Agent registry store name for storing static agent information.",
     )
 
     # TODO: test this is respected by runtime.
@@ -109,7 +109,7 @@ class AgenticWorkflow(
 
         # Set storage key based on agent name
         self.memory_store._set_key(self.name)
-        
+
         logger.info(f"State store '{self.memory_store.name}' initialized.")
         self.initialize_state()
         if self.registry_store is None:
@@ -364,7 +364,9 @@ class AgenticWorkflow(
                     )
                     # raise an exception to retry the entire operation
                     raise Exception(f"No etag found for key: {store_key}")
-                existing_data = self._deserialize_state(response.data) if response.data else {}
+                existing_data = (
+                    self._deserialize_state(response.data) if response.data else {}
+                )
                 if (agent_name, agent_metadata) in existing_data.items():
                     logger.debug(f"agent {agent_name} already registered.")
                     return None

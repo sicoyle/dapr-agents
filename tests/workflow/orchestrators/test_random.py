@@ -23,9 +23,7 @@ async def test_random_orchestrator_initialization(orchestrator_config):
         "dapr_agents.workflow.orchestrators.random.OrchestratorWorkflowBase.model_post_init"
     ) as mock_init, patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow.model_post_init"
-    ), patch(
-        "dapr_agents.workflow.agentic.AgenticWorkflow._dapr_client"
-    ) as mockclient:
+    ), patch("dapr_agents.workflow.agentic.AgenticWorkflow._dapr_client") as mockclient:
         mockclient.return_value = MagicMock()
         orchestrator = RandomOrchestrator(**orchestrator_config)
         assert orchestrator.name == "test_orchestrator"
@@ -60,10 +58,14 @@ async def test_select_random_speaker(orchestrator_config):
         "dapr_agents.workflow.agentic.AgenticWorkflow._dapr_client"
     ):
         orchestrator = RandomOrchestrator(**orchestrator_config)
-        with patch.object(RandomOrchestrator, "get_agents_metadata", return_value={
-            "agent1": {"name": "agent1"},
-            "agent2": {"name": "agent2"},
-        }):
+        with patch.object(
+            RandomOrchestrator,
+            "get_agents_metadata",
+            return_value={
+                "agent1": {"name": "agent1"},
+                "agent2": {"name": "agent2"},
+            },
+        ):
             speaker = orchestrator.select_random_speaker()
         assert speaker in ["agent1", "agent2"]
         assert orchestrator.current_speaker == speaker

@@ -122,7 +122,9 @@ class DurableAgent(AgenticWorkflow, AgentBase):
 
         # Load the current workflow instance ID from state using session_id
         logger.debug(f"State after loading: {self.memory_store._current_state}")
-        if self.memory_store._current_state and self.memory_store._current_state.get("instances"):
+        if self.memory_store._current_state and self.memory_store._current_state.get(
+            "instances"
+        ):
             logger.debug(
                 f"Found {len(self.memory_store._current_state['instances'])} instances in state"
             )

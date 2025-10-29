@@ -76,12 +76,12 @@ class OrchestratorWorkflowBase(AgenticWorkflow, ABC):
         """Trigger a specific agent to perform an action."""
         pass
 
-    
     def _serialize_metadata(self, metadata: Any) -> Any:
         """
         Recursively convert Pydantic models (e.g., AgentTool), lists, dicts to JSON-serializable format.
         Handles mixed tools: [AgentTool(...), "string", ...] → [{"name": "..."}, "string", ...]
         """
+
         def convert(obj: Any) -> Any:
             if hasattr(obj, "model_dump"):
                 return obj.model_dump()
@@ -92,4 +92,5 @@ class OrchestratorWorkflowBase(AgenticWorkflow, ABC):
             if isinstance(obj, dict):
                 return {k: convert(v) for k, v in obj.items()}
             return obj
+
         return convert(metadata)

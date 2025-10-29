@@ -11,6 +11,7 @@ from dapr.clients import DaprClient
 
 logger = logging.getLogger(__name__)
 
+
 class MemoryStore(BaseModel):
     """
     Unified storage for both Agent and DurableAgent.
@@ -61,7 +62,9 @@ class MemoryStore(BaseModel):
     def model_post_init(self, __context: Any) -> None:
         if self.name is None:
             if self._dapr_client is not None:
-                logger.warning("DaprClient initialized but name is None. It will be ignored.")
+                logger.warning(
+                    "DaprClient initialized but name is None. It will be ignored."
+                )
             self._dapr_client = None
         else:
             self._dapr_client = DaprClient()
@@ -117,7 +120,9 @@ class MemoryStore(BaseModel):
                 try:
                     session_data = json.loads(raw)
                     if not isinstance(session_data, dict):
-                        logger.warning(f"Session data not a dict, resetting: {type(session_data)}")
+                        logger.warning(
+                            f"Session data not a dict, resetting: {type(session_data)}"
+                        )
                         session_data = {}
                 except json.JSONDecodeError as e:
                     logger.error(f"Invalid session JSON for '{session_key}': {e}")
@@ -161,7 +166,9 @@ class MemoryStore(BaseModel):
                         parsed = json.loads(raw)
                         if isinstance(parsed, dict):
                             index_data["sessions"] = parsed.get("sessions", [])
-                            index_data["last_updated"] = parsed.get("last_updated", index_data["last_updated"])
+                            index_data["last_updated"] = parsed.get(
+                                "last_updated", index_data["last_updated"]
+                            )
                     except json.JSONDecodeError:
                         logger.warning("Corrupted sessions index, resetting")
 
@@ -170,11 +177,9 @@ class MemoryStore(BaseModel):
                 index_data["last_updated"] = datetime.now().isoformat()
                 self._save_state_with_metadata(sessions_index_key, index_data)
                 logger.debug(f"Registered session '{session_id}' in index")
-                
+
     # TODO: in future remove this in favor of just using client.save_state when we use objects and not dictionaries in storage.
-    def _save_state_with_metadata(
-        self, key: str, data: Any
-    ) -> None:
+    def _save_state_with_metadata(self, key: str, data: Any) -> None:
         """Save state with content type metadata."""
         # Serialize data to JSON string if it's not already
         if isinstance(data, dict):
@@ -185,7 +190,10 @@ class MemoryStore(BaseModel):
             data_to_save = json.dumps(data)
 
         self._dapr_client.save_state(
-            self.name, key, data_to_save, state_metadata={"contentType": "application/json"}
+            self.name,
+            key,
+            data_to_save,
+            state_metadata={"contentType": "application/json"},
         )
 
     def is_persistent(self) -> bool:
@@ -275,6 +283,7 @@ class MemoryStore(BaseModel):
             )
             return data.get("messages", [])
         return []
+
 
 class DurableAgentMessage(MessageContent):
     id: str = Field(

@@ -23,7 +23,7 @@ def patch_dapr_check(monkeypatch):
 
     DurableAgentWorkflowState.__getitem__ = _getitem
     DurableAgentWorkflowState.setdefault = _setdefault
-    
+
     from dapr_agents.workflow import base
 
     # Mock the WorkflowApp initialization to prevent DaprClient creation
@@ -150,7 +150,9 @@ async def test_execute_tool_activity_with_mcp_tool(durable_agent_with_mcp_tool):
         "end_time": None,
         "trace_context": None,
     }
-    durable_agent_with_mcp_tool.memory_store._current_state["instances"][instance_id] = workflow_entry
+    durable_agent_with_mcp_tool.memory_store._current_state["instances"][
+        instance_id
+    ] = workflow_entry
 
     # Print available tool names for debugging
     tool_names = [t.name for t in durable_agent_with_mcp_tool.tool_executor.tools]
@@ -168,7 +170,9 @@ async def test_execute_tool_activity_with_mcp_tool(durable_agent_with_mcp_tool):
     await durable_agent_with_mcp_tool.run_tool(
         tool_call, instance_id, "2024-01-01T00:00:00Z"
     )
-    instance_data = durable_agent_with_mcp_tool.memory_store._current_state["instances"][instance_id]
+    instance_data = durable_agent_with_mcp_tool.memory_store._current_state[
+        "instances"
+    ][instance_id]
     assert len(instance_data["tool_history"]) == 1
     tool_entry = instance_data["tool_history"][0]
     assert tool_entry["tool_call_id"] == "call_123"
@@ -201,6 +205,7 @@ def start_math_server_http():
 # Helper to get agent tools from a real MCP server
 async def get_agent_tools_from_http():
     from dapr_agents.tool.mcp import MCPClient
+
     try:
         client = MCPClient()
         await client.connect_streamable_http(
@@ -228,9 +233,19 @@ async def get_agent_tools_from_http():
             b = int(kwargs.get("b", 0))
             if not ("a" in kwargs and "b" in kwargs) and args:
                 try:
-                    data = json.loads(args[-1]) if isinstance(args[-1], str) else args[-1]
-                    a = int(getattr(data, "get", lambda k, d=None: d)("a", a)) if hasattr(data, "get") else a
-                    b = int(getattr(data, "get", lambda k, d=None: d)("b", b)) if hasattr(data, "get") else b
+                    data = (
+                        json.loads(args[-1]) if isinstance(args[-1], str) else args[-1]
+                    )
+                    a = (
+                        int(getattr(data, "get", lambda k, d=None: d)("a", a))
+                        if hasattr(data, "get")
+                        else a
+                    )
+                    b = (
+                        int(getattr(data, "get", lambda k, d=None: d)("b", b))
+                        if hasattr(data, "get")
+                        else b
+                    )
                 except Exception:
                     pass
             return str(a + b)

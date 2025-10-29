@@ -103,7 +103,7 @@ class AgentBase(BaseModel, ABC):
     )
     registry_store: Optional[str] = Field(
         default=None,
-        description="Agent registry store name for storing static agent information. Defaults to memory_store state store name if not provided."
+        description="Agent registry store name for storing static agent information. Defaults to memory_store state store name if not provided.",
     )
 
     DEFAULT_SYSTEM_PROMPT: ClassVar[str]
@@ -181,11 +181,7 @@ Your role is {role}.
 
         # Initialize Dapr client if storage is persistent
         # This is needed for state store access and agent registration
-        if (
-            self.memory_store
-            and self.memory_store.name
-            and self._dapr_client is None
-        ):
+        if self.memory_store and self.memory_store.name and self._dapr_client is None:
             from dapr.clients import DaprClient
 
             self._dapr_client = DaprClient()
@@ -210,7 +206,7 @@ Your role is {role}.
                 "statestore_name": self.memory_store.name,
                 "registry_name": self.registry_store,
             }
-            
+
             self.register_agent(
                 store_name=self.registry_store,
                 store_key="agent_registry",
@@ -620,16 +616,20 @@ Your role is {role}.
                     )
 
                     # reread to obtain the freshly minted ETag
-                    response = self._dapr_client.get_state(store_name=store_name, key=store_key)
+                    response = self._dapr_client.get_state(
+                        store_name=store_name, key=store_key
+                    )
                     if not response.etag:
                         raise RuntimeError("ETag still missing after init")
-                    
-                existing = self._deserialize_state(response.data) if response.data else {}
+
+                existing = (
+                    self._deserialize_state(response.data) if response.data else {}
+                )
 
                 if existing.get(agent_name) == agent_metadata:
                     logger.debug(f"Agent '{agent_name}' already registered")
                     return
-                
+
                 safe_metadata = self._serialize_metadata(agent_metadata)
 
                 merged = {**existing, agent_name: safe_metadata}
@@ -711,12 +711,13 @@ Your role is {role}.
                 raise ValueError(f"State is not valid JSON: {exc}") from exc
 
         raise TypeError(f"Unsupported state type {type(raw)!r}")
-    
+
     def _serialize_metadata(self, metadata: Any) -> Any:
         """
         Recursively convert Pydantic models (e.g., AgentTool), lists, dicts to JSON-serializable format.
         Handles mixed tools: [AgentTool(...), "string", ...] → [{"name": "..."}, "string", ...]
         """
+
         def convert(obj: Any) -> Any:
             if hasattr(obj, "model_dump"):
                 return obj.model_dump()
@@ -727,4 +728,5 @@ Your role is {role}.
             if isinstance(obj, dict):
                 return {k: convert(v) for k, v in obj.items()}
             return obj
+
         return convert(metadata)
