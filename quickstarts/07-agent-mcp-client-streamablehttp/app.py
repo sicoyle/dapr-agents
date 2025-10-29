@@ -2,7 +2,7 @@ import asyncio
 import logging
 from dotenv import load_dotenv
 
-from dapr_agents import DurableAgent, Storage
+from dapr_agents import DurableAgent, MemoryStore
 from dapr_agents.tool.mcp import MCPClient
 
 
@@ -29,7 +29,7 @@ async def main():
             ],
             tools=tools,
             message_bus_name="messagepubsub",
-            storage=Storage(
+            memory_store=MemoryStore(
                 name="statestore",
                 # Optional
                 local_directory="./local-state",

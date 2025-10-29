@@ -40,6 +40,8 @@ class OrchestratorWorkflowBase(AgenticWorkflow, ABC):
         }
 
         if self.memory_store and self.memory_store.name:
+            if self.registry_store is None:
+                self.registry_store = self.memory_store.name
             self.register_agent(
                 store_name=self.registry_store,
                 store_key="agent_registry",
@@ -62,11 +64,6 @@ class OrchestratorWorkflowBase(AgenticWorkflow, ABC):
         Returns:
             Any: The workflow result or continuation
         """
-        pass
-
-    @abstractmethod
-    async def process_agent_response(self, message: Any) -> None:
-        """Process responses from agents."""
         pass
 
     @abstractmethod

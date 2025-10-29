@@ -184,7 +184,7 @@ Your role is {role}.
         if (
             self.memory_store
             and self.memory_store.name
-            and (not hasattr(self, "_dapr_client") or self._dapr_client is None)
+            and self._dapr_client is None
         ):
             from dapr.clients import DaprClient
 
@@ -196,7 +196,8 @@ Your role is {role}.
         # Register agent if it has persistent storage
         # This applies to both Agent and DurableAgent with persistent storage
         if self.memory_store and self.memory_store.name:
-            self.registry_store = self.memory_store.name
+            if self.registry_store is None:
+                self.registry_store = self.memory_store.name
             agent_metadata = {
                 "name": self.name,
                 "role": self.role,
@@ -619,11 +620,11 @@ Your role is {role}.
                     )
 
                     # reread to obtain the freshly minted ETag
-                    resp = self._dapr_client.get_state(store_name=store_name, key=store_key)
-                    if not resp.etag:
+                    response = self._dapr_client.get_state(store_name=store_name, key=store_key)
+                    if not response.etag:
                         raise RuntimeError("ETag still missing after init")
                     
-                existing = self._deserialize_state(resp.data) if resp.data else {}
+                existing = self._deserialize_state(response.data) if response.data else {}
 
                 if existing.get(agent_name) == agent_metadata:
                     logger.debug(f"Agent '{agent_name}' already registered")

@@ -1,5 +1,5 @@
 import asyncio
-from dapr_agents import tool, DurableAgent, Storage
+from dapr_agents import tool, DurableAgent, MemoryStore
 from dapr_agents import OpenAIChatClient
 
 
@@ -16,7 +16,7 @@ async def main():
         instructions=["Help users with weather information"],
         tools=[my_weather_func],
         message_bus_name="messagepubsub",
-        storage=Storage(
+        memory_store=MemoryStore(
             name="statestore",
             # Optional
             local_directory="./local-state",

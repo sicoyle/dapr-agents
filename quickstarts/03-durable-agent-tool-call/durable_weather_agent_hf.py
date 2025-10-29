@@ -1,4 +1,4 @@
-from dapr_agents import DurableAgent, HFHubChatClient, Storage
+from dapr_agents import DurableAgent, HFHubChatClient, MemoryStore
 from dotenv import load_dotenv
 from weather_tools import tools
 import asyncio
@@ -23,7 +23,7 @@ async def main():
         ],
         llm=llm,
         message_bus_name="messagepubsub",
-        storage=Storage(
+        memory_store=MemoryStore(
             name="statestore",
             # Optional
             local_directory="./local-state",

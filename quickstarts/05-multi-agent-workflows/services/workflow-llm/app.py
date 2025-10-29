@@ -1,6 +1,6 @@
 from dapr_agents import LLMOrchestrator
 from dapr_agents.llm import DaprChatClient
-from dapr_agents import Storage
+from dapr_agents import MemoryStore
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -30,12 +30,13 @@ async def main():
             name="LLMOrchestrator",
             llm=llm,
             message_bus_name="messagepubsub",
-            storage=Storage(
-                name="statestore",
+            memory_store=MemoryStore(
+                name="memorystore",
                 # Optional
                 local_directory="./local-state",
                 session_id="session",
             ),
+            registry_store="registrystore",
             broadcast_topic_name="beacon_channel",
             max_iterations=3,
         ).as_service(port=8004)

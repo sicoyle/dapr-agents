@@ -12,7 +12,7 @@ import logging
 
 from typing import List
 from pydantic import BaseModel, Field
-from dapr_agents import tool, DurableAgent, Storage
+from dapr_agents import tool, DurableAgent, MemoryStore
 from dotenv import load_dotenv
 
 
@@ -65,7 +65,7 @@ async def main():
             ],
             tools=[search_flights],
             message_bus_name="messagepubsub",
-            storage=Storage(
+            memory_store=MemoryStore(
                 name="statestore",
                 # Optional
                 local_directory="./local-state",
@@ -79,8 +79,6 @@ async def main():
 
     except Exception as e:
         print(f"Error starting service: {e}")
-    finally:
-        travel_planner.graceful_shutdown()
 
 
 if __name__ == "__main__":

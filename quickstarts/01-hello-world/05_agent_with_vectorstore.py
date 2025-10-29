@@ -7,7 +7,7 @@ from dapr_agents.document.embedder.sentence import SentenceTransformerEmbedder
 from dapr_agents.storage.vectorstores import ChromaVectorStore
 from dapr_agents.tool import tool
 from dapr_agents.types.document import Document
-from dapr_agents import Storage
+from dapr_agents import MemoryStore
 
 load_dotenv()
 
@@ -111,7 +111,7 @@ async def main():
         ],
         tools=[search_documents, add_document, add_machine_learning_doc],
         llm=OpenAIChatClient(model="gpt-3.5-turbo"),
-        storage=Storage(
+        memory_store=MemoryStore(
             name="statestore",
             # Optional
             local_directory="./local-state",

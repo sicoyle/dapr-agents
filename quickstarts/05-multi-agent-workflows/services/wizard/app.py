@@ -1,4 +1,4 @@
-from dapr_agents import DurableAgent, Storage
+from dapr_agents import DurableAgent, MemoryStore
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -34,8 +34,8 @@ async def main():
                 "Respond concisely, accurately, and relevantly, ensuring clarity and strict alignment with the task.",
             ],
             message_bus_name="messagepubsub",
-            storage=Storage(
-                name="statestore",
+            memory_store=MemoryStore(
+                name="memorystore",
                 # Optional
                 local_directory="./local-state",
                 session_id="session",

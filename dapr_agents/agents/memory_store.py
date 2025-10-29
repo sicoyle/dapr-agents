@@ -56,9 +56,15 @@ class MemoryStore(BaseModel):
     _agent_name: str = PrivateAttr(default=None)  # Set by AgenticWorkflow
     _key: str = PrivateAttr(default="workflow_state")
     _in_memory_messages: List[Dict[str, Any]] = PrivateAttr(default_factory=list)
-    _dapr_client: DaprClient = PrivateAttr(
-        default_factory=lambda: DaprClient()
-    )
+    _dapr_client: DaprClient = PrivateAttr(default=None)
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.name is None:
+            if self._dapr_client is not None:
+                logger.warning("DaprClient initialized but name is None. It will be ignored.")
+            self._dapr_client = None
+        else:
+            self._dapr_client = DaprClient()
 
     def _set_key(self, agent_name: str) -> None:
         """Internal method to set the agent name and initialize storage."""
@@ -75,7 +81,7 @@ class MemoryStore(BaseModel):
 
     def _get_sessions_index_key(self) -> str:
         """Get the state store key for the sessions index."""
-        return f"{self._agent_name}_session"
+        return f"{self._agent_name}_sessions"
 
     def _get_session_id(self) -> str:
         """Get or generate a session ID."""
@@ -84,32 +90,42 @@ class MemoryStore(BaseModel):
         return self.session_id
 
     def _update_session_index(self, instance_id: str) -> None:
-        """Update the session with a new workflow instance and update the sessions index."""
+        """Update session index with workflow instance."""
+        if not self.name:
+            logger.debug("In-memory mode: skipping session update")
+            return
+
         session_id = self._get_session_id()
         session_key = self._get_session_key(session_id)
         sessions_index_key = self._get_sessions_index_key()
 
-        # Get or create session data
         response = self._dapr_client.get_state(self.name, session_key)
 
-        # Convert from JSON string to 
-        state_data = None
-        if isinstance(response.data, str):
-            try:
-                state_data = json.loads(state_data)
-            except json.JSONDecodeError:
-                logger.error(f"Failed to parse JSON for key '{self.memory_store._key}': {state_data}")
-                state_data = {}
+        session_data = {}
+        is_new_session = not bool(response.data)
 
         if response.data:
-            is_new_session = False
-        else:
-            is_new_session = True
-
-        session_data = state_data
+            # Safely decode and parse
+            raw = response.data
+            if isinstance(raw, (bytes, bytearray)):
+                try:
+                    raw = raw.decode("utf-8")
+                except UnicodeDecodeError:
+                    logger.error(f"Failed to decode session data for '{session_key}'")
+                    raw = ""
+            if isinstance(raw, str) and raw.strip():
+                try:
+                    session_data = json.loads(raw)
+                    if not isinstance(session_data, dict):
+                        logger.warning(f"Session data not a dict, resetting: {type(session_data)}")
+                        session_data = {}
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid session JSON for '{session_key}': {e}")
+                    session_data = {}
+            else:
+                session_data = {}
 
         if is_new_session:
-            # Create new session
             session_data = {
                 "session_id": session_id,
                 "workflow_instances": [],
@@ -117,39 +133,43 @@ class MemoryStore(BaseModel):
                     "agent_name": self._agent_name,
                     "created_at": datetime.now().isoformat(),
                 },
+                "last_active": datetime.now().isoformat(),
             }
-        else:
-            # Deserialize if it's a JSON string
-            if isinstance(session_data, str):
-                session_data = json.loads(session_data)
+            logger.debug(f"Created new session '{session_id}'")
 
-        # Add instance to session if not already present
-        if instance_id not in session_data["workflow_instances"]:
-            session_data["workflow_instances"].append(instance_id)
+        instances = session_data.get("workflow_instances", [])
+        if instance_id not in instances:
+            instances.append(instance_id)
+            session_data["workflow_instances"] = instances
+            session_data["last_active"] = datetime.now().isoformat()
+            logger.debug(f"Added instance '{instance_id}' to session '{session_id}'")
 
-        # Update last active timestamp
-        session_data["last_active"] = datetime.now().isoformat()
-
-        # Save the updated session data
+        # === 4. Save session ===
         self._save_state_with_metadata(session_key, session_data)
 
-        # Update the sessions index if this is a new session
+        # update sessions index - only on first instance
         if is_new_session:
-            response = self._dapr_client.get_state(self.name, sessions_index_key)
+            index_resp = self._dapr_client.get_state(self.name, sessions_index_key)
+            index_data = {"sessions": [], "last_updated": datetime.now().isoformat()}
 
-            if not response.data:
-                index_data = {"sessions": []}
-            else:
-                if isinstance(index_data, str):
-                    index_data = json.loads(index_data)
+            if index_resp.data:
+                raw = index_resp.data
+                if isinstance(raw, (bytes, bytearray)):
+                    raw = raw.decode("utf-8")
+                if raw.strip():
+                    try:
+                        parsed = json.loads(raw)
+                        if isinstance(parsed, dict):
+                            index_data["sessions"] = parsed.get("sessions", [])
+                            index_data["last_updated"] = parsed.get("last_updated", index_data["last_updated"])
+                    except json.JSONDecodeError:
+                        logger.warning("Corrupted sessions index, resetting")
 
-            # Add session to index if not already present
-            if session_id not in index_data.get("sessions", []):
+            if session_id not in index_data["sessions"]:
                 index_data["sessions"].append(session_id)
                 index_data["last_updated"] = datetime.now().isoformat()
-                self._save_state_with_metadata(
-                    sessions_index_key, index_data
-                )
+                self._save_state_with_metadata(sessions_index_key, index_data)
+                logger.debug(f"Registered session '{session_id}' in index")
                 
     # TODO: in future remove this in favor of just using client.save_state when we use objects and not dictionaries in storage.
     def _save_state_with_metadata(

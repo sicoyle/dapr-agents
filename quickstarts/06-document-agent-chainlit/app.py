@@ -5,7 +5,7 @@ from unstructured.partition.pdf import partition_pdf
 
 from dapr_agents import Agent
 from dapr_agents.types import AssistantMessage
-from dapr_agents import OpenAIChatClient, Storage
+from dapr_agents import OpenAIChatClient, MemoryStore
 
 load_dotenv()
 
@@ -20,7 +20,7 @@ agent = Agent(
     name="KnowledgeBase",
     role="Content Expert",
     instructions=instructions,
-    storage=Storage(
+    memory_store=MemoryStore(
         name="conversationstore",
         # Optional
         local_directory="./local-state",

@@ -217,12 +217,12 @@ class AgenticWorkflow(
         """
         try:
             agents_metadata = (
-                self.get_data_from_store(self.memory_store.name, "agent_registry") or {}
+                self.get_data_from_store(self.registry_store, "agent_registry") or {}
             )
 
             if agents_metadata:
                 logger.info(
-                    f"Agents found in '{self.memory_store.name}' for key 'agent_registry'."
+                    f"Agents found in '{self.registry_store}' for key 'agent_registry'."
                 )
                 filtered = {
                     name: metadata
@@ -237,7 +237,7 @@ class AgenticWorkflow(
                 return filtered
 
             logger.info(
-                f"No agents found in '{self.memory_store.name}' for key 'agent_registry'."
+                f"No agents found in '{self.registry_store}' for key 'agent_registry'."
             )
             return {}
         except Exception as e:

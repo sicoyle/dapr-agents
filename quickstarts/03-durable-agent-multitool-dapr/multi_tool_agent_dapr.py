@@ -1,4 +1,4 @@
-from dapr_agents import DurableAgent, Storage
+from dapr_agents import DurableAgent, MemoryStore
 from dotenv import load_dotenv
 from multi_tools import tools
 import asyncio
@@ -36,7 +36,7 @@ async def main():
             "Use the weather tool for location-based weather.",
         ],
         message_bus_name="messagepubsub",
-        storage=Storage(
+        memory_store=MemoryStore(
             name="statestore",
             # Optional
             local_directory="./local-state",
