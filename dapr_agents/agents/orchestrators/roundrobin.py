@@ -138,7 +138,10 @@ class RoundRobinOrchestrator(OrchestratorBase):
                         turn,
                         instance_id,
                     )
-                result = {"name": "timeout", "content": "⏰ Timeout occurred. Continuing..."}
+                result = {
+                    "name": "timeout",
+                    "content": "⏰ Timeout occurred. Continuing...",
+                }
             else:
                 result = yield event_task
                 # Normalize
@@ -161,11 +164,15 @@ class RoundRobinOrchestrator(OrchestratorBase):
             task = result.get("content")
 
         if final_output is None:
-            raise RuntimeError("RoundRobin workflow completed without producing a final output.")
+            raise RuntimeError(
+                "RoundRobin workflow completed without producing a final output."
+            )
         return final_output
 
     @message_router(message_model=AgentTaskResponse)
-    def process_agent_response(self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]) -> None:
+    def process_agent_response(
+        self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]
+    ) -> None:
         """
         Route agent responses back into the workflow via an external event.
         """
@@ -211,8 +218,7 @@ class RoundRobinOrchestrator(OrchestratorBase):
 
         try:
             agents_metadata = self.list_team_agents(
-                include_self=False,
-                team=self.effective_team()
+                include_self=False, team=self.effective_team()
             )
         except Exception:
             logger.exception("Unable to load agents metadata; broadcast aborted.")
@@ -226,7 +232,7 @@ class RoundRobinOrchestrator(OrchestratorBase):
             await broadcast_message(
                 message=broadcast_payload,
                 broadcast_topic=self.broadcast_topic_name,  # type: ignore[union-attr]
-                message_bus=self.message_bus_name,          # type: ignore[union-attr]
+                message_bus=self.message_bus_name,  # type: ignore[union-attr]
                 source=self.name,
                 agents_metadata=agents_metadata,
             )
@@ -247,8 +253,7 @@ class RoundRobinOrchestrator(OrchestratorBase):
         turn = int(payload.get("turn", 1))
         try:
             agents_metadata = self.list_team_agents(
-                include_self=False,
-                team=self.effective_team()
+                include_self=False, team=self.effective_team()
             )
         except Exception as exc:
             logger.error("Unable to load agents metadata: %s", exc)

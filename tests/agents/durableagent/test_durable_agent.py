@@ -869,9 +869,7 @@ class TestDurableAgent:
 
     def test_durable_agent_state_initialization(self, basic_durable_agent):
         """Test that the agent state is properly initialized."""
-        validated_state = AgentWorkflowState.model_validate(
-            basic_durable_agent.state
-        )
+        validated_state = AgentWorkflowState.model_validate(basic_durable_agent.state)
         assert isinstance(validated_state, AgentWorkflowState)
         assert "instances" in basic_durable_agent.state
         assert basic_durable_agent.state["instances"] == {}

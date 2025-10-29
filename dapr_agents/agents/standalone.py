@@ -107,7 +107,9 @@ class Agent(AgentBase):
         try:
             self.load_state()
         except Exception:
-            logger.debug("Standalone agent state load failed; using defaults.", exc_info=True)
+            logger.debug(
+                "Standalone agent state load failed; using defaults.", exc_info=True
+            )
 
     # ------------------------------------------------------------------
     # Public entrypoint
@@ -145,7 +147,9 @@ class Agent(AgentBase):
     # ------------------------------------------------------------------
     # Internal runtime loop
     # ------------------------------------------------------------------
-    async def _race(self, coro: Awaitable[Optional[AssistantMessage]]) -> Optional[AssistantMessage]:
+    async def _race(
+        self, coro: Awaitable[Optional[AssistantMessage]]
+    ) -> Optional[AssistantMessage]:
         """Race the agent execution against shutdown signals."""
         task = asyncio.create_task(coro)
         shutdown_task = asyncio.create_task(self._shutdown_event.wait())
@@ -156,7 +160,9 @@ class Agent(AgentBase):
         for pending_task in pending:
             pending_task.cancel()
         if self._shutdown_event.is_set():
-            logger.info("Shutdown requested during execution; cancelling standalone run.")
+            logger.info(
+                "Shutdown requested during execution; cancelling standalone run."
+            )
             task.cancel()
             return None
         return await task
@@ -187,10 +193,14 @@ class Agent(AgentBase):
         task_text = user_message_copy.get("content") if user_message_copy else None
 
         if user_message_copy is not None:
-            self.text_formatter.print_message({str(k): v for k, v in user_message_copy.items()})
+            self.text_formatter.print_message(
+                {str(k): v for k, v in user_message_copy.items()}
+            )
 
         # Ensure instance exists (flexible model via _get_entry_container)
-        created_instance = active_instance not in (getattr(self.workflow_state, "instances", {}) or {})
+        created_instance = active_instance not in (
+            getattr(self.workflow_state, "instances", {}) or {}
+        )
         self.ensure_instance_exists(
             instance_id=active_instance,
             input_value=task_text or "Triggered without input.",
@@ -263,7 +273,11 @@ class Agent(AgentBase):
                 response: LLMChatResponse = self.llm.generate(
                     messages=pending_messages,
                     tools=self.get_llm_tools(),
-                    **({"tool_choice": self.tool_choice} if self.tool_choice is not None else {}),
+                    **(
+                        {"tool_choice": self.tool_choice}
+                        if self.tool_choice is not None
+                        else {}
+                    ),
                 )
                 assistant_message = response.get_message()
                 if assistant_message is None:
@@ -277,11 +291,15 @@ class Agent(AgentBase):
                     tool_calls = assistant_message.get_tool_calls()
                     if tool_calls:
                         pending_messages.append(assistant_dict)
-                        tool_msgs = await self._execute_tool_calls(instance_id, tool_calls)
+                        tool_msgs = await self._execute_tool_calls(
+                            instance_id, tool_calls
+                        )
                         pending_messages.extend(tool_msgs)
                         if turn == self.max_iterations:
                             final_reply = assistant_message
-                            logger.info("Reached max iterations after tool calls; stopping.")
+                            logger.info(
+                                "Reached max iterations after tool calls; stopping."
+                            )
                             break
                         continue
 
@@ -318,7 +336,9 @@ class Agent(AgentBase):
 
         return await asyncio.gather(*(run_single(call) for call in tool_calls))
 
-    async def _run_tool_call(self, instance_id: str, tool_call: ToolCall) -> Dict[str, Any]:
+    async def _run_tool_call(
+        self, instance_id: str, tool_call: ToolCall
+    ) -> Dict[str, Any]:
         """
         Execute one tool call and persist outcome to state + memory.
 
@@ -418,7 +438,11 @@ class Agent(AgentBase):
         if entry is None:
             return
 
-        entry.status = DaprWorkflowStatus.COMPLETED.value if final_reply else DaprWorkflowStatus.FAILED.value
+        entry.status = (
+            DaprWorkflowStatus.COMPLETED.value
+            if final_reply
+            else DaprWorkflowStatus.FAILED.value
+        )
         if final_reply and hasattr(entry, "output"):
             entry.output = final_reply.content or ""
         entry.end_time = datetime.now(timezone.utc)
@@ -440,7 +464,9 @@ class Agent(AgentBase):
             # Not available in some environments (e.g., Windows/subthreads)
             pass
 
-    def _signal_handler(self, signum, frame) -> None:  # pragma: no cover - signal handler
+    def _signal_handler(
+        self, signum, frame
+    ) -> None:  # pragma: no cover - signal handler
         """Signal handler that asks the run loop to stop."""
         logger.info("Received signal %s. Shutting down gracefully...", signum)
         self._shutdown_event.set()

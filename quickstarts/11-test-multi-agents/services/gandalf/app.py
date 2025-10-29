@@ -84,7 +84,7 @@ async def main() -> None:
             "Speak with gravitas and wisdom, but warmth when appropriate.",
             "Balance mystery with clarity - be cryptic only when necessary.",
             "Show patience and understanding, especially with the hobbits.",
-            "Use occasional references to ancient lore or history to add depth."
+            "Use occasional references to ancient lore or history to add depth.",
         ],
         modules=("lore", "magic", "strategy"),
     )
@@ -109,6 +109,7 @@ async def main() -> None:
     finally:
         runner.shutdown()
         gandalf.stop()
+
 
 if __name__ == "__main__":
     try:

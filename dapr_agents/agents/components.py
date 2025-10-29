@@ -36,7 +36,7 @@ class AgentComponents:
 
     Higher-level concerns (prompting, memory, tools) should remain outside this class.
     """
-    
+
     def __init__(
         self,
         *,
@@ -93,13 +93,19 @@ class AgentComponents:
         self._message_coercer: Optional[Callable[[Dict[str, Any]], Any]] = (
             state_config.message_coercer if state_config else None
         )
-        self._entry_container_getter: Optional[Callable[[BaseModel], Optional[dict]]] = (
-            getattr(state_config, "entry_container_getter", None) if state_config else None
+        self._entry_container_getter: Optional[
+            Callable[[BaseModel], Optional[dict]]
+        ] = (
+            getattr(state_config, "entry_container_getter", None)
+            if state_config
+            else None
         )
 
         # Seed the default model from config or empty instance
         if state_config and state_config.default_state is not None:
-            default_state_model = self._state_model_cls.model_validate(state_config.default_state)
+            default_state_model = self._state_model_cls.model_validate(
+                state_config.default_state
+            )
         else:
             default_state_model = self._state_model_cls()
         self._state_default_model: BaseModel = default_state_model
@@ -112,7 +118,9 @@ class AgentComponents:
         self.registry_state = registry_config.store if registry_config else None
         self._registry_prefix = "agents:"
         self._registry_team_override = (
-            registry_config.team_name if registry_config and registry_config.team_name else "default"
+            registry_config.team_name
+            if registry_config and registry_config.team_name
+            else "default"
         )
 
         # -----------------------------
@@ -188,7 +196,9 @@ class AgentComponents:
             else:
                 raise TypeError(f"Unexpected state snapshot type {type(snapshot)}")
         except (ValidationError, TypeError) as exc:
-            logger.warning("Invalid workflow state encountered (%s); resetting to defaults.", exc)
+            logger.warning(
+                "Invalid workflow state encountered (%s); resetting to defaults.", exc
+            )
             self._state_model = self._initial_state_model()
 
     def save_state(self) -> None:
@@ -244,10 +254,15 @@ class AgentComponents:
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Conflict during workflow state save (attempt %d/%d) for '%s': %s",
-                    attempt, attempts, key, exc,
+                    attempt,
+                    attempts,
+                    key,
+                    exc,
                 )
                 if attempt == attempts:
-                    logger.exception("Failed to persist agent state after %d attempts.", attempts)
+                    logger.exception(
+                        "Failed to persist agent state after %d attempts.", attempts
+                    )
                     return
                 time.sleep(min(0.25 * attempt, 1.0) * (1 + random.uniform(0, 0.25)))
 
@@ -337,7 +352,9 @@ class AgentComponents:
             return
 
         existing = list(getattr(entry, "system_messages", []) or [])
-        existing_sig = [(getattr(m, "content", None), getattr(m, "name", None)) for m in existing]
+        existing_sig = [
+            (getattr(m, "content", None), getattr(m, "name", None)) for m in existing
+        ]
         new_sig = [(m.get("content"), m.get("name")) for m in system_messages]
         if existing_sig == new_sig:
             return
@@ -346,7 +363,9 @@ class AgentComponents:
         if self._message_coercer:
             new_models = [self._message_coercer(m) for m in system_messages]
         else:
-            new_models = [self._message_dict_to_message_model(m) for m in system_messages]
+            new_models = [
+                self._message_dict_to_message_model(m) for m in system_messages
+            ]
 
         # Assign back if the field exists; otherwise, skip
         if hasattr(entry, "system_messages"):
@@ -354,11 +373,22 @@ class AgentComponents:
 
         # De-duplicate in entry.messages if that field exists
         if hasattr(entry, "messages"):
-            filtered = [m for m in getattr(entry, "messages") if getattr(m, "role", None) != "system"]
+            filtered = [
+                m
+                for m in getattr(entry, "messages")
+                if getattr(m, "role", None) != "system"
+            ]
             entry.messages = filtered  # type: ignore[attr-defined]
             # Fix last_message if applicable
-            if getattr(entry, "last_message", None) is not None and getattr(entry.last_message, "role", None) == "system":
-                non_system = [m for m in getattr(entry, "messages") if getattr(m, "role", None) != "system"]
+            if (
+                getattr(entry, "last_message", None) is not None
+                and getattr(entry.last_message, "role", None) == "system"
+            ):
+                non_system = [
+                    m
+                    for m in getattr(entry, "messages")
+                    if getattr(m, "role", None) != "system"
+                ]
                 entry.last_message = non_system[-1] if non_system else None  # type: ignore[attr-defined]
 
     def _message_dict_to_message_model(self, message: Dict[str, Any]) -> Any:
@@ -369,7 +399,15 @@ class AgentComponents:
         failures with custom models). Logs a warning the first time a shape mismatch
         is observed to help with debugging template drift.
         """
-        allowed = {"role", "content", "name", "tool_calls", "function_call", "tool_call_id", "id"}
+        allowed = {
+            "role",
+            "content",
+            "name",
+            "tool_calls",
+            "function_call",
+            "tool_call_id",
+            "id",
+        }
         payload = {k: message[k] for k in allowed if k in message}
         payload.setdefault("role", "system")
         payload.setdefault("content", "")
@@ -384,7 +422,10 @@ class AgentComponents:
                 msg_id = payload.get("id") or payload.get("tool_call_id")
                 logger.warning(
                     "Message coercion failed for role=%r name=%r id=%r with %s; keeping raw payload.",
-                    role, name, msg_id, type(exc).__name__,
+                    role,
+                    name,
+                    msg_id,
+                    type(exc).__name__,
                 )
             except Exception:
                 # Don't let logging fail the fallback
@@ -408,7 +449,9 @@ class AgentComponents:
             team: Team override; falls back to configured default team.
         """
         if not self.registry_state:
-            logger.debug("No registry configured; skipping registration for %s", self.name)
+            logger.debug(
+                "No registry configured; skipping registration for %s", self.name
+            )
             return
 
         payload = dict(metadata or {})
@@ -503,7 +546,9 @@ class AgentComponents:
             StateStoreError: If the mutation fails after retries due to contention.
         """
         if not self.registry_state:
-            raise RuntimeError("registry_state must be provided to mutate the agent registry")
+            raise RuntimeError(
+                "registry_state must be provided to mutate the agent registry"
+            )
 
         key = self._team_registry_key(team)
         meta = self._state_metadata_for_key(key)
@@ -664,7 +709,7 @@ class AgentComponents:
         if self._entry_container_getter:
             return self._entry_container_getter(self._state_model)
         return getattr(self._state_model, "instances", None)
-    
+
     @staticmethod
     def _coerce_datetime(value: Optional[Any]) -> datetime:
         """

@@ -34,11 +34,12 @@ from dapr_agents.workflow.utils.pubsub import broadcast_message
 
 logger = logging.getLogger(__name__)
 
+
 class LLMOrchestrator(LLMOrchestratorBase):
     """
     LLM-driven orchestrator that dynamically selects the next agent based on context and plan.
-    Interacts with agents in a multi-step workflow, using an LLM to decide the next step, 
-    validates and triggers agents, and handles responses. Ensures steps are executed in order, 
+    Interacts with agents in a multi-step workflow, using an LLM to decide the next step,
+    validates and triggers agents, and handles responses. Ensures steps are executed in order,
     checks for progress, and finalizes the workflow with a summary.
     """
 
@@ -76,10 +77,11 @@ class LLMOrchestrator(LLMOrchestratorBase):
         runtime.register_activity(self._execute_agent_task_with_progress_tracking)
         runtime.register_activity(self._process_agent_response_with_progress)
         runtime.register_activity(self._finalize_workflow_with_summary)
-    
 
     @message_router(message_model=TriggerAction)
-    def llm_orchestrator_workflow(self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]):
+    def llm_orchestrator_workflow(
+        self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]
+    ):
         """
         Orchestrates the workflow, handling up to `self.max_iterations` turns using an LLM to choose the next step/agent.
         """
@@ -98,27 +100,40 @@ class LLMOrchestrator(LLMOrchestratorBase):
 
         for turn in range(1, self.max_iterations + 1):
             if not ctx.is_replaying:
-                logger.info("LLM turn %d/%d (instance=%s)", turn, self.max_iterations, instance_id)
+                logger.info(
+                    "LLM turn %d/%d (instance=%s)",
+                    turn,
+                    self.max_iterations,
+                    instance_id,
+                )
 
             # Discover available agents
             agents = yield ctx.call_activity(self._get_available_agents)
 
             # Turn 1: initialize plan & broadcast
             if turn == 1:
-                init = yield ctx.call_activity(self._initialize_workflow_with_plan, input={
-                    "instance_id": instance_id,
-                    "task": task_text or "",
-                    "agents": agents,
-                    "wf_time": ctx.current_utc_datetime.isoformat(),
-                })
+                init = yield ctx.call_activity(
+                    self._initialize_workflow_with_plan,
+                    input={
+                        "instance_id": instance_id,
+                        "task": task_text or "",
+                        "agents": agents,
+                        "wf_time": ctx.current_utc_datetime.isoformat(),
+                    },
+                )
                 plan = init["plan"]
                 if not ctx.is_replaying:
-                    logger.info("Received plan from initialization with %d steps", len(plan))
+                    logger.info(
+                        "Received plan from initialization with %d steps", len(plan)
+                    )
                 initial_message = init["message"]
 
                 # Broadcast the initial plan to all agents
                 if not ctx.is_replaying:
-                    logger.info("Broadcasting initial plan with %d steps to all agents", len(plan))
+                    logger.info(
+                        "Broadcasting initial plan with %d steps to all agents",
+                        len(plan),
+                    )
                 yield ctx.call_activity(
                     self._broadcast_activity,
                     input={"message": initial_message},
@@ -126,47 +141,68 @@ class LLMOrchestrator(LLMOrchestratorBase):
                 if not ctx.is_replaying:
                     logger.info("Initial plan broadcast completed")
             else:
-                plan = list(self.state.get("instances", {}).get(instance_id, {}).get("plan", []))
+                plan = list(
+                    self.state.get("instances", {}).get(instance_id, {}).get("plan", [])
+                )
                 if not ctx.is_replaying:
-                    logger.info("Loaded plan from state with %d steps (turn %d)", len(plan), turn)
+                    logger.info(
+                        "Loaded plan from state with %d steps (turn %d)",
+                        len(plan),
+                        turn,
+                    )
 
             # Fallback: if plan is empty/None, try reading from state
             if not plan:
-                plan = list(self.state.get("instances", {}).get(instance_id, {}).get("plan", []))
+                plan = list(
+                    self.state.get("instances", {}).get(instance_id, {}).get("plan", [])
+                )
                 if not ctx.is_replaying:
-                    logger.warning("Plan was empty, fallback loaded %d steps from state", len(plan))
+                    logger.warning(
+                        "Plan was empty, fallback loaded %d steps from state", len(plan)
+                    )
 
             # Ask LLM for next step/agent
-            next_step = yield ctx.call_activity(self._generate_next_step, input={
-                "task": task_text or "",
-                "agents": agents,
-                "plan": json.dumps(self._convert_plan_objects_to_dicts(plan), indent=2),
-                "next_step_schema": schemas.next_step,
-            })
-            
+            next_step = yield ctx.call_activity(
+                self._generate_next_step,
+                input={
+                    "task": task_text or "",
+                    "agents": agents,
+                    "plan": json.dumps(
+                        self._convert_plan_objects_to_dicts(plan), indent=2
+                    ),
+                    "next_step_schema": schemas.next_step,
+                },
+            )
+
             next_agent = next_step["next_agent"]
             instruction = next_step["instruction"]
             step_id = next_step.get("step")
             substep_id = next_step.get("substep")
 
             # Validate the next step
-            is_valid = yield ctx.call_activity(self._validate_next_step, input={
-                "instance_id": instance_id,
-                "plan": self._convert_plan_objects_to_dicts(plan),
-                "step": step_id,
-                "substep": substep_id,
-            })
+            is_valid = yield ctx.call_activity(
+                self._validate_next_step,
+                input={
+                    "instance_id": instance_id,
+                    "plan": self._convert_plan_objects_to_dicts(plan),
+                    "step": step_id,
+                    "substep": substep_id,
+                },
+            )
 
             if is_valid:
-                result = yield ctx.call_activity(self._execute_agent_task_with_progress_tracking, input={
-                    "instance_id": instance_id,
-                    "next_agent": next_agent,
-                    "step_id": step_id,
-                    "substep_id": substep_id,
-                    "instruction": instruction,
-                    "task": task_text or "",
-                    "plan_objects": self._convert_plan_objects_to_dicts(plan),
-                })
+                result = yield ctx.call_activity(
+                    self._execute_agent_task_with_progress_tracking,
+                    input={
+                        "instance_id": instance_id,
+                        "next_agent": next_agent,
+                        "step_id": step_id,
+                        "substep_id": substep_id,
+                        "instruction": instruction,
+                        "task": task_text or "",
+                        "plan_objects": self._convert_plan_objects_to_dicts(plan),
+                    },
+                )
                 plan = result["plan"]
 
                 # Await response or timeout
@@ -181,7 +217,10 @@ class LLMOrchestrator(LLMOrchestratorBase):
                             turn,
                             instance_id,
                         )
-                    task_results = {"name": "timeout", "content": "⏰ Timeout occurred. Continuing..."}
+                    task_results = {
+                        "name": "timeout",
+                        "content": "⏰ Timeout occurred. Continuing...",
+                    }
                 else:
                     task_results = yield event_task
                     # Normalize
@@ -196,15 +235,18 @@ class LLMOrchestrator(LLMOrchestratorBase):
                             target_agent_name=self.name,
                             message=task_results.get("content", ""),
                         )
-                processed = yield ctx.call_activity(self._process_agent_response_with_progress, input={
-                    "instance_id": instance_id,
-                    "agent": next_agent,
-                    "step_id": step_id,
-                    "substep_id": substep_id,
-                    "task_results": task_results,
-                    "task": task_text or "",
-                    "plan_objects": self._convert_plan_objects_to_dicts(plan),
-                })
+                processed = yield ctx.call_activity(
+                    self._process_agent_response_with_progress,
+                    input={
+                        "instance_id": instance_id,
+                        "agent": next_agent,
+                        "step_id": step_id,
+                        "substep_id": substep_id,
+                        "task_results": task_results,
+                        "task": task_text or "",
+                        "plan_objects": self._convert_plan_objects_to_dicts(plan),
+                    },
+                )
                 plan = processed["plan"]
                 verdict = processed["verdict"]
             else:
@@ -216,17 +258,22 @@ class LLMOrchestrator(LLMOrchestratorBase):
                 }
 
             if verdict != "continue" or turn == self.max_iterations:
-                final_summary = yield ctx.call_activity(self._finalize_workflow_with_summary, input={
-                    "instance_id": instance_id,
-                    "task": task_text or "",
-                    "verdict": verdict if verdict != "continue" else "max_iterations_reached",
-                    "plan_objects": self._convert_plan_objects_to_dicts(plan),
-                    "step_id": step_id,
-                    "substep_id": substep_id,
-                    "agent": next_agent if is_valid else self.name,
-                    "result": task_results["content"],
-                    "wf_time": ctx.current_utc_datetime.isoformat(),
-                })
+                final_summary = yield ctx.call_activity(
+                    self._finalize_workflow_with_summary,
+                    input={
+                        "instance_id": instance_id,
+                        "task": task_text or "",
+                        "verdict": verdict
+                        if verdict != "continue"
+                        else "max_iterations_reached",
+                        "plan_objects": self._convert_plan_objects_to_dicts(plan),
+                        "step_id": step_id,
+                        "substep_id": substep_id,
+                        "agent": next_agent if is_valid else self.name,
+                        "result": task_results["content"],
+                        "wf_time": ctx.current_utc_datetime.isoformat(),
+                    },
+                )
                 if not ctx.is_replaying:
                     logger.info("Workflow %s finalized.", instance_id)
                 return final_summary
@@ -236,7 +283,9 @@ class LLMOrchestrator(LLMOrchestratorBase):
         raise RuntimeError(f"{self.name} workflow {instance_id} exited without summary")
 
     @message_router(message_model=AgentTaskResponse)
-    def route_agent_response(self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]) -> None:
+    def route_agent_response(
+        self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]
+    ) -> None:
         """Route AgentTaskResponse messages into the running workflow."""
         instance_id = message.get("workflow_instance_id")
         if not instance_id:
@@ -251,7 +300,6 @@ class LLMOrchestrator(LLMOrchestratorBase):
         except RuntimeError:
             return
 
-    
     # ------------------------------------------------------------------
     # Activities
     # ------------------------------------------------------------------
@@ -264,20 +312,33 @@ class LLMOrchestrator(LLMOrchestratorBase):
         """Broadcast a message to all agents (if a broadcast topic is configured)."""
         message = payload.get("message", {})
         if not isinstance(message, dict):
-            logger.warning("Skipping broadcast: payload is not a dict, type=%s", type(message).__name__)
+            logger.warning(
+                "Skipping broadcast: payload is not a dict, type=%s",
+                type(message).__name__,
+            )
             return
         if not self.broadcast_topic_name:
-            logger.warning("Skipping broadcast: no broadcast topic configured (broadcast_topic_name=%s)", self.broadcast_topic_name)
+            logger.warning(
+                "Skipping broadcast: no broadcast topic configured (broadcast_topic_name=%s)",
+                self.broadcast_topic_name,
+            )
             return
-        
-        logger.info("Broadcasting message from %s to topic %s", self.name, self.broadcast_topic_name)
+
+        logger.info(
+            "Broadcasting message from %s to topic %s",
+            self.name,
+            self.broadcast_topic_name,
+        )
 
         try:
             agents_metadata = self.list_team_agents(
-                include_self=False,
-                team=self.effective_team()
+                include_self=False, team=self.effective_team()
             )
-            logger.info("Found %d agents to broadcast to: %s", len(agents_metadata), list(agents_metadata.keys()))
+            logger.info(
+                "Found %d agents to broadcast to: %s",
+                len(agents_metadata),
+                list(agents_metadata.keys()),
+            )
         except Exception:
             logger.exception("Unable to load agents metadata; broadcast aborted.")
             return
@@ -290,7 +351,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
             await broadcast_message(
                 message=broadcast_payload,
                 broadcast_topic=self.broadcast_topic_name,  # type: ignore[union-attr]
-                message_bus=self.message_bus_name,          # type: ignore[union-attr]
+                message_bus=self.message_bus_name,  # type: ignore[union-attr]
                 source=self.name,
                 agents_metadata=agents_metadata,
             )
@@ -299,7 +360,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
             self._run_asyncio_task(_broadcast())
         except Exception:  # noqa: BLE001
             logger.exception("Failed to publish broadcast message.")
-    
+
     def _get_available_agents(self, ctx: wf.WorkflowActivityContext) -> str:
         """
         Return a human-formatted list of available agents (excluding orchestrators).
@@ -311,9 +372,8 @@ class LLMOrchestrator(LLMOrchestratorBase):
             A formatted string listing available agents.
         """
         agents_metadata = self.list_team_agents(
-                include_self=False,
-                team=self.effective_team()
-            )
+            include_self=False, team=self.effective_team()
+        )
         if not agents_metadata:
             return "No available agents to assign tasks."
         lines = []
@@ -344,24 +404,30 @@ class LLMOrchestrator(LLMOrchestratorBase):
         # Use flexible container accessor (supports custom state layouts)
         container = self._get_entry_container()
         entry = container.get(instance_id) if container else None
-        
+
         # Check if THIS instance already has a plan (from a previous turn/replay)
         plan_dicts: List[Dict[str, Any]]
         existing_plan = getattr(entry, "plan", None) if entry else None
-        
+
         if existing_plan:
-            logger.info("Reusing existing plan with %d steps from instance %s", len(existing_plan), instance_id)
+            logger.info(
+                "Reusing existing plan with %d steps from instance %s",
+                len(existing_plan),
+                instance_id,
+            )
             # Convert Plan Step objects to dicts (existing_plan could be List[PlanStep] or List[dict])
             plan_dicts = self._convert_plan_objects_to_dicts(existing_plan)
         else:
             logger.info("Generating new plan for task: %s", task[:100])
             response = self.llm.generate(
-                messages=[{
-                    "role": "user",
-                    "content": TASK_PLANNING_PROMPT.format(
-                        task=task, agents=agents, plan_schema=schemas.plan
-                    ),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": TASK_PLANNING_PROMPT.format(
+                            task=task, agents=agents, plan_schema=schemas.plan
+                        ),
+                    }
+                ],
                 response_format=IterablePlanStep,
             )
             response_dict = response.model_dump()
@@ -371,14 +437,22 @@ class LLMOrchestrator(LLMOrchestratorBase):
             logger.debug("Plan details: %s", json.dumps(plan_dicts, indent=2))
 
         # Persist and broadcast
-        self.update_workflow_state(instance_id=instance_id, plan=plan_dicts, wf_time=wf_time)
-        logger.info("Persisted plan with %d steps to state for instance %s", len(plan_dicts), instance_id)
+        self.update_workflow_state(
+            instance_id=instance_id, plan=plan_dicts, wf_time=wf_time
+        )
+        logger.info(
+            "Persisted plan with %d steps to state for instance %s",
+            len(plan_dicts),
+            instance_id,
+        )
 
         formatted_message = TASK_INITIAL_PROMPT.format(
             task=task, agents=agents, plan=json.dumps(plan_dicts, indent=2)
         )
         initial_message = {"role": "user", "content": formatted_message}
-        logger.info("Returning plan with %d steps from initialization activity", len(plan_dicts))
+        logger.info(
+            "Returning plan with %d steps from initialization activity", len(plan_dicts)
+        )
         return {"plan": plan_dicts, "message": initial_message}
 
     def _generate_next_step(
@@ -413,7 +487,12 @@ class LLMOrchestrator(LLMOrchestratorBase):
         plan = payload["plan"]
         ok = bool(find_step_in_plan(plan, step, substep))
         if not ok:
-            logger.error("Step %s/%s not in plan for instance %s", step, substep, payload.get("instance_id"))
+            logger.error(
+                "Step %s/%s not in plan for instance %s",
+                step,
+                substep,
+                payload.get("instance_id"),
+            )
         return ok
 
     def _execute_agent_task_with_progress_tracking(
@@ -422,6 +501,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
         """
         Mark step in_progress, persist, and trigger the agent with an InternalTriggerAction.
         """
+
         async def _execute() -> List[Dict[str, Any]]:
             return await self.execute_with_compensation(
                 self.trigger_agent_internal(
@@ -437,7 +517,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
                 step_id=payload["step_id"],
                 substep_id=payload["substep_id"],
             )
-        
+
         updated_plan = self._run_asyncio_task(_execute())
         return {"plan": updated_plan, "status": "agent_triggered"}
 
@@ -468,7 +548,9 @@ class LLMOrchestrator(LLMOrchestratorBase):
 
                 progress_prompt = PROGRESS_CHECK_PROMPT.format(
                     task=task,
-                    plan=json.dumps(self._convert_plan_objects_to_dicts(plan_objects), indent=2),
+                    plan=json.dumps(
+                        self._convert_plan_objects_to_dicts(plan_objects), indent=2
+                    ),
                     step=step_id,
                     substep=substep_id if substep_id is not None else "N/A",
                     results=task_results["content"],
@@ -486,13 +568,17 @@ class LLMOrchestrator(LLMOrchestratorBase):
                     progress = progress_resp
                 else:
                     # Best-effort parse
-                    progress = ProgressCheckOutput(**(progress_resp if isinstance(progress_resp, dict) else {}))
+                    progress = ProgressCheckOutput(
+                        **(progress_resp if isinstance(progress_resp, dict) else {})
+                    )
 
                 status_updates = [
-                    (u.model_dump() if hasattr(u, "model_dump") else u) for u in (progress.plan_status_update or [])
+                    (u.model_dump() if hasattr(u, "model_dump") else u)
+                    for u in (progress.plan_status_update or [])
                 ]
                 plan_updates = [
-                    (u.model_dump() if hasattr(u, "model_dump") else u) for u in (progress.plan_restructure or [])
+                    (u.model_dump() if hasattr(u, "model_dump") else u)
+                    for u in (progress.plan_restructure or [])
                 ]
 
                 if status_updates or plan_updates:
@@ -515,7 +601,9 @@ class LLMOrchestrator(LLMOrchestratorBase):
 
             except Exception as exc:  # noqa: BLE001
                 logger.error("Failed to process agent response: %s", exc)
-                await self.rollback_agent_response_processing(instance_id, agent, step_id, substep_id)
+                await self.rollback_agent_response_processing(
+                    instance_id, agent, step_id, substep_id
+                )
                 self.update_workflow_state(
                     instance_id=instance_id,
                     message={
@@ -534,7 +622,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
                     "plan_updates": [],
                     "status": "failed",
                 }
-        
+
         return self._run_asyncio_task(_process())
 
     def _finalize_workflow_with_summary(
@@ -551,11 +639,15 @@ class LLMOrchestrator(LLMOrchestratorBase):
                 verdict=payload["verdict"],
                 plan=json.dumps(payload["plan_objects"], indent=2),
                 step=payload["step_id"],
-                substep=payload["substep_id"] if payload["substep_id"] is not None else "N/A",
+                substep=payload["substep_id"]
+                if payload["substep_id"] is not None
+                else "N/A",
                 agent=payload["agent"],
                 result=payload["result"],
             )
-            summary_resp = self.llm.generate(messages=[{"role": "user", "content": prompt}])
+            summary_resp = self.llm.generate(
+                messages=[{"role": "user", "content": prompt}]
+            )
             if hasattr(summary_resp, "choices") and summary_resp.choices:
                 summary = summary_resp.choices[0].message.content
             elif hasattr(summary_resp, "results") and summary_resp.results:
@@ -575,5 +667,5 @@ class LLMOrchestrator(LLMOrchestratorBase):
                 wf_time=payload["wf_time"],
             )
             return summary
-        
+
         return self._run_asyncio_task(_finalize())

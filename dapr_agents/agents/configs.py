@@ -37,6 +37,7 @@ class AgentStateConfig:
         message_coercer: Function to convert a raw dict into a message model instance.
         entry_container_getter: Function to extract the instance container (e.g., `model.instances`) from the root model.
     """
+
     store: "StateStoreService"
     default_state: Optional[Dict[str, Any] | BaseModel] = None
     state_key: Optional[str] = None
@@ -52,7 +53,9 @@ class AgentStateConfig:
         if not issubclass(self.state_model_cls, BaseModel):
             raise TypeError("state_model_cls must be a subclass of pydantic.BaseModel")
         if not issubclass(self.message_model_cls, BaseModel):
-            raise TypeError("message_model_cls must be a subclass of pydantic.BaseModel")
+            raise TypeError(
+                "message_model_cls must be a subclass of pydantic.BaseModel"
+            )
 
         # Normalize default_state against the selected state_model_cls
         Model = self.state_model_cls
@@ -62,12 +65,15 @@ class AgentStateConfig:
             if isinstance(self.default_state, BaseModel):
                 self.default_state = self.default_state.model_dump(mode="json")
             else:
-                self.default_state = Model.model_validate(self.default_state).model_dump(mode="json")
+                self.default_state = Model.model_validate(
+                    self.default_state
+                ).model_dump(mode="json")
 
 
 @dataclass
 class AgentRegistryConfig:
     """Configuration for agent registry storage."""
+
     store: StateStoreService
     team_name: Optional[str] = None
 
@@ -75,6 +81,7 @@ class AgentRegistryConfig:
 @dataclass
 class AgentMemoryConfig:
     """Configuration wrapper for agent memory selection."""
+
     store: MemoryBase = field(default_factory=ConversationListMemory)
 
 
@@ -87,6 +94,7 @@ class AgentPubSubConfig:
         agent_topic: Primary topic for direct messages to the agent. Defaults to ``name``.
         broadcast_topic: Optional topic shared by a team for broadcast messages.
     """
+
     pubsub_name: str
     agent_topic: Optional[str] = None
     broadcast_topic: Optional[str] = None
@@ -95,6 +103,7 @@ class AgentPubSubConfig:
 @dataclass
 class PromptSection:
     """Reusable block for composing a structured system prompt."""
+
     title: str
     lines: List[str] = field(default_factory=list)
 
@@ -104,7 +113,11 @@ class PromptSection:
         header = self.title.strip()
         body = "\n".join(f"- {line.strip()}" for line in self.lines if line.strip())
         section = f"{header}:\n{body}".strip()
-        return _ensure_jinja_placeholders(section) if template_format == "jinja2" else section
+        return (
+            _ensure_jinja_placeholders(section)
+            if template_format == "jinja2"
+            else section
+        )
 
 
 @dataclass
@@ -114,6 +127,7 @@ class AgentProfileConfig:
 
     Mirrors common fields in OpenAI Agents SDK while remaining lightweight.
     """
+
     name: Optional[str] = None
     role: Optional[str] = None
     goal: Optional[str] = None

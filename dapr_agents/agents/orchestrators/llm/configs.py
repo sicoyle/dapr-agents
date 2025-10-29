@@ -23,6 +23,7 @@ from dapr_agents.agents.orchestrators.llm.state import (
 
 # ---------- helpers (module-private) ----------
 
+
 def _utcnow() -> datetime:
     """Timezone-aware now in UTC."""
     return datetime.now(timezone.utc)
@@ -63,7 +64,7 @@ def _default_entry_factory(
         end_time=None,
         messages=[],
         last_message=None,
-        plan=[],          # never None
+        plan=[],  # never None
         task_history=[],  # never None
         **opt,
     )
@@ -101,12 +102,15 @@ def _default_message_coercer(raw: Dict[str, Any]) -> LLMWorkflowMessage:
     return LLMWorkflowMessage(**payload)
 
 
-def _default_entry_container_getter(model: BaseModel) -> Optional[MutableMapping[str, Any]]:
+def _default_entry_container_getter(
+    model: BaseModel,
+) -> Optional[MutableMapping[str, Any]]:
     """Return the container that maps instance_id -> entry (if present)."""
     return getattr(model, "instances", None)
 
 
 # ---------- public config ----------
+
 
 @dataclass
 class LLMOrchestratorStateConfig(AgentStateConfig):
@@ -123,6 +127,7 @@ class LLMOrchestratorStateConfig(AgentStateConfig):
     Only `store` is required:
         LLMOrchestratorStateConfig(store=StateStoreService(...))
     """
+
     # required
     store: StateStoreService = None  # type: ignore[assignment]
 
@@ -131,7 +136,9 @@ class LLMOrchestratorStateConfig(AgentStateConfig):
     message_model_cls: Type[BaseModel] = LLMWorkflowMessage
     entry_factory: Optional[EntryFactory] = _default_entry_factory
     message_coercer: Optional[MessageCoercer] = _default_message_coercer
-    entry_container_getter: Optional[EntryContainerGetter] = _default_entry_container_getter
+    entry_container_getter: Optional[
+        EntryContainerGetter
+    ] = _default_entry_container_getter
 
     def __post_init__(self) -> None:
         """

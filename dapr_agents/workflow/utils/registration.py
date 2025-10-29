@@ -36,9 +36,11 @@ logger = logging.getLogger(__name__)
 class DedupeBackend(Protocol):
     """Idempotency backend contract (best-effort duplicate detection)."""
 
-    def seen(self, key: str) -> bool: ...
+    def seen(self, key: str) -> bool:
+        ...
 
-    def mark(self, key: str) -> None: ...
+    def mark(self, key: str) -> None:
+        ...
 
 
 SubscribeFn = Callable[..., Callable[[], None]]
@@ -67,7 +69,9 @@ class _HttpRouteBinding:
     name: str
 
 
-def _resolve_loop(loop: Optional[asyncio.AbstractEventLoop]) -> asyncio.AbstractEventLoop:
+def _resolve_loop(
+    loop: Optional[asyncio.AbstractEventLoop],
+) -> asyncio.AbstractEventLoop:
     if loop is not None:
         return loop
     try:
@@ -98,7 +102,11 @@ def _collect_message_bindings(
     if targets:
         for target in targets:
             for owner, handler, meta in _iter_decorated(target, "_message_router_data"):
-                bound = handler if owner is None else handler.__get__(owner, owner.__class__)
+                bound = (
+                    handler
+                    if owner is None
+                    else handler.__get__(owner, owner.__class__)
+                )
                 schemas = list(meta.get("message_schemas") or [dict])
                 pubsub = meta.get("pubsub")
                 topic = meta.get("topic")
@@ -152,7 +160,11 @@ def _collect_http_bindings(
     if targets:
         for target in targets:
             for owner, handler, meta in _iter_decorated(target, "_http_route_data"):
-                bound = handler if owner is None else handler.__get__(owner, owner.__class__)
+                bound = (
+                    handler
+                    if owner is None
+                    else handler.__get__(owner, owner.__class__)
+                )
                 schemas = list(meta.get("request_schemas") or [dict])
                 bindings.append(
                     _HttpRouteBinding(
@@ -178,9 +190,17 @@ def _collect_http_bindings(
             else:
                 schemas = [dict]
 
-            summary = spec.summary if spec.summary is not None else (meta.get("summary") if meta else None)
+            summary = (
+                spec.summary
+                if spec.summary is not None
+                else (meta.get("summary") if meta else None)
+            )
             tags = list(spec.tags or (meta.get("tags") if meta else []) or [])
-            response_model = spec.response_model if spec.response_model is not None else (meta.get("response_model") if meta else None)
+            response_model = (
+                spec.response_model
+                if spec.response_model is not None
+                else (meta.get("response_model") if meta else None)
+            )
             method = spec.method or (meta.get("method") if meta else "POST")
 
             bindings.append(
@@ -229,14 +249,19 @@ def _subscribe_message_bindings(
 
     if delivery_mode == "async":
         if not loop or not loop.is_running():
-            raise RuntimeError("delivery_mode='async' requires an active running event loop.")
+            raise RuntimeError(
+                "delivery_mode='async' requires an active running event loop."
+            )
         queue = asyncio.Queue(maxsize=max(1, queue_maxsize))
 
     _wf_client = wf_client or wf.DaprWorkflowClient()
 
-    def _default_scheduler(workflow_callable: Callable[..., Any], wf_input: dict) -> Optional[str]:
+    def _default_scheduler(
+        workflow_callable: Callable[..., Any], wf_input: dict
+    ) -> Optional[str]:
         try:
             import json
+
             logger.debug(
                 "➡️ Scheduling workflow: %s | input=%s",
                 getattr(workflow_callable, "__name__", str(workflow_callable)),
@@ -244,7 +269,9 @@ def _subscribe_message_bindings(
             )
         except Exception:
             logger.warning("Could not serialize wf_input for logging", exc_info=True)
-        return _wf_client.schedule_new_workflow(workflow=workflow_callable, input=wf_input)
+        return _wf_client.schedule_new_workflow(
+            workflow=workflow_callable, input=wf_input
+        )
 
     _scheduler: SchedulerFn = scheduler or _default_scheduler
 
@@ -255,22 +282,35 @@ def _subscribe_message_bindings(
         status = getattr(state.runtime_status, "name", str(state.runtime_status))
         if status == "COMPLETED":
             if log_outcome:
-                logger.info("[wf] %s COMPLETED output=%s", instance_id, getattr(state, "serialized_output", None))
+                logger.info(
+                    "[wf] %s COMPLETED output=%s",
+                    instance_id,
+                    getattr(state, "serialized_output", None),
+                )
             return
         failure = getattr(state, "failure_details", None)
         if failure:
-            logger.error("[wf] %s FAILED type=%s message=%s\n%s",
-                         instance_id, getattr(failure, "error_type", None),
-                         getattr(failure, "message", None),
-                         getattr(failure, "stack_trace", "") or "")
+            logger.error(
+                "[wf] %s FAILED type=%s message=%s\n%s",
+                instance_id,
+                getattr(failure, "error_type", None),
+                getattr(failure, "message", None),
+                getattr(failure, "stack_trace", "") or "",
+            )
         else:
-            logger.error("[wf] %s finished with status=%s custom_status=%s",
-                         instance_id, status, getattr(state, "serialized_custom_status", None))
+            logger.error(
+                "[wf] %s finished with status=%s custom_status=%s",
+                instance_id,
+                status,
+                getattr(state, "serialized_custom_status", None),
+            )
 
     def _wait_for_completion(instance_id: str) -> Optional[WorkflowState]:
         try:
             return _wf_client.wait_for_workflow_completion(
-                instance_id, fetch_payloads=fetch_payloads, timeout_in_seconds=await_timeout
+                instance_id,
+                fetch_payloads=fetch_payloads,
+                timeout_in_seconds=await_timeout,
             )
         except Exception:
             logger.exception("[wf] %s: error while waiting for completion", instance_id)
@@ -280,23 +320,33 @@ def _subscribe_message_bindings(
         state = await asyncio.to_thread(_wait_for_completion, instance_id)
         _log_state(instance_id, state)
 
-    async def _schedule(bound_workflow: Callable[..., Any], parsed: Any) -> TopicEventResponse:
+    async def _schedule(
+        bound_workflow: Callable[..., Any], parsed: Any
+    ) -> TopicEventResponse:
         try:
             metadata: Optional[dict] = None
             if isinstance(parsed, dict):
-                wf_input = dict(parsed); metadata = wf_input.get("_message_metadata")
+                wf_input = dict(parsed)
+                metadata = wf_input.get("_message_metadata")
             elif hasattr(parsed, "model_dump"):
-                metadata = getattr(parsed, "_message_metadata", None); wf_input = parsed.model_dump()
+                metadata = getattr(parsed, "_message_metadata", None)
+                wf_input = parsed.model_dump()
             elif is_dataclass(parsed):
-                metadata = getattr(parsed, "_message_metadata", None); wf_input = asdict(parsed)
+                metadata = getattr(parsed, "_message_metadata", None)
+                wf_input = asdict(parsed)
             else:
-                metadata = getattr(parsed, "_message_metadata", None); wf_input = {"data": parsed}
+                metadata = getattr(parsed, "_message_metadata", None)
+                wf_input = {"data": parsed}
 
-            if metadata: wf_input["_message_metadata"] = dict(metadata)
+            if metadata:
+                wf_input["_message_metadata"] = dict(metadata)
 
             instance_id = await asyncio.to_thread(_scheduler, bound_workflow, wf_input)
-            logger.info("Scheduled workflow=%s instance=%s",
-                        getattr(bound_workflow, "__name__", str(bound_workflow)), instance_id)
+            logger.info(
+                "Scheduled workflow=%s instance=%s",
+                getattr(bound_workflow, "__name__", str(bound_workflow)),
+                instance_id,
+            )
 
             if await_result and delivery_mode == "sync":
                 state = await asyncio.to_thread(_wait_for_completion, instance_id)
@@ -312,6 +362,7 @@ def _subscribe_message_bindings(
             return TopicEventResponse("retry")
 
     if queue is not None:
+
         async def _worker() -> None:
             while True:
                 workflow_callable, payload = await queue.get()
@@ -321,20 +372,24 @@ def _subscribe_message_bindings(
                     logger.exception("Async worker crashed while scheduling workflow.")
                 finally:
                     queue.task_done()
+
         for _ in range(max(1, len(bindings))):
             worker_tasks.append(loop.create_task(_worker()))  # type: ignore[union-attr]
 
     # ---------------- NEW: group by (pubsub, topic) and build ONE composite handler per topic -------------
     from collections import defaultdict
+
     grouped: dict[tuple[str, str], list[_MessageRouteBinding]] = defaultdict(list)
     for b in bindings:
         grouped[(b.pubsub, b.topic)].append(b)
 
-    def _composite_handler_fn(group: list[_MessageRouteBinding]) -> Callable[[SubscriptionMessage], TopicEventResponse]:
+    def _composite_handler_fn(
+        group: list[_MessageRouteBinding],
+    ) -> Callable[[SubscriptionMessage], TopicEventResponse]:
         # Flatten a plan: [(binding, model), ...] preserving declaration order
         plan: list[tuple[_MessageRouteBinding, Type[Any]]] = []
         for b in group:
-            for m in (b.schemas or [dict]):
+            for m in b.schemas or [dict]:
                 plan.append((b, m))
 
         def handler(message: SubscriptionMessage) -> TopicEventResponse:
@@ -343,10 +398,16 @@ def _subscribe_message_bindings(
 
                 # Optional: simple idempotency hook
                 if deduper is not None:
-                    candidate_id = (metadata or {}).get("id") or f"{group[0].topic}:{hash(str(event_data))}"
+                    candidate_id = (metadata or {}).get(
+                        "id"
+                    ) or f"{group[0].topic}:{hash(str(event_data))}"
                     try:
                         if deduper.seen(candidate_id):
-                            logger.info("Duplicate detected id=%s topic=%s; dropping.", candidate_id, group[0].topic)
+                            logger.info(
+                                "Duplicate detected id=%s topic=%s; dropping.",
+                                candidate_id,
+                                group[0].topic,
+                            )
                             return TopicEventResponse("success")
                         deduper.mark(candidate_id)
                     except Exception:
@@ -356,7 +417,11 @@ def _subscribe_message_bindings(
                 ce_type = (metadata or {}).get("type")
                 ordered_iter = plan
                 if ce_type:
-                    preferred = [pair for pair in plan if getattr(pair[1], "__name__", "") == ce_type]
+                    preferred = [
+                        pair
+                        for pair in plan
+                        if getattr(pair[1], "__name__", "") == ce_type
+                    ]
                     if preferred:
                         # Try preferred models first, then the rest
                         tail = [pair for pair in plan if pair not in preferred]
@@ -365,7 +430,11 @@ def _subscribe_message_bindings(
                 # Try to validate against each model and dispatch to its handler
                 for binding, model in ordered_iter:
                     try:
-                        payload = event_data if isinstance(event_data, dict) else {"data": event_data}
+                        payload = (
+                            event_data
+                            if isinstance(event_data, dict)
+                            else {"data": event_data}
+                        )
                         parsed = validate_message_model(model, payload)
                         # attach metadata
                         try:
@@ -374,16 +443,23 @@ def _subscribe_message_bindings(
                             else:
                                 setattr(parsed, "_message_metadata", metadata)
                         except Exception:
-                            logger.debug("Could not attach _message_metadata; continuing.", exc_info=True)
+                            logger.debug(
+                                "Could not attach _message_metadata; continuing.",
+                                exc_info=True,
+                            )
 
                         # enqueue/schedule to the right handler
                         if delivery_mode == "async":
                             assert queue is not None
-                            loop.call_soon_threadsafe(queue.put_nowait, (binding.handler, parsed))  # type: ignore[union-attr]
+                            loop.call_soon_threadsafe(
+                                queue.put_nowait, (binding.handler, parsed)
+                            )  # type: ignore[union-attr]
                             return TopicEventResponse("success")
 
                         if loop and loop.is_running():
-                            fut = asyncio.run_coroutine_threadsafe(_schedule(binding.handler, parsed), loop)
+                            fut = asyncio.run_coroutine_threadsafe(
+                                _schedule(binding.handler, parsed), loop
+                            )
                             return fut.result()
 
                         return asyncio.run(_schedule(binding.handler, parsed))
@@ -393,7 +469,11 @@ def _subscribe_message_bindings(
                         continue
 
                 # No model matched for this topic → drop (or switch to "retry" if you prefer)
-                logger.warning("No matching schema for topic=%r; dropping. raw=%r", group[0].topic, event_data)
+                logger.warning(
+                    "No matching schema for topic=%r; dropping. raw=%r",
+                    group[0].topic,
+                    event_data,
+                )
                 return TopicEventResponse("drop")
 
             except Exception:
@@ -415,11 +495,16 @@ def _subscribe_message_bindings(
         )
         logger.info(
             "Subscribed COMPOSITE(%d handlers) to pubsub=%s topic=%s (delivery=%s await=%s)",
-            len(group), pubsub_name, topic_name, delivery_mode, await_result,
+            len(group),
+            pubsub_name,
+            topic_name,
+            delivery_mode,
+            await_result,
         )
         closers.append(close_fn)
 
     if worker_tasks:
+
         def _make_cancel_all(tasks: List[asyncio.Task]) -> Callable[[], None]:
             def _cancel() -> None:
                 for task in tasks:
@@ -427,7 +512,9 @@ def _subscribe_message_bindings(
                         task.cancel()
                     except Exception:
                         logger.debug("Error cancelling worker task.", exc_info=True)
+
             return _cancel
+
         closers.append(_make_cancel_all(worker_tasks))
 
     return closers
@@ -442,7 +529,9 @@ def _mount_http_bindings(
     if not bindings:
         return []
 
-    _ = _resolve_loop(loop)  # Parity with message registrar; FastAPI does not require it yet.
+    _ = _resolve_loop(
+        loop
+    )  # Parity with message registrar; FastAPI does not require it yet.
     closers: List[Callable[[], None]] = []
 
     async def _invoke(bound_handler: Callable[..., Any], parsed: Any) -> Any:
@@ -475,17 +564,25 @@ def _mount_http_bindings(
                     matched_model: Optional[Type[Any]] = None
                     for model in schemas_b:
                         try:
-                            candidate, _ = parse_http_json(body, model=model, attach_metadata=False)
+                            candidate, _ = parse_http_json(
+                                body, model=model, attach_metadata=False
+                            )
                             parsed = candidate
                             matched_model = model
                             break
                         except Exception:
-                            logger.debug("HTTP schema %r did not match; trying next.", model, exc_info=True)
+                            logger.debug(
+                                "HTTP schema %r did not match; trying next.",
+                                model,
+                                exc_info=True,
+                            )
 
                     if parsed is None:
                         return JSONResponse(
                             status_code=422,
-                            content={"detail": "Request body did not match any expected schema"},
+                            content={
+                                "detail": "Request body did not match any expected schema"
+                            },
                         )
 
                     if matched_model is not None:
@@ -500,13 +597,17 @@ def _mount_http_bindings(
 
                     if isinstance(result, Response):
                         return result
-                    if isinstance(result, (dict, list, str, int, float, bool, type(None))):
+                    if isinstance(
+                        result, (dict, list, str, int, float, bool, type(None))
+                    ):
                         return result
                     return JSONResponse(content=result)
 
                 except Exception:
                     logger.exception("HTTP handler error for %s %s.", method_b, path_b)
-                    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+                    return JSONResponse(
+                        status_code=500, content={"detail": "Internal Server Error"}
+                    )
 
             endpoint.__name__ = f"{name_b}_endpoint"
             return endpoint
@@ -574,7 +675,9 @@ def register_message_routes(
         List of closers that unsubscribe handlers and cancel async workers.
     """
     if targets is None and routes is None:
-        raise ValueError("Provide `targets` and/or `routes` when registering message routes.")
+        raise ValueError(
+            "Provide `targets` and/or `routes` when registering message routes."
+        )
 
     bindings = _collect_message_bindings(targets=targets, routes=routes)
     if not bindings:
@@ -618,7 +721,9 @@ def register_http_routes(
         List of no-op closers (API symmetry with message registrar).
     """
     if targets is None and routes is None:
-        raise ValueError("Provide `targets` and/or `routes` when registering HTTP routes.")
+        raise ValueError(
+            "Provide `targets` and/or `routes` when registering HTTP routes."
+        )
 
     bindings = _collect_http_bindings(targets=targets, routes=routes)
     if not bindings:

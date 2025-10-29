@@ -13,6 +13,7 @@ def utcnow() -> datetime:
     """Return current time as timezone-aware UTC datetime."""
     return datetime.now(timezone.utc)
 
+
 class BroadcastMessage(BaseMessage):
     """
     Represents a broadcast message from an agent.

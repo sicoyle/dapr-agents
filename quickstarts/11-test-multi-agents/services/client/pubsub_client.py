@@ -18,8 +18,12 @@ from dapr.clients import DaprClient
 PUBSUB_NAME = os.getenv("PUBSUB_NAME", "messagepubsub")
 
 # Named topics (used when --orchestrator is provided)
-RANDOM_TOPIC_DEFAULT = os.getenv("RANDOM_TOPIC", "fellowship.orchestrator.random.requests")
-ROUNDROBIN_TOPIC_DEFAULT = os.getenv("ROUNDROBIN_TOPIC", "fellowship.orchestrator.roundrobin.requests")
+RANDOM_TOPIC_DEFAULT = os.getenv(
+    "RANDOM_TOPIC", "fellowship.orchestrator.random.requests"
+)
+ROUNDROBIN_TOPIC_DEFAULT = os.getenv(
+    "ROUNDROBIN_TOPIC", "fellowship.orchestrator.roundrobin.requests"
+)
 LLM_TOPIC_DEFAULT = os.getenv("LLM_TOPIC", "llm.orchestrator.requests")
 
 # Legacy single-topic env (still honored if you pass --topic without a value)
@@ -46,42 +50,96 @@ logger = logging.getLogger("orchestrator_publisher")
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Publish TriggerAction messages to orchestrator(s).")
+    p = argparse.ArgumentParser(
+        description="Publish TriggerAction messages to orchestrator(s)."
+    )
     # Orchestrator selection (mutually exclusive with explicit topics)
     p.add_argument(
         "--orchestrator",
         choices=["random", "roundrobin", "llm"],
-        help="Route to a named orchestrator topic (or both)."
+        help="Route to a named orchestrator topic (or both).",
     )
     p.add_argument(
         "--topic",
         action="append",
-        help="Explicit topic name (can be repeated). If provided, --orchestrator is ignored."
+        help="Explicit topic name (can be repeated). If provided, --orchestrator is ignored.",
     )
 
     # Message/data knobs
     p.add_argument("--task", help="Task text to send (ignored if --raw JSON is used).")
     p.add_argument("--raw", help="Raw JSON object to send as the event data.")
-    p.add_argument("--ce-type", default=CLOUDEVENT_TYPE_DEFAULT, help="CloudEvent type to set.")
+    p.add_argument(
+        "--ce-type", default=CLOUDEVENT_TYPE_DEFAULT, help="CloudEvent type to set."
+    )
     p.add_argument("--content-type", default=CONTENT_TYPE, help="Content type.")
 
     # Behavior
     p.add_argument("--pubsub", default=PUBSUB_NAME, help="Dapr pubsub name.")
-    p.add_argument("--once", dest="publish_once", action="store_true", help="Publish once and exit.")
-    p.add_argument("--loop", dest="publish_once", action="store_false", help="Publish periodically.")
+    p.add_argument(
+        "--once",
+        dest="publish_once",
+        action="store_true",
+        help="Publish once and exit.",
+    )
+    p.add_argument(
+        "--loop",
+        dest="publish_once",
+        action="store_false",
+        help="Publish periodically.",
+    )
     p.set_defaults(publish_once=PUBLISH_ONCE_DEFAULT)
 
-    p.add_argument("--interval", type=float, default=INTERVAL_SEC_DEFAULT, help="Interval seconds when looping.")
-    p.add_argument("--startup-delay", type=float, default=STARTUP_DELAY_DEFAULT, help="Initial delay seconds.")
-    p.add_argument("--max-attempts", type=int, default=MAX_ATTEMPTS_DEFAULT, help="Max retry attempts.")
-    p.add_argument("--initial-delay", type=float, default=INITIAL_DELAY_DEFAULT, help="Initial backoff seconds.")
-    p.add_argument("--backoff-factor", type=float, default=BACKOFF_FACTOR_DEFAULT, help="Backoff multiplier.")
-    p.add_argument("--jitter", type=float, default=JITTER_FRAC_DEFAULT, help="± jitter fraction on backoff.")
+    p.add_argument(
+        "--interval",
+        type=float,
+        default=INTERVAL_SEC_DEFAULT,
+        help="Interval seconds when looping.",
+    )
+    p.add_argument(
+        "--startup-delay",
+        type=float,
+        default=STARTUP_DELAY_DEFAULT,
+        help="Initial delay seconds.",
+    )
+    p.add_argument(
+        "--max-attempts",
+        type=int,
+        default=MAX_ATTEMPTS_DEFAULT,
+        help="Max retry attempts.",
+    )
+    p.add_argument(
+        "--initial-delay",
+        type=float,
+        default=INITIAL_DELAY_DEFAULT,
+        help="Initial backoff seconds.",
+    )
+    p.add_argument(
+        "--backoff-factor",
+        type=float,
+        default=BACKOFF_FACTOR_DEFAULT,
+        help="Backoff multiplier.",
+    )
+    p.add_argument(
+        "--jitter",
+        type=float,
+        default=JITTER_FRAC_DEFAULT,
+        help="± jitter fraction on backoff.",
+    )
 
     # Topic defaults (so you can override per run)
-    p.add_argument("--random-topic", default=RANDOM_TOPIC_DEFAULT, help="Topic for random orchestrator.")
-    p.add_argument("--roundrobin-topic", default=ROUNDROBIN_TOPIC_DEFAULT, help="Topic for round-robin orchestrator.")
-    p.add_argument("--llm-topic", default=LLM_TOPIC_DEFAULT, help="Topic for LLM orchestrator.")
+    p.add_argument(
+        "--random-topic",
+        default=RANDOM_TOPIC_DEFAULT,
+        help="Topic for random orchestrator.",
+    )
+    p.add_argument(
+        "--roundrobin-topic",
+        default=ROUNDROBIN_TOPIC_DEFAULT,
+        help="Topic for round-robin orchestrator.",
+    )
+    p.add_argument(
+        "--llm-topic", default=LLM_TOPIC_DEFAULT, help="Topic for LLM orchestrator."
+    )
 
     return p.parse_args()
 
@@ -157,7 +215,9 @@ async def publish_once(
                     topic_name=topic,
                     data=body,
                     data_content_type=content_type,
-                    publish_metadata=({"cloudevent.type": ce_type} if ce_type else None),
+                    publish_metadata=(
+                        {"cloudevent.type": ce_type} if ce_type else None
+                    ),
                 )
                 logger.info("published successfully to %s", topic)
             return
@@ -185,6 +245,7 @@ async def main() -> int:
         loop.add_signal_handler(signal.SIGTERM, _stop)
     except NotImplementedError:
         import signal as _signal
+
         _signal.signal(_signal.SIGINT, lambda *_: _stop())
         _signal.signal(_signal.SIGTERM, lambda *_: _stop())
 
@@ -237,7 +298,9 @@ async def main() -> int:
                         backoff_factor=args.backoff_factor,
                     )
                 except Exception as exc:  # noqa: BLE001
-                    logger.error("giving up after %d attempts: %s", args.max_attempts, exc)
+                    logger.error(
+                        "giving up after %d attempts: %s", args.max_attempts, exc
+                    )
 
                 try:
                     await asyncio.wait_for(stop_event.wait(), timeout=args.interval)
