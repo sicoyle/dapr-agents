@@ -1,527 +1,338 @@
-from dapr_agents.memory import (
-    MemoryBase,
-    ConversationListMemory,
-    ConversationVectorMemory,
-)
-from dapr_agents.agents.utils.text_printer import ColorTextFormatter
-from dapr_agents.types import MessagePlaceHolder, BaseMessage, ToolExecutionRecord
-from dapr_agents.tool.executor import AgentToolExecutor
-from dapr_agents.prompt.base import PromptTemplateBase
-from dapr_agents.prompt import ChatPromptTemplate
-from dapr_agents.tool.base import AgentTool
-import re
-from datetime import datetime
-import logging
+from __future__ import annotations
+
 import asyncio
-import signal
-from abc import ABC, abstractmethod
-from typing import (
-    List,
-    Optional,
-    Dict,
-    Any,
-    Union,
-    Callable,
-    Literal,
-    ClassVar,
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, Coroutine
+
+from dapr_agents.agents.components import AgentComponents
+from dapr_agents.agents.configs import (
+    AgentMemoryConfig,
+    AgentPubSubConfig,
+    AgentRegistryConfig,
+    AgentStateConfig,
 )
-from pydantic import BaseModel, Field, PrivateAttr, model_validator, ConfigDict
+from dapr_agents.agents.prompting import AgentProfileConfig, PromptingAgentBase
+from dapr_agents.agents.utils.text_printer import ColorTextFormatter
 from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.llm.utils.defaults import get_default_llm
+from dapr_agents.memory import ConversationDaprStateMemory, ConversationListMemory
+from dapr_agents.prompt.base import PromptTemplateBase
+from dapr_agents.storage.daprstores.stateservice import StateStoreError
+from dapr_agents.tool.base import AgentTool
+from dapr_agents.tool.executor import AgentToolExecutor
+from dapr_agents.types import AssistantMessage, ToolExecutionRecord, UserMessage
 
 logger = logging.getLogger(__name__)
 
 
-class AgentBase(BaseModel, ABC):
+class AgentBase(AgentComponents):
     """
-    Base class for agents that interact with language models and manage tools for task execution.
+    Base class for agent behavior.
 
-     Args:
-        name: Agent name
-        role: Agent role
-        goal: Agent goal
-        instructions: List of instructions
-        tools: List of tools
-        llm: LLM client
-        memory: Memory instance
+    Responsibilities:
+    - Profile/prompt wiring (system prompt, instructions, style, template).
+    - LLM client wiring.
+    - Tool exposure and execution adapter.
+    - Conversation memory management (configurable; defaults provided).
+
+    Infrastructure (pub/sub, durable state, registry) is provided by `AgentComponents`.
     """
 
-    name: str = Field(
-        default="Dapr Agent",
-        description="The agent's name, defaulting to the role if not provided.",
-    )
-    role: Optional[str] = Field(
-        default="Assistant",
-        description="The agent's role in the interaction (e.g., 'Weather Expert').",
-    )
-    goal: Optional[str] = Field(
-        default="Help humans",
-        description="The agent's main objective (e.g., 'Provide Weather information').",
-    )
-    # TODO: add a background/backstory field that would be useful for the agent to know about it's context/background for it's role.
-    instructions: Optional[List[str]] = Field(
-        default=None, description="Instructions guiding the agent's tasks."
-    )
-    system_prompt: Optional[str] = Field(
-        default=None,
-        description="A custom system prompt, overriding name, role, goal, and instructions.",
-    )
-    llm: Optional[ChatClientBase] = Field(
-        default=None,
-        description="Language model client for generating responses.",
-    )
-    prompt_template: Optional[PromptTemplateBase] = Field(
-        default=None, description="The prompt template for the agent."
-    )
-    # TODO: we need to add RBAC to tools to define what users and/or agents can use what tool(s).
-    tools: List[Union[AgentTool, Callable]] = Field(
-        default_factory=list,
-        description="Tools available for the agent to assist with tasks.",
-    )
-    tool_choice: Optional[str] = Field(
-        default=None,
-        description="Strategy for selecting tools ('auto', 'required', 'none'). Defaults to 'auto' if tools are provided.",
-    )
-    tool_history: List[ToolExecutionRecord] = Field(
-        default_factory=list, description="Executed tool calls during the conversation."
-    )
-    # TODO: add a forceFinalAnswer field in case maxIterations is near/reached. Or do we have a conclusion baked in by default? Do we want this to derive a conclusion by default?
-    max_iterations: int = Field(
-        default=10, description="Max iterations for conversation cycles."
-    )
-    # TODO(@Sicoyle): Rename this to make clearer
-    memory: MemoryBase = Field(
-        default_factory=ConversationListMemory,
-        description="Handles long-term conversation history (for all workflow instance-ids within the same session) and context storage.",
-    )
-    # TODO: we should have a system_template, prompt_template, and response_template, or better separation here.
-    # If we have something like a customer service agent, we want diff templates for different types of interactions.
-    # In future, we could also have a way to dynamically change the template based on the context of the interaction.
-    template_format: Literal["f-string", "jinja2"] = Field(
-        default="jinja2",
-        description="The format used for rendering the prompt template.",
-    )
-
-    DEFAULT_SYSTEM_PROMPT: ClassVar[str]
-    """Default f-string template; placeholders will be swapped to Jinja if needed."""
-    DEFAULT_SYSTEM_PROMPT = """
-# Today's date is: {date}
-
-## Name
-Your name is {name}.
-
-## Role
-Your role is {role}.
-
-## Goal
-{goal}.
-
-## Instructions
-{instructions}.
-""".strip()
-
-    _tool_executor: AgentToolExecutor = PrivateAttr()
-    _text_formatter: ColorTextFormatter = PrivateAttr(
-        default_factory=ColorTextFormatter
-    )
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    @model_validator(mode="before")
-    def set_name_from_role(cls, values: dict):
-        # Set name to role if name is not provided
-        if not values.get("name") and values.get("role"):
-            values["name"] = values["role"]
-        return values
-
-    @model_validator(mode="after")
-    def validate_llm(self):
-        """Validate that LLM is properly configured."""
-        if hasattr(self, "llm"):
-            if self.llm is None:
-                logger.warning("LLM client is None, some functionality may be limited.")
-            else:
-                try:
-                    # Validate LLM is properly configured by accessing it as this is required to be set.
-                    _ = self.llm
-                except Exception as e:
-                    logger.error(f"Failed to initialize LLM: {e}")
-                    self.llm = None
-
-        return self
-
-    def model_post_init(self, __context: Any) -> None:
+    def __init__(
+        self,
+        *,
+        # Profile / prompt
+        profile_config: Optional[AgentProfileConfig] = None,
+        name: Optional[str] = None,
+        role: Optional[str] = None,
+        goal: Optional[str] = None,
+        instructions: Optional[Iterable[str]] = None,
+        style_guidelines: Optional[Iterable[str]] = None,
+        system_prompt: Optional[str] = None,
+        prompt_template: Optional[PromptTemplateBase] = None,
+        # Components (infrastructure)
+        pubsub_config: Optional[AgentPubSubConfig] = None,
+        state_config: Optional[AgentStateConfig] = None,
+        registry_config: Optional[AgentRegistryConfig] = None,
+        base_metadata: Optional[Dict[str, Any]] = None,
+        max_etag_attempts: int = 10,
+        # Memory / runtime
+        memory_config: Optional[AgentMemoryConfig] = None,
+        llm: Optional[ChatClientBase] = None,
+        tools: Optional[Iterable[Any]] = None,
+        tool_choice: Optional[str] = None,
+        # Metadata
+        agent_metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """
-        Post-initialization hook for AgentBase.
-        Sets up the prompt template using a centralized helper, ensuring agent and LLM client reference the same template.
-        Also validates and pre-fills the template, and sets up graceful shutdown.
+        Initialize an agent with behavior + infrastructure.
 
         Args:
-            __context (Any): Context passed from Pydantic's model initialization.
+            profile_config: Base profile config (name/role/goal/prompts). Optional if
+                individual fields are provided below.
+            name: Agent name (required if `profile_config` is omitted).
+            role: Agent role (e.g., "Assistant").
+            goal: High-level agent objective.
+            instructions: Additional instruction strings for the prompt.
+            style_guidelines: Style directives for the prompt.
+            system_prompt: System prompt override.
+            prompt_template: Optional explicit prompt template instance.
+
+            pubsub_config: Pub/Sub config used by `AgentComponents`.
+            state_config: Durable state config used by `AgentComponents`.
+            registry_config: Team registry config used by `AgentComponents`.
+            base_metadata: Default Dapr state metadata used by `AgentComponents`.
+            max_etag_attempts: Concurrency retry count for registry mutations.
+
+            memory_config: Memory backend configuration. If omitted and a state store
+                is configured, a Dapr-backed conversation memory is created by default.
+            llm: Chat client. Defaults to `get_default_llm()`.
+            tools: Optional tool callables or `AgentTool` instances.
+            tool_choice: Tool selection strategy (e.g., "auto"); ignored if no tools.
+
+            agent_metadata: Extra metadata to store in the registry.
         """
-        self._tool_executor = AgentToolExecutor(tools=self.tools)
+        # Resolve and validate profile (ensures non-empty name).
+        resolved_profile = self._build_profile(
+            base_profile=profile_config,
+            name=name,
+            role=role,
+            goal=goal,
+            instructions=instructions,
+            style_guidelines=style_guidelines,
+            system_prompt=system_prompt,
+        )
+        self.profile_config = resolved_profile
+        self.name = resolved_profile.name  # type: ignore[assignment]
 
-        # Set tool_choice to 'auto' if tools are provided, otherwise None
-        if self.tool_choice is None:
-            self.tool_choice = "auto" if self.tools else None
+        # Wire infrastructure via AgentComponents.
+        super().__init__(
+            name=self.name,
+            pubsub_config=pubsub_config,
+            state_config=state_config,
+            registry_config=registry_config,
+            base_metadata=base_metadata,
+            max_etag_attempts=max_etag_attempts,
+        )
 
-        # Initialize LLM if not provided
-        if self.llm is None:
-            self.llm = get_default_llm()
+        # -----------------------------
+        # Memory wiring
+        # -----------------------------
+        self._memory_config = memory_config or AgentMemoryConfig()
+        if self._memory_config.store is None and state_config is not None:
+            # Auto-provision a Dapr-backed memory if we have a state store.
+            self._memory_config.store = ConversationDaprStateMemory(  # type: ignore[union-attr]
+                store_name=state_config.store.store_name,
+                session_id=f"{self.name}-session",
+            )
+        self.memory = self._memory_config.store or ConversationListMemory()
 
-        # Centralize prompt template selection logic
-        self.prompt_template = self._initialize_prompt_template()
-        # Ensure LLM client and agent both reference the same template
-        if self.llm is not None:
+        # -----------------------------
+        # Prompting helper
+        # -----------------------------
+        self.prompting_helper = PromptingAgentBase(
+            name=self.name,
+            role=resolved_profile.role or "Assistant",
+            goal=resolved_profile.goal or "Help users accomplish their tasks.",
+            instructions=list(resolved_profile.instructions),
+            style_guidelines=list(resolved_profile.style_guidelines),
+            system_prompt=resolved_profile.system_prompt,
+            template_format=resolved_profile.template_format,
+            include_chat_history=True,
+            prompt_template=prompt_template,
+            profile_config=resolved_profile,
+        )
+        # Keep profile config synchronized with helper defaults.
+        if self.profile_config.name is None:
+            self.profile_config.name = self.prompting_helper.name
+        if self.profile_config.role is None:
+            self.profile_config.role = self.prompting_helper.role
+        if self.profile_config.goal is None:
+            self.profile_config.goal = self.prompting_helper.goal
+
+        self.prompt_template = self.prompting_helper.prompt_template
+        self._text_formatter = self.prompting_helper.text_formatter
+
+        # -----------------------------
+        # LLM wiring
+        # -----------------------------
+        self.llm: ChatClientBase = llm or get_default_llm()
+        if self.llm:
             self.llm.prompt_template = self.prompt_template
 
-        self._validate_prompt_template()
-        self.prefill_agent_attributes()
+        # -----------------------------
+        # Tools
+        # -----------------------------
+        self.tools: List[Any] = list(tools or [])
+        self.tool_executor = AgentToolExecutor(tools=list(self.tools))
+        self.tool_choice = tool_choice or ("auto" if self.tools else None)
+        self.tool_history: List[ToolExecutionRecord] = []
 
-        # Set up graceful shutdown
-        self._shutdown_event = asyncio.Event()
-        self._setup_signal_handlers()
-
-        super().model_post_init(__context)
-
-    def _initialize_prompt_template(self) -> PromptTemplateBase:
-        """
-        Determines which prompt template to use for the agent:
-        1. If the user supplied one, use it.
-        2. Else if the LLM client already has one, adopt that.
-        3. Else generate a system_prompt and ChatPromptTemplate from agent attributes.
-
-        Returns:
-            PromptTemplateBase: The selected or constructed prompt template.
-        """
-        # 1) User provided one?
-        if self.prompt_template:
-            logger.debug("🛠️ Using provided agent.prompt_template")
-            return self.prompt_template
-
-        # 2) LLM client has one?
-        if (
-            self.llm
-            and hasattr(self.llm, "prompt_template")
-            and self.llm.prompt_template
-        ):
-            logger.debug("🔄 Syncing from llm.prompt_template")
-            return self.llm.prompt_template
-
-        # 3) Build from system_prompt or attributes
-        if not self.system_prompt:
-            logger.debug("⚙️ Constructing system_prompt from attributes")
-            self.system_prompt = self.construct_system_prompt()
-
-        logger.debug("⚙️ Building ChatPromptTemplate from system_prompt")
-        return self.construct_prompt_template()
-
-    def _collect_template_attrs(self) -> tuple[Dict[str, str], List[str]]:
-        """
-        Collect agent attributes for prompt template pre-filling and warn about unused ones.
-        - valid: attributes set on self and declared in prompt_template.input_variables.
-        - unused: attributes set on self but not present in the template.
-        Returns:
-            (valid, unused): Tuple of dict of valid attrs and list of unused attr names.
-        """
-        attrs = ["name", "role", "goal", "instructions"]
-        valid: Dict[str, str] = {}
-        unused: List[str] = []
-        if not self.prompt_template or not hasattr(
-            self.prompt_template, "input_variables"
-        ):
-            return valid, attrs  # No template, all attrs are unused
-        original = set(self.prompt_template.input_variables)
-
-        for attr in attrs:
-            val = getattr(self, attr, None)
-            if val is None:
-                continue
-            if attr in original:
-                # Only join instructions if it's a list and the template expects it
-                if attr == "instructions" and isinstance(val, list):
-                    valid[attr] = "\n".join(val)
-                else:
-                    valid[attr] = str(val)
-            else:
-                unused.append(attr)
-        return valid, unused
-
-    def _setup_signal_handlers(self):
-        """Set up signal handlers for graceful shutdown"""
+        # -----------------------------
+        # Load durable state (from AgentComponents)
+        # -----------------------------
         try:
-            signal.signal(signal.SIGINT, self._signal_handler)
-            signal.signal(signal.SIGTERM, self._signal_handler)
-        except (OSError, ValueError):
-            # TODO: test this bc signal handlers may not work in all environments (e.g., Windows)
-            pass
+            self.load_state()
+        except Exception:  # noqa: BLE001
+            logger.warning("Agent failed to load persisted state; starting fresh.")
 
-    def _signal_handler(self, signum, frame):
-        """Handle interrupt signals gracefully"""
-        print(f"\nReceived signal {signum}. Shutting down gracefully...")
-        self._shutdown_event.set()
+        # -----------------------------
+        # Agent metadata & registry registration (from AgentComponents)
+        # -----------------------------
+        base_meta: Dict[str, Any] = {
+            "name": self.name,
+            "orchestrator": False,
+            "role": self.prompting_helper.role,
+            "goal": self.prompting_helper.goal,
+            "instructions": list(self.prompting_helper.instructions),
+        }
+        if self.pubsub_config is not None:
+            base_meta["topic_name"] = self.agent_topic_name
+            base_meta["pubsub_name"] = self.message_bus_name
 
-    def _validate_prompt_template(self) -> None:
-        """
-        Ensures chat_history is always available, injects any declared attributes,
-        and warns if the user set attributes that aren't in the template.
-        """
-        if not self.prompt_template:
-            return
+        merged_meta = {**base_meta, **(agent_metadata or {})}
+        self.agent_metadata = merged_meta
+        if self.registry_state is not None:
+            try:
+                self.register_agentic_system(metadata=merged_meta)
+            except StateStoreError:
+                logger.warning("Could not register agent metadata; registry unavailable.")
+        else:
+            logger.debug("Registry configuration not provided; skipping agent registration.")
 
-        # Always make chat_history available
-        vars_set = set(self.prompt_template.input_variables) | {"chat_history"}
-
-        # Inject any attributes the template declares
-        valid_attrs, unused_attrs = self._collect_template_attrs()
-        vars_set |= set(valid_attrs.keys())
-        self.prompt_template.input_variables = list(vars_set)
-
-        if unused_attrs:
-            logger.warning(
-                "Agent attributes set but not referenced in prompt_template: "
-                f"{', '.join(unused_attrs)}. Consider adding them to input_variables."
-            )
-
-    @property
-    def tool_executor(self) -> AgentToolExecutor:
-        """Returns the client to execute and manage tools, ensuring it's accessible but read-only."""
-        return self._tool_executor
-
+    # ------------------------------------------------------------------
+    # Presentation helpers
+    # ------------------------------------------------------------------
     @property
     def text_formatter(self) -> ColorTextFormatter:
-        """Returns the text formatter for the agent."""
+        """Formatter used for human-friendly console output."""
         return self._text_formatter
 
-    def get_chat_history(self, task: Optional[str] = None) -> List[Dict[str, Any]]:
+    @text_formatter.setter
+    def text_formatter(self, formatter: ColorTextFormatter) -> None:
+        """Override the default text formatter and keep the helper in sync."""
+        self._text_formatter = formatter
+        if hasattr(self, "prompting_helper"):
+            self.prompting_helper._text_formatter = formatter
+
+    def print_interaction(self, source_agent_name: str, target_agent_name: str, message: str) -> None:
         """
-        Retrieves the chat history from memory as a list of dictionaries.
+        Print a formatted interaction between two agents.
 
         Args:
-            task (Optional[str]): The task or query provided by the user (used for vector search).
-
-        Returns:
-            List[Dict[str, Any]]: The chat history as dictionaries.
+            source_agent_name: Sender name.
+            target_agent_name: Recipient name.
+            message: Message content.
         """
-        if isinstance(self.memory, ConversationVectorMemory) and task:
-            if (
-                hasattr(self.memory.vector_store, "embedding_function")
-                and self.memory.vector_store.embedding_function
-                and hasattr(
-                    self.memory.vector_store.embedding_function, "embed_documents"
-                )
-            ):
-                query_embeddings = self.memory.vector_store.embedding_function.embed(
-                    task
-                )
-                messages = self.memory.get_messages(query_embeddings=query_embeddings)
-            else:
-                messages = self.memory.get_messages()
-        else:
-            messages = self.memory.get_messages()
-        return messages
+        separator = "-" * 80
+        parts = [
+            (source_agent_name, "dapr_agents_mustard"),
+            (" -> ", "dapr_agents_teal"),
+            (f"{target_agent_name}\n\n", "dapr_agents_mustard"),
+            (message + "\n\n", None),
+            (separator + "\n", "dapr_agents_teal"),
+        ]
+        self._text_formatter.print_colored_text(parts)
 
-    @property
-    def chat_history(self) -> List[Dict[str, Any]]:
-        """
-        Returns the full chat history as a list of dictionaries.
-
-        Returns:
-            List[Dict[str, Any]]: The chat history.
-        """
-        return self.get_chat_history()
-
-    @abstractmethod
-    def run(self, input_data: Union[str, Dict[str, Any]]) -> Any:
-        """
-        Executes the agent's main logic based on provided inputs.
-
-        Args:
-            inputs (Dict[str, Any]): A dictionary with dynamic input values for task execution.
-        """
-        pass
-
-    def prefill_agent_attributes(self) -> None:
-        """
-        Pre-fill prompt_template with agent attributes if specified in `input_variables`.
-        Uses _collect_template_attrs to avoid duplicate logic and ensure consistency.
-        """
-        if not self.prompt_template:
-            return
-
-        # Re-use our helper to split valid vs. unused
-        valid_attrs, unused_attrs = self._collect_template_attrs()
-
-        if unused_attrs:
-            logger.warning(
-                "Agent attributes set but not used in prompt_template: "
-                f"{', '.join(unused_attrs)}. Consider adding them to input_variables."
-            )
-
-        if valid_attrs:
-            self.prompt_template = self.prompt_template.pre_fill_variables(
-                **valid_attrs
-            )
-            logger.debug(f"Pre-filled template with: {list(valid_attrs.keys())}")
-        else:
-            logger.debug("No prompt_template variables needed pre-filling.")
-
-    def construct_system_prompt(self) -> str:
-        """
-        Build the system prompt for the agent using a single template string.
-        - Fills in the current date.
-        - Leaves placeholders for name, role, goal, and instructions as variables (instructions only if set).
-        - Converts placeholders to Jinja2 syntax if requested.
-
-        Returns:
-            str: The formatted system prompt string.
-        """
-        # Only fill in the date; leave all other placeholders as variables
-        instructions_placeholder = "{instructions}" if self.instructions else ""
-        filled = self.DEFAULT_SYSTEM_PROMPT.format(
-            date=datetime.now().strftime("%B %d, %Y"),
-            name="{name}",
-            role="{role}",
-            goal="{goal}",
-            instructions=instructions_placeholder,
-        )
-
-        # If using Jinja2, swap braces for all placeholders
-        if self.template_format == "jinja2":
-            # Replace every {foo} with {{foo}}
-            return re.sub(r"\{(\w+)\}", r"{{\1}}", filled)
-        else:
-            return filled
-
-    def construct_prompt_template(self) -> ChatPromptTemplate:
-        """
-        Constructs a ChatPromptTemplate that includes the system prompt and a placeholder for chat history.
-        Ensures that the template is flexible and adaptable to dynamically handle pre-filled variables.
-
-        Returns:
-            ChatPromptTemplate: A formatted prompt template for the agent.
-        """
-        # Construct the system prompt if not provided
-        system_prompt = self.system_prompt or self.construct_system_prompt()
-
-        # Create the template with placeholders for system message and chat history
-        return ChatPromptTemplate.from_messages(
-            messages=[
-                ("system", system_prompt),
-                MessagePlaceHolder(variable_name="chat_history"),
-            ],
-            template_format=self.template_format,
-        )
-
-    def construct_messages(
-        self, input_data: Union[str, Dict[str, Any]]
+    # ------------------------------------------------------------------
+    # Prompting & memory utilities
+    # ------------------------------------------------------------------
+    def build_initial_messages(
+        self,
+        user_input: Optional[Union[str, Dict[str, Any]]] = None,
+        **extra_variables: Any,
     ) -> List[Dict[str, Any]]:
         """
-        Constructs and formats initial messages based on input type, passing chat_history as a list, without mutating self.prompt_template.
+        Build the initial message list for an LLM call.
 
         Args:
-            input_data (Union[str, Dict[str, Any]]): User input, either as a string or dictionary.
+            user_input: Optional user message or structured payload.
+            **extra_variables: Extra template variables for the prompt template.
 
         Returns:
-            List[Dict[str, Any]]: List of formatted messages, including the user message if input_data is a string.
+            List of message dictionaries ready for an LLM chat API.
         """
-        if not self.prompt_template:
-            raise ValueError(
-                "Prompt template must be initialized before constructing messages."
-            )
+        return self.prompting_helper.build_initial_messages(
+            user_input,
+            chat_history=self.get_chat_history() if self.prompting_helper.include_chat_history else None,
+            **extra_variables,
+        )
 
-        chat_history = self.get_chat_history()  # List[Dict[str, Any]]
+    def get_chat_history(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve the conversation history from the configured memory backend.
 
-        if isinstance(input_data, str):
-            formatted_messages = self.prompt_template.format_prompt(
-                chat_history=chat_history
-            )
-            if isinstance(formatted_messages, list):
-                user_message = {"role": "user", "content": input_data}
-                return formatted_messages + [user_message]
-            else:
-                return [
-                    {"role": "system", "content": formatted_messages},
-                    {"role": "user", "content": input_data},
-                ]
+        Returns:
+            A list of message-like dictionaries in normalized form.
+        """
+        try:
+            history = self.memory.get_messages()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Memory get_messages failed: %s", exc)
+            return []
 
-        elif isinstance(input_data, dict):
-            input_vars = dict(input_data)
-            if "chat_history" not in input_vars:
-                input_vars["chat_history"] = chat_history
-            formatted_messages = self.prompt_template.format_prompt(**input_vars)
-            if isinstance(formatted_messages, list):
-                return formatted_messages
-            else:
-                return [{"role": "system", "content": formatted_messages}]
+        normalized: List[Dict[str, Any]] = []
+        for entry in history:
+            if hasattr(entry, "model_dump"):
+                normalized.append(entry.model_dump())
+            elif isinstance(entry, dict):
+                normalized.append(dict(entry))
+        return normalized
 
-        else:
-            raise ValueError("Input data must be either a string or dictionary.")
-
-    def reset_memory(self):
-        """Clears all messages stored in the agent's memory."""
-        self.memory.reset_memory()
+    def reset_memory(self) -> None:
+        """Clear all stored conversation messages."""
+        if self.memory:
+            self.memory.reset_memory()
 
     def get_last_message(self) -> Optional[Dict[str, Any]]:
-        """
-        Retrieves the last message from the chat history.
+        """Return the last message stored in memory, if any."""
+        history = self.get_chat_history()
+        return dict(history[-1]) if history else None
 
-        Returns:
-            Optional[Dict[str, Any]]: The last message in the history as a dictionary, or None if none exist.
+    def get_last_user_message(self, messages: Sequence[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
-        chat_history = self.get_chat_history()
-        if chat_history:
-            last_msg = chat_history[-1]
-            if isinstance(last_msg, BaseMessage):
-                return last_msg.model_dump()
-            return last_msg
-        return None
-
-    def get_last_user_message(
-        self, messages: List[Dict[str, Any]]
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Retrieves the last user message in a list of messages, returning a copy with trimmed content.
+        Return the most recent message authored by the user from a sequence.
 
         Args:
-            messages (List[Dict[str, Any]]): List of formatted messages to search.
+            messages: Message sequence from which to extract the last user message.
 
         Returns:
-            Optional[Dict[str, Any]]: The last user message (copy) with trimmed content, or None if no user message exists.
+            The last user message as a dict, or None if not present.
         """
-        # Iterate in reverse to find the most recent 'user' role message
-        for message in reversed(messages):
-            if message.get("role") == "user":
-                # Return a copy with trimmed content
-                msg_copy = dict(message)
-                msg_copy["content"] = msg_copy["content"].strip()
-                return msg_copy
-        return None
+        match = self._get_last_user_message(messages)
+        if not match:
+            return None
+        result = dict(match)
+        content = result.get("content")
+        if isinstance(content, str):
+            result["content"] = content.strip()
+        return result
 
-    def get_last_message_if_user(
-        self, messages: List[Dict[str, Any]]
-    ) -> Optional[Dict[str, Any]]:
+    def get_last_message_if_user(self, messages: Sequence[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
-        Returns the last message only if it is a user message; otherwise, returns None.
+        Return the last message only if it is authored by the user.
 
         Args:
-            messages (List[Dict[str, Any]]): List of formatted messages to check.
+            messages: Message sequence.
 
         Returns:
-            Optional[Dict[str, Any]]: The last message (copy) with trimmed content if it is a user message, else None.
+            The last message as a dict if its role is 'user'; otherwise None.
         """
         if messages and messages[-1].get("role") == "user":
-            msg_copy = dict(messages[-1])
-            msg_copy["content"] = msg_copy["content"].strip()
-            return msg_copy
+            msg = dict(messages[-1])
+            content = msg.get("content")
+            if isinstance(content, str):
+                msg["content"] = content.strip()
+            return msg
         return None
 
     def get_llm_tools(self) -> List[Union[AgentTool, Dict[str, Any]]]:
         """
-        Converts tools to the format expected by LLM clients.
+        Convert configured tools into LLM-friendly tool specs.
 
         Returns:
-            List[Union[AgentTool, Dict[str, Any]]]: Tools in LLM-compatible format.
+            List of `AgentTool` or tool-spec dicts.
         """
         llm_tools: List[Union[AgentTool, Dict[str, Any]]] = []
         for tool in self.tools:
@@ -529,29 +340,284 @@ Your role is {role}.
                 llm_tools.append(tool)
             elif callable(tool):
                 try:
-                    agent_tool = AgentTool.from_func(tool)
-                    llm_tools.append(agent_tool)
-                except Exception as e:
-                    logger.warning(f"Failed to convert callable to AgentTool: {e}")
-                    continue
+                    llm_tools.append(AgentTool.from_func(tool))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Failed to convert callable to AgentTool: %s", exc)
         return llm_tools
 
-    def pre_fill_prompt_template(self, **kwargs: Union[str, Callable[[], str]]) -> None:
+    def _build_profile(
+        self,
+        *,
+        base_profile: Optional[AgentProfileConfig],
+        name: Optional[str],
+        role: Optional[str],
+        goal: Optional[str],
+        instructions: Optional[Iterable[str]],
+        style_guidelines: Optional[Iterable[str]],
+        system_prompt: Optional[str],
+    ) -> AgentProfileConfig:
         """
-        Pre-fills the prompt template with specified variables, updating input variables if applicable.
+        Construct a concrete AgentProfileConfig from a base profile and field overrides.
 
         Args:
-            **kwargs: Variables to pre-fill in the prompt template. These can be strings or callables
-                    that return strings.
+            base_profile: Optional starting profile to clone (avoids mutating the caller’s).
+            name: Name override.
+            role: Role override.
+            goal: Goal/mission override.
+            instructions: Additional instruction strings.
+            style_guidelines: Prompt style directives.
+            system_prompt: System prompt override.
 
-        Notes:
-            - Existing pre-filled variables will be overwritten by matching keys in `kwargs`.
-            - This method does not affect the `chat_history` which is dynamically updated.
+        Returns:
+            A fully-populated AgentProfileConfig with a non-empty name.
+
+        Raises:
+            ValueError: If the resulting profile has an empty name.
         """
-        if not self.prompt_template:
+        # Clone the base profile to avoid external side effects.
+        if base_profile is not None:
+            profile = AgentProfileConfig(
+                name=base_profile.name,
+                role=base_profile.role,
+                goal=base_profile.goal,
+                instructions=list(base_profile.instructions),
+                style_guidelines=list(base_profile.style_guidelines),
+                system_prompt=base_profile.system_prompt,
+                template_format=base_profile.template_format,
+                modules=tuple(base_profile.modules),
+                module_overrides=dict(base_profile.module_overrides),
+            )
+        else:
+            profile = AgentProfileConfig()
+
+        # Apply field-level overrides when provided.
+        if name is not None:
+            profile.name = name
+        if role is not None:
+            profile.role = role
+        if goal is not None:
+            profile.goal = goal
+        if instructions is not None:
+            profile.instructions = list(instructions)
+        if style_guidelines is not None:
+            profile.style_guidelines = list(style_guidelines)
+        if system_prompt is not None:
+            profile.system_prompt = system_prompt
+
+        # Durable agents require a concrete name for state/memory/registry keys.
+        if not profile.name or not profile.name.strip():
             raise ValueError(
-                "Prompt template must be initialized before pre-filling variables."
+                "Durable agents require a non-empty name "
+                "(provide name= or profile_config.name)."
             )
 
-        self.prompt_template = self.prompt_template.pre_fill_variables(**kwargs)
-        logger.debug(f"Pre-filled prompt template with variables: {kwargs.keys()}")
+        return profile
+
+    # ------------------------------------------------------------------
+    # Internal utilities
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _run_asyncio_task(coro: Coroutine[Any, Any, Any]) -> None:
+        """
+        Execute an async coroutine from a synchronous context, creating a fresh loop if needed.
+
+        Args:
+            coro: The coroutine to execute.
+        """
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(coro)
+        else:
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(coro)
+            finally:
+                loop.close()
+
+    @staticmethod
+    def _serialize_message(message: Any) -> Dict[str, Any]:
+        """
+        Convert a message-like object into a plain dict for history persistence.
+
+        Args:
+            message: Pydantic model, dict, or object exposing `model_dump`.
+
+        Returns:
+            Normalized dictionary representation.
+
+        Raises:
+            TypeError: When the input type is unsupported.
+        """
+        if hasattr(message, "model_dump"):
+            return message.model_dump()
+        if isinstance(message, dict):
+            return dict(message)
+        if hasattr(message, "__dict__"):
+            return dict(message.__dict__)
+        raise TypeError(f"Unsupported message type for serialization: {type(message)!r}")
+
+    def _get_last_user_message(self, messages: Sequence[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Find the last user-role message from the given sequence."""
+        for message in reversed(messages):
+            if message.get("role") == "user":
+                return message
+        return None
+
+    # ------------------------------------------------------------------
+    # State-aware message helpers (use AgentComponents' state model)
+    # ------------------------------------------------------------------
+    def _construct_messages_with_instance_history(self, instance_id: str) -> List[Dict[str, Any]]:
+        """
+        Build a conversation history combining persistent memory and per-instance messages.
+
+        Args:
+            instance_id: Workflow instance identifier.
+
+        Returns:
+            Combined message history excluding system messages from instance timeline.
+        """
+        container = self._get_entry_container()
+        entry = container.get(instance_id) if container else None
+
+        instance_messages: List[Dict[str, Any]] = []
+        if entry and hasattr(entry, "messages"):
+            for msg in getattr(entry, "messages"):
+                serialized = self._serialize_message(msg)
+                if serialized.get("role") != "system":
+                    instance_messages.append(serialized)
+
+        persistent_memory: List[Dict[str, Any]] = []
+        try:
+            for msg in self.memory.get_messages():
+                try:
+                    persistent_memory.append(self._serialize_message(msg))
+                except TypeError:
+                    logger.debug("Unsupported memory message type %s; skipping.", type(msg))
+        except Exception:  # noqa: BLE001
+            logger.debug("Unable to load persistent memory.", exc_info=True)
+
+        history: List[Dict[str, Any]] = []
+        history.extend(persistent_memory)
+        history.extend(instance_messages)
+        return history
+
+    def _sync_system_messages_with_state(
+        self,
+        instance_id: str,
+        all_messages: Sequence[Dict[str, Any]],
+    ) -> None:
+        """
+        Persist the latest set of system messages into the instance state.
+
+        Args:
+            instance_id: Workflow instance id.
+            all_messages: Complete message list to scan for system-role messages.
+        """
+        # Delegate to AgentComponents logic.
+        self.sync_system_messages(instance_id=instance_id, all_messages=all_messages)
+
+    def _process_user_message(
+        self,
+        instance_id: str,
+        task: Optional[str],
+        user_message_copy: Optional[Dict[str, Any]],
+    ) -> None:
+        """
+        Append a user message into the instance timeline and memory, and persist state.
+
+        Args:
+            instance_id: Workflow instance id.
+            task: Optional task string; if missing, no-op.
+            user_message_copy: Message dict to append.
+        """
+        if not task or not user_message_copy:
+            return
+
+        container = self._get_entry_container()
+        entry = container.get(instance_id) if container else None
+        if entry is None or not hasattr(entry, "messages"):
+            return
+
+        # Use configured coercer / message model
+        message_model = (
+            self._message_coercer(user_message_copy)  # type: ignore[attr-defined]
+            if getattr(self, "_message_coercer", None)
+            else self._message_dict_to_message_model(user_message_copy)
+        )
+        entry.messages.append(message_model)  # type: ignore[attr-defined]
+        if hasattr(entry, "last_message"):
+            entry.last_message = message_model  # type: ignore[attr-defined]
+
+        session_id = getattr(getattr(self, "memory", None), "session_id", None)
+        if session_id is not None and hasattr(entry, "session_id"):
+            entry.session_id = str(session_id)  # type: ignore[attr-defined]
+
+        self.memory.add_message(UserMessage(content=user_message_copy.get("content", "")))
+        self.save_state()
+
+    def _save_assistant_message(self, instance_id: str, assistant_message: Dict[str, Any]) -> None:
+        """
+        Append an assistant message into the instance timeline and memory, and persist state.
+
+        Args:
+            instance_id: Workflow instance id.
+            assistant_message: Assistant message dict (will be tagged with agent name).
+        """
+        assistant_message["name"] = self.name
+
+        container = self._get_entry_container()
+        entry = container.get(instance_id) if container else None
+        if entry is None or not hasattr(entry, "messages"):
+            return
+
+        message_id = assistant_message.get("id")
+        if message_id and any(getattr(msg, "id", None) == message_id for msg in getattr(entry, "messages")):
+            return
+
+        message_model = (
+            self._message_coercer(assistant_message)  # type: ignore[attr-defined]
+            if getattr(self, "_message_coercer", None)
+            else self._message_dict_to_message_model(assistant_message)
+        )
+        entry.messages.append(message_model)  # type: ignore[attr-defined]
+        if hasattr(entry, "last_message"):
+            entry.last_message = message_model  # type: ignore[attr-defined]
+
+        self.memory.add_message(AssistantMessage(**assistant_message))
+        self.save_state()
+
+    # ------------------------------------------------------------------
+    # Small convenience wrappers
+    # ------------------------------------------------------------------
+    def list_team_agents(self, *, team: Optional[str] = None, include_self: bool = True) -> Dict[str, Any]:
+        """
+        Convenience wrapper over `get_agents_metadata`.
+
+        Args:
+            team: Team override.
+            include_self: If True, include this agent in the results.
+
+        Returns:
+            Mapping of agent name to metadata.
+        """
+        return self.get_agents_metadata(
+            exclude_self=not include_self,
+            exclude_orchestrator=False,
+            team=team,
+        )
+
+    # ------------------------------------------------------------------
+    # Misc helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _coerce_datetime(value: Optional[Any]) -> datetime:
+        """Coerce strings/None to a timezone-aware UTC datetime."""
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                pass
+        return datetime.now(timezone.utc)
