@@ -10,46 +10,32 @@ from typing import Any, Optional, Tuple, Type, Union, get_args, get_origin
 from dapr.common.pubsub.subscription import SubscriptionMessage
 
 from dapr_agents.types.message import EventMessageMetadata
-from dapr_agents.workflow.utils.core import is_pydantic_model, is_supported_model
+from dapr_agents.workflow.utils.core import is_supported_model
 
 logger = logging.getLogger(__name__)
 
 
 def extract_message_models(type_hint: Any) -> list[type]:
-    """Normalize a message type hint into a concrete list of classes.
-
-    Supports:
-      - Single class: `MyMessage` → `[MyMessage]`
-      - Union: `Union[Foo, Bar]` or `Foo | Bar` → `[Foo, Bar]`
-      - Optional: `Optional[Foo]` (i.e., `Union[Foo, None]`) → `[Foo]`
-
-    Notes:
-      - Forward refs should be resolved by the caller (e.g., via `typing.get_type_hints`).
-      - Non-class entries (e.g., `None`, `typing.Any`) are filtered out.
-      - Returns an empty list when the hint isn't a usable class or union of classes.
+    """
+    Turn a single class or a Union[...] into a list of concrete classes (filters None/Any).
+    
+    Args:
+        type_hint (Any):
+            The type hint to extract classes from.
+    
+    Returns:
+        list[type]: A list of concrete classes extracted from the type hint.
     """
     if type_hint is None:
         return []
-
     origin = get_origin(type_hint)
-    if origin in (Union, types.UnionType):  # handle both `Union[...]` and `A | B`
-        return [
-            t for t in get_args(type_hint) if t is not NoneType and isinstance(t, type)
-        ]
-
+    if origin in (Union, types.UnionType):
+        return [t for t in get_args(type_hint) if t is not NoneType and isinstance(t, type)]
     return [type_hint] if isinstance(type_hint, type) else []
 
 
 def _maybe_json_loads(payload: Any, content_type: Optional[str]) -> Any:
-    """
-    Best-effort JSON parsing based on content type and payload shape.
-
-    - If payload is `dict`/`list` → return as-is.
-    - If bytes/str and content-type hints JSON (or text looks like JSON) → parse to Python.
-    - Otherwise → return the original payload.
-
-    This helper is intentionally forgiving; callers should validate downstream.
-    """
+    """Best-effort: parse JSON by content-type hint or shape; otherwise return original value."""
     try:
         if isinstance(payload, (dict, list)):
             return payload
@@ -74,23 +60,66 @@ def _maybe_json_loads(payload: Any, content_type: Optional[str]) -> Any:
         return payload
 
 
+def _maybe_json_body(body: Any) -> Any:
+    """HTTP helper: parse str/bytes into JSON once; otherwise return as-is."""
+    if isinstance(body, (bytes, str)):
+        try:
+            return json.loads(body)
+        except Exception:
+            return body
+    return body
+
+
+def validate_message_model(model: Type[Any], event_data: dict) -> Any:
+    """
+    Validate/coerce event_data into model (dict, dataclass, Pydantic v1/v2).
+    
+    Args:
+        model (Type[Any]):
+            The model class to validate against.
+        event_data (dict):
+            The event data to validate.
+    
+    Returns:
+        Any: The validated/coerced message instance.
+    """
+    if not is_supported_model(model):
+        raise TypeError(f"Unsupported model type: {model!r}")
+
+    try:
+        logger.info("Validating payload with model '%s'...", model.__name__)
+
+        if model is dict:
+            return event_data
+
+        if is_dataclass(model):
+            return model(**event_data)
+
+        if hasattr(model, "model_validate"):  # Pydantic v2
+            return model.model_validate(event_data)
+
+        if hasattr(model, "parse_obj"):       # Pydantic v1
+            return model.parse_obj(event_data)
+
+        raise TypeError(f"Unsupported model type: {model!r}")
+
+    except Exception as e:
+        logger.error("Message validation failed for model '%s': %s", model.__name__, e)
+        raise ValueError(f"Message validation failed: {e}") from e
+
+
 def extract_cloudevent_data(
     message: Union[SubscriptionMessage, dict, bytes, str],
-) -> Tuple[dict, dict]:
+) -> Tuple[Any, dict]:
     """
-    Extract CloudEvent metadata and payload (attempting JSON parsing when appropriate).
-
-    Accepts:
-      - `SubscriptionMessage` (Dapr SDK)
-      - `dict` (raw CloudEvent envelope)
-      - `bytes`/`str` (data-only; metadata is synthesized)
-
+    Extract CloudEvent .data and metadata from Dapr SubscriptionMessage or similar shapes.
+    
+    Args:
+        message (Union[SubscriptionMessage, dict, bytes, str]):
+            The incoming CloudEvent message from Dapr pub/sub.
+    
     Returns:
-        (event_data, metadata) as dictionaries. `event_data` may be non-dict JSON
-        (e.g., list) if the payload is an array; callers expecting dicts should handle it.
-
-    Raises:
-        ValueError: For unsupported `message` types.
+        Tuple[Any, dict]: A tuple containing the event data and its metadata.
     """
     if isinstance(message, SubscriptionMessage):
         content_type = message.data_content_type()
@@ -102,7 +131,7 @@ def extract_cloudevent_data(
             pubsubname=message.pubsub_name(),
             source=message.source(),
             specversion=message.spec_version(),
-            time=None,  # not always populated by SDK
+            time=None,
             topic=message.topic(),
             traceid=None,
             traceparent=None,
@@ -131,7 +160,6 @@ def extract_cloudevent_data(
         ).model_dump()
 
     elif isinstance(message, (bytes, str)):
-        # No CloudEvent envelope; treat payload as data-only and synthesize minimal metadata.
         content_type = "application/json"
         event_data = _maybe_json_loads(message, content_type)
         metadata = EventMessageMetadata(
@@ -153,42 +181,9 @@ def extract_cloudevent_data(
         raise ValueError(f"Unexpected message type: {type(message)!r}")
 
     if not isinstance(event_data, dict):
-        logger.debug(
-            "Event data is not a dict (type=%s); value=%r", type(event_data), event_data
-        )
+        logger.debug("CloudEvent data is not a dict (type=%s); value=%r", type(event_data), event_data)
 
     return event_data, metadata
-
-
-def validate_message_model(model: Type[Any], event_data: dict) -> Any:
-    """
-    Validate and coerce `event_data` into `model`.
-
-    Supports:
-      - dict: returns `event_data` unchanged
-      - dataclass: constructs the dataclass
-      - Pydantic v2 model: uses `model_validate`
-
-    Raises:
-        TypeError: If the model is not a supported kind.
-        ValueError: If validation/construction fails.
-    """
-    if not is_supported_model(model):
-        raise TypeError(f"Unsupported model type: {model!r}")
-
-    try:
-        logger.info(f"Validating payload with model '{model.__name__}'...")
-
-        if model is dict:
-            return event_data
-        if is_dataclass(model):
-            return model(**event_data)
-        if is_pydantic_model(model):
-            return model.model_validate(event_data)
-        raise TypeError(f"Unsupported model type: {model!r}")
-    except Exception as e:
-        logger.error(f"Message validation failed for model '{model.__name__}': {e}")
-        raise ValueError(f"Message validation failed: {e}")
 
 
 def parse_cloudevent(
@@ -196,33 +191,67 @@ def parse_cloudevent(
     model: Optional[Type[Any]] = None,
 ) -> Tuple[Any, dict]:
     """
-    Parse a CloudEvent-like input and validate its payload against ``model``.
-
+    Parse a pub/sub CloudEvent and validate its `.data` against model.
+    
     Args:
-        message (Union[SubscriptionMessage, dict, bytes, str]): Incoming message; can be a Dapr ``SubscriptionMessage``, a raw
-                 CloudEvent ``dict``, or bare ``bytes``/``str`` payloads.
-        model (Optional[Type[Any]]):   Schema for payload validation (required).
-
+        message (Union[SubscriptionMessage, dict, bytes, str]):
+            The incoming CloudEvent message from Dapr pub/sub.
+        model (Optional[Type[Any]], optional):
+            The model class to validate the event data against. Defaults to None.
+    
     Returns:
         Tuple[Any, dict]: A tuple containing the validated message and its metadata.
-
-    Raises:
-        ValueError: If no model is provided or validation fails.
     """
     try:
-        event_data, metadata = extract_cloudevent_data(message)
-
         if model is None:
             raise ValueError("Message validation failed: No model provided.")
 
+        event_data, metadata = extract_cloudevent_data(message)
+        if not isinstance(event_data, dict):
+            event_data = {"data": event_data}
+
         validated_message = validate_message_model(model, event_data)
-
-        logger.info("Message successfully parsed and validated")
-        logger.debug(f"Data: {validated_message}")
-        logger.debug(f"metadata: {metadata}")
-
+        logger.info("CloudEvent successfully parsed and validated")
+        logger.debug("Data: %r", validated_message)
+        logger.debug("metadata: %r", metadata)
         return validated_message, metadata
 
     except Exception as e:
-        logger.error(f"Failed to parse CloudEvent: {e}", exc_info=True)
-        raise ValueError(f"Invalid CloudEvent: {str(e)}")
+        logger.error("Failed to parse CloudEvent: %s", e, exc_info=True)
+        raise ValueError(f"Invalid CloudEvent: {str(e)}") from e
+
+
+def parse_http_json(
+    body: Any,
+    model: Optional[Type[Any]] = None,
+    *,
+    attach_metadata: bool = False,
+) -> Tuple[Any, dict]:
+    """
+    Parse a plain JSON HTTP body and validate against model (no CloudEvent semantics).
+    
+    Args:
+        body (Any):
+            The incoming HTTP request body.
+        model (Optional[Type[Any]], optional):
+            The model class to validate the body against. Defaults to None.
+        attach_metadata (bool, optional):
+            Whether to attach empty metadata dict. Defaults to False.
+    
+    Returns:
+        Tuple[Any, dict]: A tuple containing the validated message and its metadata.
+    """
+    if model is None:
+        raise ValueError("Message validation failed: No model provided.")
+
+    payload = _maybe_json_body(body)
+    if isinstance(payload, dict):
+        event_data = payload
+    else:
+        event_data = {"data": payload}
+
+    validated = validate_message_model(model, event_data)
+    metadata: dict = {} if attach_metadata else {}
+    logger.info("HTTP JSON successfully parsed and validated (no CloudEvent semantics)")
+    logger.debug("Data: %r", validated)
+    return validated, metadata
