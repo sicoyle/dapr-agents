@@ -85,7 +85,9 @@ class AgentBase(BaseModel, ABC):
             "For persistent storage, specify the name of the Dapr State Store to use. "
         ),
     )
-    prompt: Optional[Prompt] = Field(default_factory=Prompt, description="TODO SAM")
+    prompt: Optional[Prompt] = Field(
+        default_factory=Prompt,
+        description="Prompt handles how agent prompts (system messages and full chat context) are built and formatted before being sent to the LLM.")
 
     _tool_executor: AgentToolExecutor = PrivateAttr()
     _text_formatter: ColorTextFormatter = PrivateAttr(
