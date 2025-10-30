@@ -81,8 +81,6 @@ async def main():
 
     except Exception as e:
         print(f"Error starting service: {e}")
-    finally:
-        travel_planner.graceful_shutdown()
 
 
 if __name__ == "__main__":

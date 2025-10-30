@@ -150,7 +150,7 @@ class TestAgentBaseClass:
         self, agent_with_system_prompt
     ):
         """Test prompt template construction with custom system prompt."""
-        template = agent_with_system_prompt.construct_prompt_template()
+        template = agent_with_system_prompt.construct_template()
         assert isinstance(template, ChatPromptTemplate)
         assert len(template.messages) == 2
         assert template.messages[0][0] == "system"
@@ -222,13 +222,13 @@ class TestAgentBaseClass:
             basic_agent.reset_memory()
             mock_reset.assert_called_once()
 
-    def test_pre_fill_prompt_template(self, basic_agent):
+    def test_prefill_template(self, basic_agent):
         """Test pre-filling prompt template with variables."""
         # Store original template for comparison
         original_template = basic_agent.prompt_template
 
         # Pre-fill with a variable
-        basic_agent.pre_fill_prompt_template(custom_var="test_value")
+        basic_agent.prefill_template(custom_var="test_value")
 
         # Verify the template was updated
         assert basic_agent.prompt_template != original_template
@@ -241,10 +241,10 @@ class TestAgentBaseClass:
         )
 
         # Verify the template can still be formatted
-        formatted = basic_agent.prompt_template.format_prompt()
+        formatted = basic_agent.prompt_template.format()
         assert formatted is not None
 
-    def test_pre_fill_prompt_template_without_template(self, mock_llm_client):
+    def test_prefill_template_without_template(self, mock_llm_client):
         """Test pre-filling prompt template when template is not initialized."""
         agent = TestAgentBase(llm=mock_llm_client)
         agent.prompt_template = None
@@ -253,7 +253,7 @@ class TestAgentBaseClass:
             ValueError,
             match="Prompt template must be initialized before pre-filling variables",
         ):
-            agent.pre_fill_prompt_template(custom_var="test_value")
+            agent.prefill_template(custom_var="test_value")
 
     def test_chat_history_with_vector_memory_and_task(self):
         """Test chat history retrieval with vector memory and task."""

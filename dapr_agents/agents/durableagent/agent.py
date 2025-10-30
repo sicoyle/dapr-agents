@@ -920,7 +920,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             List of formatted messages with proper sequence
         """
         additional_context_messages: List[Dict[str, Any]] = []
-        if not self.prompt_template:
+        if not self.prompt.template:
             raise ValueError(
                 "Prompt template must be initialized before constructing messages."
             )
@@ -991,7 +991,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         chat_history.extend(additional_context_messages)
 
         if isinstance(input_data, str):
-            formatted_messages = self.prompt_template.format_prompt(
+            formatted_messages = self.prompt.template.format(
                 chat_history=chat_history
             )
             if isinstance(formatted_messages, list):
@@ -1006,7 +1006,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
             input_vars = dict(input_data)
             if "chat_history" not in input_vars:
                 input_vars["chat_history"] = chat_history
-            formatted_messages = self.prompt_template.format_prompt(**input_vars)
+            formatted_messages = self.prompt.template.format(**input_vars)
             if isinstance(formatted_messages, list):
                 return formatted_messages
             else:
