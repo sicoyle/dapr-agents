@@ -87,7 +87,8 @@ class AgentBase(BaseModel, ABC):
     )
     prompt: Optional[Prompt] = Field(
         default_factory=Prompt,
-        description="Prompt handles how agent prompts (system messages and full chat context) are built and formatted before being sent to the LLM.")
+        description="Prompt handles how agent prompts (system messages and full chat context) are built and formatted before being sent to the LLM.",
+    )
 
     _tool_executor: AgentToolExecutor = PrivateAttr()
     _text_formatter: ColorTextFormatter = PrivateAttr(
@@ -187,12 +188,11 @@ class AgentBase(BaseModel, ABC):
         if self.prompt is None:
             self.prompt = Prompt()
         if getattr(self.prompt, "context", None) is None:
-            self.prompt.context = Context(
-                name=self.name,
-                role=self.role,
-                goal=self.goal,
-                instructions=self.instructions,
-            )
+            self.prompt.context = Context()
+        self.prompt.context.name = self.name
+        self.prompt.context.role = self.role
+        self.prompt.context.goal = self.goal
+        self.prompt.context.instructions = self.instructions
 
         # Set up graceful shutdown
         self._shutdown_event = asyncio.Event()
