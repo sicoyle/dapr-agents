@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
+
 # TODO: rm this when we have the agent config class merged!
 class Context(BaseModel):
     name: str = Field(
@@ -22,5 +23,5 @@ class Context(BaseModel):
     )
     date: Optional[str] = Field(
         default=datetime.now().strftime("%B %d, %Y"),
-        description="Date to use for the prompt context"
+        description="Date to use for the prompt context",
     )

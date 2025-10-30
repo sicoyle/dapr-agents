@@ -991,9 +991,7 @@ class DurableAgent(AgenticWorkflow, AgentBase):
         chat_history.extend(additional_context_messages)
 
         if isinstance(input_data, str):
-            formatted_messages = self.prompt.template.format(
-                chat_history=chat_history
-            )
+            formatted_messages = self.prompt.template.format(chat_history=chat_history)
             if isinstance(formatted_messages, list):
                 user_message = {"role": "user", "content": input_data}
                 return formatted_messages + [user_message]

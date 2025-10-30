@@ -83,10 +83,7 @@ class AgentBase(BaseModel, ABC):
         default_factory=ConversationListMemory,
         description="Handles long-term conversation history (for all workflow instance-ids within the same session) and context storage.",
     )
-    prompt: Optional[Prompt] = Field(
-        default_factory=Prompt,
-        description="TODO SAM"
-    )
+    prompt: Optional[Prompt] = Field(default_factory=Prompt, description="TODO SAM")
 
     _tool_executor: AgentToolExecutor = PrivateAttr()
     _text_formatter: ColorTextFormatter = PrivateAttr(
@@ -138,7 +135,9 @@ class AgentBase(BaseModel, ABC):
             self.llm = get_default_llm()
         elif getattr(self.llm, "prompt_template", None):
             # Agent owns the prompt; warn if LLM has its own template set
-            logger.warning("LLM prompt template is set, but agent will use its own prompt template.")
+            logger.warning(
+                "LLM prompt template is set, but agent will use its own prompt template."
+            )
 
         if self.prompt is None:
             self.prompt = Prompt()
@@ -249,9 +248,7 @@ class AgentBase(BaseModel, ABC):
         chat_history = self.get_chat_history()  # List[Dict[str, Any]]
 
         if isinstance(input_data, str):
-            formatted_messages = self.prompt.template.format(
-                chat_history=chat_history
-            )
+            formatted_messages = self.prompt.template.format(chat_history=chat_history)
             if isinstance(formatted_messages, list):
                 user_message = {"role": "user", "content": input_data}
                 return formatted_messages + [user_message]

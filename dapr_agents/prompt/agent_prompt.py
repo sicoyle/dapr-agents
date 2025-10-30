@@ -5,14 +5,17 @@ from dapr_agents.prompt.chat import ChatPromptTemplate
 from dapr_agents.types.message import MessagePlaceHolder
 from dapr_agents.prompt.agent_prompt_context import Context
 from datetime import datetime
-import logging, re
+import logging
+import re
 
 logger = logging.getLogger(__name__)
+
 
 class Prompt(BaseModel):
     """
     Prompt is the base class for agent prompt fields.
     """
+
     system_prompt: Optional[str] = Field(
         default=None,
         description="A custom system prompt, overriding name, role, goal, and instructions.",
@@ -28,7 +31,7 @@ class Prompt(BaseModel):
         description="The format used for rendering the prompt template.",
     )
     context: Optional[Context] = Field(default=None, description="Prompt context")
-    
+
     def model_post_init(self, __context: Any) -> None:
         if self.context is None:
             self.context = Context()
@@ -76,13 +79,10 @@ class Prompt(BaseModel):
             )
 
         if valid_attrs:
-            self.template = self.template.pre_fill_variables(
-                **valid_attrs
-            )
+            self.template = self.template.pre_fill_variables(**valid_attrs)
             logger.debug(f"Pre-filled template with: {list(valid_attrs.keys())}")
         else:
             logger.debug("No prompt_template variables needed pre-filling.")
-
 
     def _init(self) -> PromptTemplateBase:
         """
@@ -105,10 +105,7 @@ class Prompt(BaseModel):
 
         logger.debug("Building ChatPromptTemplate from system_prompt")
         return self.construct_template()
-    
-    
 
-    
     def _collect_template_attrs(self) -> tuple[Dict[str, str], List[str]]:
         """
         Collect agent attributes for prompt template pre-filling and warn about unused ones.
@@ -120,9 +117,7 @@ class Prompt(BaseModel):
         attrs = ["name", "role", "goal", "instructions"]
         valid: Dict[str, str] = {}
         unused: List[str] = []
-        if not self.template or not hasattr(
-            self.template, "input_variables"
-        ):
+        if not self.template or not hasattr(self.template, "input_variables"):
             return valid, attrs  # No template, all attrs are unused
         original = set(self.template.input_variables)
 
@@ -139,7 +134,6 @@ class Prompt(BaseModel):
             else:
                 unused.append(attr)
         return valid, unused
-    
 
     def construct_system_prompt(self) -> str:
         """
@@ -151,7 +145,7 @@ class Prompt(BaseModel):
         Returns:
             str: The formatted system prompt string.
         """
-    # Default f-string template; placeholders will be swapped to Jinja if needed.
+        # Default f-string template; placeholders will be swapped to Jinja if needed.
         default_sys_prompt = """
             # Today's date is: {date}
 
@@ -172,7 +166,11 @@ class Prompt(BaseModel):
         has_instructions = bool(self.context and self.context.instructions)
         instructions_placeholder = "{instructions}" if has_instructions else ""
         filled = default_sys_prompt.format(
-            date=(self.context.date if self.context and self.context.date else datetime.now().strftime("%B %d, %Y")),
+            date=(
+                self.context.date
+                if self.context and self.context.date
+                else datetime.now().strftime("%B %d, %Y")
+            ),
             name="{name}",
             role="{role}",
             goal="{goal}",
@@ -206,7 +204,6 @@ class Prompt(BaseModel):
             template_format=self.template_format,
         )
 
-
     def prefill_template(self, **kwargs: Union[str, Callable[[], str]]) -> None:
         """
         Pre-fills the prompt template with specified variables, updating input variables if applicable.
@@ -226,6 +223,3 @@ class Prompt(BaseModel):
 
         self.template = self.template.pre_fill_variables(**kwargs)
         logger.debug(f"Pre-filled prompt template with variables: {kwargs.keys()}")
-
-
-    
