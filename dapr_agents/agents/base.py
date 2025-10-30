@@ -5,12 +5,9 @@ from dapr_agents.tool.executor import AgentToolExecutor
 from dapr_agents.prompt.agent_prompt import Prompt
 from dapr_agents.prompt.agent_prompt_context import Context
 from dapr_agents.tool.base import AgentTool
-<<<<<<< HEAD
-=======
 import re
 import json
 from datetime import datetime
->>>>>>> main
 import logging
 import asyncio
 import signal
