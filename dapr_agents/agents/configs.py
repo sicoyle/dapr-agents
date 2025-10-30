@@ -137,3 +137,13 @@ class AgentProfileConfig:
     template_format: str = "jinja2"
     modules: Sequence[str] = field(default_factory=tuple)
     module_overrides: Dict[str, PromptSection] = field(default_factory=dict)
+
+@dataclass
+class AgentExecutionConfig:
+    """
+    Dials to configure the agent execution.
+    """
+    # TODO: add a forceFinalAnswer field in case maxIterations is near/reached. Or do we have a conclusion baked in by default? Do we want this to derive a conclusion by default?
+    # TODO: add stop_at_tokens
+    max_iterations: int = 10
+    tool_choice: Optional[str] = "auto"

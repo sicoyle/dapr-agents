@@ -10,6 +10,7 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    AgentExecutionConfig,
 )
 from dapr_agents.agents.orchestrators.roundrobin import RoundRobinOrchestrator
 from dapr_agents.storage.daprstores.stateservice import StateStoreService
@@ -78,6 +79,10 @@ async def main() -> None:
         team_name=team_name,
     )
 
+    execution_config = AgentExecutionConfig(
+        max_iterations=3
+    )
+
     # -------------------------------------------------------------------------
     # Orchestrator instance
     # -------------------------------------------------------------------------
@@ -88,7 +93,7 @@ async def main() -> None:
         state_config=state_config,
         registry_config=registry_config,
         agent_metadata={"pattern": "Round-robin selection of agents."},
-        max_iterations=max_iterations,
+        execution_config=execution_config,
         timeout_seconds=timeout_seconds,
     )
 

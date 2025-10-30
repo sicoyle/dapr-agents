@@ -12,6 +12,7 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    AgentExecutionConfig,
 )
 from dapr_agents.agents.prompting import AgentProfileConfig
 from dapr_agents.agents.schemas import (
@@ -65,9 +66,8 @@ class DurableAgent(AgentBase):
         memory_config: Optional[AgentMemoryConfig] = None,
         llm: Optional[ChatClientBase] = None,
         tools: Optional[Iterable[Any]] = None,
-        tool_choice: Optional[str] = None,
-        # Behavior
-        max_iterations: int = 10,
+        # Behavior / execution
+        execution_config: Optional[AgentExecutionConfig] = None,
         # Misc
         agent_metadata: Optional[Dict[str, Any]] = None,
         runtime: Optional[wf.WorkflowRuntime] = None,
@@ -88,13 +88,11 @@ class DurableAgent(AgentBase):
             pubsub_config: Dapr Pub/Sub configuration for triggers/broadcasts.
             state_config: Durable state configuration and model customization.
             registry_config: Team registry configuration.
+            execution_config: Execution dials for the agent run.
 
             memory_config: Conversation memory config; defaults to in-memory, or Dapr state-backed if available.
             llm: Chat client; defaults to `get_default_llm()`.
             tools: Optional tool callables or `AgentTool` instances.
-            tool_choice: Tool selection strategy (e.g., "auto"), used if tools are present.
-
-            max_iterations: Safety cap for turns in the primary workflow loop.
 
             agent_metadata: Extra metadata to publish to the registry.
             runtime: Optional pre-existing workflow runtime to attach to.
@@ -111,10 +109,10 @@ class DurableAgent(AgentBase):
             state_config=state_config,
             memory_config=memory_config,
             registry_config=registry_config,
+            execution_config=execution_config,
             agent_metadata=agent_metadata,
             llm=llm,
             tools=tools,
-            tool_choice=tool_choice,
             prompt_template=prompt_template,
         )
 
@@ -122,8 +120,6 @@ class DurableAgent(AgentBase):
         self._runtime_owned = runtime is None
         self._registered = False
         self._started = False
-
-        self.max_iterations = max(1, max_iterations)
 
     # ------------------------------------------------------------------
     # Runtime accessors
@@ -200,13 +196,13 @@ class DurableAgent(AgentBase):
         turn = 0
 
         try:
-            for turn in range(1, self.max_iterations + 1):
+            for turn in range(1, self.execution_config.max_iterations + 1):
                 if not ctx.is_replaying:
                     logger.debug(
                         "Agent %s turn %d/%d (instance=%s)",
                         self.name,
                         turn,
-                        self.max_iterations,
+                        self.execution_config.max_iterations,
                         ctx.instance_id,
                     )
 
@@ -291,7 +287,7 @@ class DurableAgent(AgentBase):
 
         if not ctx.is_replaying:
             verdict = (
-                "max_iterations_reached" if turn == self.max_iterations else "completed"
+                "max_iterations_reached" if turn == self.execution_config.max_iterations else "completed"
             )
             logger.info(
                 "Workflow %s finalized for agent %s with verdict=%s",
@@ -416,7 +412,7 @@ class DurableAgent(AgentBase):
             response: LLMChatResponse = self.llm.generate(
                 messages=messages,
                 tools=self.get_llm_tools(),
-                tool_choice=self.tool_choice if self.tools else None,
+                tool_choice=self.execution_config.tool_choice,
             )
         except Exception as exc:  # noqa: BLE001
             logger.exception("LLM generate failed: %s", exc)

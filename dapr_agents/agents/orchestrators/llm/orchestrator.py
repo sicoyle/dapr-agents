@@ -15,21 +15,21 @@ from dapr_agents.agents.schemas import (
     TriggerAction,
 )
 from dapr_agents.workflow.decorators.routers import message_router
-from dapr_agents.workflow.orchestrators.llm.prompts import (
+from dapr_agents.agents.orchestrators.llm.prompts import (
     NEXT_STEP_PROMPT,
     PROGRESS_CHECK_PROMPT,
     SUMMARY_GENERATION_PROMPT,
     TASK_INITIAL_PROMPT,
     TASK_PLANNING_PROMPT,
 )
-from dapr_agents.workflow.orchestrators.llm.schemas import (
+from dapr_agents.agents.orchestrators.llm.schemas import (
     IterablePlanStep,
     NextStep,
     ProgressCheckOutput,
     schemas,
 )
-from dapr_agents.workflow.orchestrators.llm.state import PlanStep
-from dapr_agents.workflow.orchestrators.llm.utils import find_step_in_plan
+from dapr_agents.agents.orchestrators.llm.state import PlanStep
+from dapr_agents.agents.orchestrators.llm.utils import find_step_in_plan
 from dapr_agents.workflow.utils.pubsub import broadcast_message
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,6 @@ class LLMOrchestrator(LLMOrchestratorBase):
         self,
         *,
         name: str = "LLMOrchestrator",
-        max_iterations: int = 10,
         timeout_seconds: int = 60,
         **kwargs: Any,
     ) -> None:
@@ -56,11 +55,9 @@ class LLMOrchestrator(LLMOrchestratorBase):
 
         Args:
             name (str): Logical name of the orchestrator.
-            max_iterations (int): Maximum number of iterations for the orchestration loop.
             timeout_seconds (int): Timeout duration for awaiting agent responses (in seconds).
         """
         super().__init__(name=name, **kwargs)
-        self.max_iterations = max(1, int(max_iterations))
         self.timeout = max(1, int(timeout_seconds))
 
     def register_workflows(self, runtime: wf.WorkflowRuntime) -> None:
@@ -83,7 +80,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
         self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]
     ):
         """
-        Orchestrates the workflow, handling up to `self.max_iterations` turns using an LLM to choose the next step/agent.
+        Orchestrates the workflow, handling up to `self.execution_config.max_iterations` turns using an LLM to choose the next step/agent.
         """
         task_text: Optional[str] = message.get("task")
         parent_id: Optional[str] = message.get("workflow_instance_id")
@@ -98,12 +95,12 @@ class LLMOrchestrator(LLMOrchestratorBase):
             time=ctx.current_utc_datetime,
         )
 
-        for turn in range(1, self.max_iterations + 1):
+        for turn in range(1, self.execution_config.max_iterations + 1):
             if not ctx.is_replaying:
                 logger.info(
                     "LLM turn %d/%d (instance=%s)",
                     turn,
-                    self.max_iterations,
+                    self.execution_config.max_iterations,
                     instance_id,
                 )
 
@@ -257,7 +254,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
                     "content": f"Step {step_id}, substep {substep_id} not found. Adjusting workflow…",
                 }
 
-            if verdict != "continue" or turn == self.max_iterations:
+            if verdict != "continue" or turn == self.execution_config.max_iterations:
                 final_summary = yield ctx.call_activity(
                     self._finalize_workflow_with_summary,
                     input={

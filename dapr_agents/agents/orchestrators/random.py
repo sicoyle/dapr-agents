@@ -12,6 +12,7 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    AgentExecutionConfig,
 )
 from dapr_agents.agents.orchestrators.base import OrchestratorBase
 from dapr_agents.agents.schemas import (
@@ -47,7 +48,7 @@ class RandomOrchestrator(OrchestratorBase):
         state_config: Optional[AgentStateConfig] = None,
         registry_config: Optional[AgentRegistryConfig] = None,
         agent_metadata: Optional[Dict[str, Any]] = None,
-        max_iterations: int = 10,
+        execution_config: Optional[AgentExecutionConfig] = None,
         timeout_seconds: int = 60,
         runtime: Optional[wf.WorkflowRuntime] = None,
     ) -> None:
@@ -56,10 +57,10 @@ class RandomOrchestrator(OrchestratorBase):
             pubsub_config=pubsub_config,
             state_config=state_config,
             registry_config=registry_config,
+            execution_config=execution_config,
             agent_metadata=agent_metadata,
             runtime=runtime,
         )
-        self.max_iterations = max(1, max_iterations)
         self.timeout = max(1, timeout_seconds)
         self.current_speaker: Optional[str] = None
 
@@ -97,12 +98,12 @@ class RandomOrchestrator(OrchestratorBase):
         instance_id = ctx.instance_id
         final_output: Optional[str] = None
 
-        for turn in range(1, self.max_iterations + 1):
+        for turn in range(1, self.execution_config.max_iterations + 1):
             if not ctx.is_replaying:
                 logger.info(
                     "Random workflow turn %d/%d (instance=%s)",
                     turn,
-                    self.max_iterations,
+                    self.execution_config.max_iterations,
                     instance_id,
                 )
 
@@ -175,7 +176,7 @@ class RandomOrchestrator(OrchestratorBase):
                         message=result.get("content", ""),
                     )
 
-            if turn == self.max_iterations:
+            if turn == self.execution_config.max_iterations:
                 final_output = result.get("content", "")
                 break
 

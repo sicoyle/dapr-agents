@@ -11,6 +11,7 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    AgentExecutionConfig,
 )
 from dapr_agents.agents.prompting import AgentProfileConfig, PromptingAgentBase
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
@@ -61,9 +62,10 @@ class AgentBase(AgentComponents):
         memory_config: Optional[AgentMemoryConfig] = None,
         llm: Optional[ChatClientBase] = None,
         tools: Optional[Iterable[Any]] = None,
-        tool_choice: Optional[str] = None,
         # Metadata
         agent_metadata: Optional[Dict[str, Any]] = None,
+        # Execution
+        execution_config: Optional[AgentExecutionConfig] = None,
     ) -> None:
         """
         Initialize an agent with behavior + infrastructure.
@@ -82,6 +84,7 @@ class AgentBase(AgentComponents):
             pubsub_config: Pub/Sub config used by `AgentComponents`.
             state_config: Durable state config used by `AgentComponents`.
             registry_config: Team registry config used by `AgentComponents`.
+            execution_config: Execution dials for the agent run.
             base_metadata: Default Dapr state metadata used by `AgentComponents`.
             max_etag_attempts: Concurrency retry count for registry mutations.
 
@@ -89,7 +92,6 @@ class AgentBase(AgentComponents):
                 is configured, a Dapr-backed conversation memory is created by default.
             llm: Chat client. Defaults to `get_default_llm()`.
             tools: Optional tool callables or `AgentTool` instances.
-            tool_choice: Tool selection strategy (e.g., "auto"); ignored if no tools.
 
             agent_metadata: Extra metadata to store in the registry.
         """
@@ -166,8 +168,17 @@ class AgentBase(AgentComponents):
         # -----------------------------
         self.tools: List[Any] = list(tools or [])
         self.tool_executor = AgentToolExecutor(tools=list(self.tools))
-        self.tool_choice = tool_choice or ("auto" if self.tools else None)
         self.tool_history: List[ToolExecutionRecord] = []
+
+        # -----------------------------
+        # Execution config
+        # -----------------------------
+        self.execution_config = execution_config or AgentExecutionConfig()
+        try:
+            self.execution_config.max_iterations = max(1, int(self.execution_config.max_iterations))
+        except Exception:
+            self.execution_config.max_iterations = 10
+        self.execution_config.tool_choice = self.execution_config.tool_choice or "auto"
 
         # -----------------------------
         # Load durable state (from AgentComponents)

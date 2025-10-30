@@ -10,6 +10,7 @@ from dapr_agents.agents.configs import (
     AgentMemoryConfig,
     AgentPubSubConfig,
     AgentRegistryConfig,
+    AgentExecutionConfig,
 )
 from dapr_agents.agents.orchestrators.base import OrchestratorBase
 from dapr_agents.agents.orchestrators.llm.configs import LLMOrchestratorStateConfig
@@ -43,6 +44,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         pubsub_config: Optional[AgentPubSubConfig] = None,
         state_config: Optional[LLMOrchestratorStateConfig] = None,
         registry_config: Optional[AgentRegistryConfig] = None,
+        execution_config: Optional[AgentExecutionConfig] = None,
         agent_metadata: Optional[Dict[str, Any]] = None,
         memory_config: Optional[AgentMemoryConfig] = None,
         llm: Optional[ChatClientBase] = None,
@@ -68,6 +70,7 @@ class LLMOrchestratorBase(OrchestratorBase):
             pubsub_config=pubsub_config,
             state_config=state_config,
             registry_config=registry_config,
+            execution_config=execution_config,
             agent_metadata=agent_metadata,
             runtime=runtime,
             workflow_client=workflow_client,
@@ -746,7 +749,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         Raises:
             ValueError: If a completed step/substep reference is invalid.
         """
-        from dapr_agents.workflow.orchestrators.llm.utils import find_step_in_plan
+        from dapr_agents.agents.orchestrators.llm.utils import find_step_in_plan
 
         logger.debug(
             "Finalizing workflow for instance %s with verdict '%s'",
