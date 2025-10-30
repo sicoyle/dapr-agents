@@ -152,6 +152,19 @@ tox -e type
    2. every time i have a .run() or invoke new workflow via curl or pubsub then a new workflow instance id will be created. If there is an inflight workflow already then it will be resumed, and the new one will be created.
    3. Trace ID = workflow ID and make the tracing pick up from where it left off.
 
+### Internal class structuring/setup
+When to use Pydantic vs dataclasses:
+- Use Pydantic for:
+  - Data crossing trust boundaries or is persisted: API payloads, pub/sub messages, persisted state (workflow state, timeline messages, trigger/broadcast schemas, tool records, etc.).
+  - Schemas requiring coercion, validation, or versioned migrations.
+- Use dataclasses for:
+  - Agent construction knobs you pass in code (ie agent config classes).
+  - Dependency injection of services/stores/policies and behavior hooks.
+
+Mental model:
+- Think “config vs data”:
+  - Config you wire at construction time → dataclasses.
+  - Data the system processes/persists at runtime → Pydantic.
 
 ## Contributing to Dapr Agents Quickstarts
 

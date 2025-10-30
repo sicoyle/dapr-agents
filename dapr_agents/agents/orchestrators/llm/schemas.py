@@ -3,7 +3,7 @@ import json
 from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 
-from dapr_agents.workflow.orchestrators.llm.state import PlanStep
+from dapr_agents.agents.orchestrators.llm.state import PlanStep
 from dapr_agents.llm.utils import StructureHandler
 
 

@@ -14,6 +14,7 @@ from dapr_agents.agents.configs import (
     AgentProfileConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    AgentExecutionConfig,
 )
 from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.prompt.base import PromptTemplateBase
@@ -55,13 +56,12 @@ class Agent(AgentBase):
         # Runtime
         llm: Optional[ChatClientBase] = None,
         tools: Optional[Iterable[Any]] = None,
-        tool_choice: Optional[str] = None,
         memory_config: Optional[AgentMemoryConfig] = None,
         # Persistence/registry
         state_config: Optional[AgentStateConfig] = None,
         registry_config: Optional[AgentRegistryConfig] = None,
-        # Behavior
-        max_iterations: int = 10,
+        # Behavior / execution
+        execution_config: Optional[AgentExecutionConfig] = None,
         # Misc
         agent_metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -74,11 +74,10 @@ class Agent(AgentBase):
             prompt_template: Optional explicit prompt template instance.
             llm: Chat client; defaults to `get_default_llm()`.
             tools: Optional tool callables or `AgentTool` instances.
-            tool_choice: Tool selection strategy (e.g., "auto").
             memory_config: Conversation memory config.
             state_config: Durable state configuration/model customization.
             registry_config: Team registry configuration.
-            max_iterations: Max tool/LLM iterations before stopping.
+            execution_config: Execution dials for the agent run.
             agent_metadata: Extra metadata to store in the registry.
         """
         super().__init__(
@@ -92,14 +91,12 @@ class Agent(AgentBase):
             state_config=state_config,
             memory_config=memory_config,
             registry_config=registry_config,
+            execution_config=execution_config,
             agent_metadata=agent_metadata,
             llm=llm,
             tools=tools,
-            tool_choice=tool_choice,
             prompt_template=prompt_template,
         )
-
-        self.max_iterations = max(1, max_iterations)
 
         self._shutdown_event = asyncio.Event()
         self._setup_signal_handlers()
@@ -267,15 +264,15 @@ class Agent(AgentBase):
         pending_messages = list(messages)
         final_reply: Optional[AssistantMessage] = None
 
-        for turn in range(1, self.max_iterations + 1):
-            logger.info("Iteration %d/%d started.", turn, self.max_iterations)
+        for turn in range(1, self.execution_config.max_iterations + 1):
+            logger.info("Iteration %d/%d started.", turn, self.execution_config.max_iterations)
             try:
                 response: LLMChatResponse = self.llm.generate(
                     messages=pending_messages,
                     tools=self.get_llm_tools(),
                     **(
-                        {"tool_choice": self.tool_choice}
-                        if self.tool_choice is not None
+                        {"tool_choice": self.execution_config.tool_choice}
+                        if self.execution_config.tool_choice is not None
                         else {}
                     ),
                 )
@@ -295,7 +292,7 @@ class Agent(AgentBase):
                             instance_id, tool_calls
                         )
                         pending_messages.extend(tool_msgs)
-                        if turn == self.max_iterations:
+                        if turn == self.execution_config.max_iterations:
                             final_reply = assistant_message
                             logger.info(
                                 "Reached max iterations after tool calls; stopping."
