@@ -10,5 +10,5 @@ __all__ = [
     "StringPromptTemplate",
     "Prompty",
     "PromptyHelper",
-    "Prompt"
+    "Prompt",
 ]

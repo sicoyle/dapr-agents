@@ -54,7 +54,9 @@ class TestAgentBaseClass:
         """Create an agent with a custom system prompt."""
         return TestAgentBase(
             name="CustomAgent",
-            prompt=Prompt(system_prompt="You are a custom assistant. Help users with their questions."),
+            prompt=Prompt(
+                system_prompt="You are a custom assistant. Help users with their questions."
+            ),
             llm=mock_llm_client,
         )
 
@@ -291,7 +293,8 @@ class TestAgentBaseClass:
         with caplog.at_level("WARNING"):
             agent.prompt.prefill_agent_attributes()
             assert (
-                "Agent attributes set but not referenced in prompt_template" in caplog.text
+                "Agent attributes set but not referenced in prompt_template"
+                in caplog.text
                 or "Agent attributes set but not used in prompt_template" in caplog.text
             )
 
@@ -341,14 +344,19 @@ class TestAgentBaseClass:
 
         with caplog.at_level("WARNING"):
             TestAgentBase(llm=mock_llm, prompt=Prompt(template=mock_prompt_template))
-            assert "LLM prompt template is set, but agent will use its own prompt template." in caplog.text
+            assert (
+                "LLM prompt template is set, but agent will use its own prompt template."
+                in caplog.text
+            )
 
     def test_agent_with_custom_prompt_template(self):
         """Test agent with custom prompt template."""
         mock_prompt_template = ChatPromptTemplate.from_messages([("system", "test")])
         mock_llm = MockLLMClient()
         mock_llm.prompt_template = None
-        agent = TestAgentBase(llm=mock_llm, prompt=Prompt(template=mock_prompt_template))
+        agent = TestAgentBase(
+            llm=mock_llm, prompt=Prompt(template=mock_prompt_template)
+        )
         assert agent.prompt.template is not None
         # Agent does not push its template into the LLM
         assert agent.llm.prompt_template is None
@@ -364,7 +372,10 @@ class TestAgentBaseClass:
             assert agent.llm.prompt_template is not None
             # Agent constructs/uses its own template, not the LLM's
             assert agent.prompt.template.messages != agent.llm.prompt_template.messages
-            assert "LLM prompt template is set, but agent will use its own prompt template." in caplog.text
+            assert (
+                "LLM prompt template is set, but agent will use its own prompt template."
+                in caplog.text
+            )
 
     def test_run_method_implementation(self, basic_agent):
         """Test that the concrete run method works."""
@@ -397,10 +408,14 @@ class TestAgentBaseClass:
 
     def test_template_format_validation(self, mock_llm_client):
         """Test template format validation."""
-        agent = TestAgentBase(prompt=Prompt(template_format="f-string"), llm=mock_llm_client)
+        agent = TestAgentBase(
+            prompt=Prompt(template_format="f-string"), llm=mock_llm_client
+        )
         assert agent.prompt.template_format == "f-string"
 
-        agent = TestAgentBase(prompt=Prompt(template_format="jinja2"), llm=mock_llm_client)
+        agent = TestAgentBase(
+            prompt=Prompt(template_format="jinja2"), llm=mock_llm_client
+        )
         assert agent.prompt.template_format == "jinja2"
 
     def test_max_iterations_default(self, minimal_agent):
