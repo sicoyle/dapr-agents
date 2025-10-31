@@ -11,6 +11,7 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    AgentExecutionConfig,
 )
 from dapr_agents.agents.orchestrators.base import OrchestratorBase
 from dapr_agents.agents.schemas import (
@@ -40,8 +41,8 @@ class RoundRobinOrchestrator(OrchestratorBase):
         pubsub_config: Optional[AgentPubSubConfig] = None,
         state_config: Optional[AgentStateConfig] = None,
         registry_config: Optional[AgentRegistryConfig] = None,
+        execution_config: Optional[AgentExecutionConfig] = None,
         agent_metadata: Optional[Dict[str, Any]] = None,
-        max_iterations: int = 10,
         timeout_seconds: int = 60,
         runtime: Optional[wf.WorkflowRuntime] = None,
     ) -> None:
@@ -50,10 +51,10 @@ class RoundRobinOrchestrator(OrchestratorBase):
             pubsub_config=pubsub_config,
             state_config=state_config,
             registry_config=registry_config,
+            execution_config=execution_config,
             agent_metadata=agent_metadata,
             runtime=runtime,
         )
-        self.max_iterations = max(1, max_iterations)
         self.timeout = max(1, timeout_seconds)
 
     # ------------------------------------------------------------------
@@ -74,18 +75,18 @@ class RoundRobinOrchestrator(OrchestratorBase):
     @message_router(message_model=TriggerAction)
     def round_robin_workflow(self, ctx: wf.DaprWorkflowContext, message: dict):
         """
-        Drive round-robin loop for up to `self.max_iterations`.
+        Drive round-robin loop for up to `self.execution_config.max_iterations`.
         """
         task = message.get("task")
         instance_id = ctx.instance_id
         final_output: Optional[str] = None
 
-        for turn in range(1, self.max_iterations + 1):
+        for turn in range(1, self.execution_config.max_iterations + 1):
             if not ctx.is_replaying:
                 logger.info(
                     "Round-robin turn %d/%d (instance=%s)",
                     turn,
-                    self.max_iterations,
+                    self.execution_config.max_iterations,
                     instance_id,
                 )
 
@@ -157,7 +158,7 @@ class RoundRobinOrchestrator(OrchestratorBase):
                         message=result.get("content", ""),
                     )
 
-            if turn == self.max_iterations:
+            if turn == self.execution_config.max_iterations:
                 final_output = result.get("content", "")
                 break
 
