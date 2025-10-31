@@ -2,6 +2,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from dapr_agents.workflow.orchestrators import RandomOrchestrator
+from dapr_agents.agents.memory_store import MemoryStore
 
 
 @pytest.fixture
@@ -10,24 +11,18 @@ def orchestrator_config():
     return {
         "name": "test_orchestrator",
         "message_bus_name": "test-message-bus",
-        "state_store_name": "test-state-store",
-        "agents_registry_store_name": "test-registry-store",
+        "memory_store": MemoryStore.model_construct(name="test-state-store"),
+        "registry_store": "test-registry-store",
     }
 
 
-@pytest.mark.asyncio
-async def test_random_orchestrator_initialization(orchestrator_config):
+def test_random_orchestrator_initialization(orchestrator_config):
     """Test that RandomOrchestrator can be initialized."""
     with patch(
         "dapr_agents.workflow.orchestrators.random.OrchestratorWorkflowBase.model_post_init"
     ) as mock_init, patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow.model_post_init"
-    ), patch(
-        "dapr_agents.workflow.agentic.AgenticWorkflow._state_store_client"
-    ) as mock_state_store, patch(
-        "dapr_agents.workflow.agentic.AgenticWorkflow._dapr_client"
-    ) as mockclient:
-        mock_state_store.return_value = MagicMock()
+    ), patch("dapr_agents.workflow.agentic.AgenticWorkflow._dapr_client") as mockclient:
         mockclient.return_value = MagicMock()
         orchestrator = RandomOrchestrator(**orchestrator_config)
         assert orchestrator.name == "test_orchestrator"
@@ -41,11 +36,8 @@ async def test_process_input(orchestrator_config):
     with patch(
         "dapr_agents.workflow.orchestrators.random.OrchestratorWorkflowBase.model_post_init"
     ), patch("dapr_agents.workflow.agentic.AgenticWorkflow.model_post_init"), patch(
-        "dapr_agents.workflow.agentic.AgenticWorkflow._state_store_client"
-    ) as mock_state_store, patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow._dapr_client"
     ) as mockclient:
-        mock_state_store.return_value = MagicMock()
         mockclient.return_value = MagicMock()
         orchestrator = RandomOrchestrator(**orchestrator_config)
         task = "test task"
@@ -56,24 +48,22 @@ async def test_process_input(orchestrator_config):
         assert result["content"] == task
 
 
-@pytest.mark.asyncio
-async def test_select_random_speaker(orchestrator_config):
+def test_select_random_speaker(orchestrator_config):
     """Test the select_random_speaker task."""
     with patch(
         "dapr_agents.workflow.orchestrators.random.OrchestratorWorkflowBase.model_post_init"
     ), patch("dapr_agents.workflow.agentic.AgenticWorkflow.model_post_init"), patch(
-        "dapr_agents.workflow.agentic.AgenticWorkflow._state_store_client"
-    ) as mock_state_store, patch(
         "dapr_agents.workflow.agentic.AgenticWorkflow._dapr_client"
-    ) as mockclient, patch.object(
-        RandomOrchestrator,
-        "get_agents_metadata",
-        return_value={"agent1": {"name": "agent1"}, "agent2": {"name": "agent2"}},
     ):
-        mock_state_store.return_value = MagicMock()
-        mockclient.return_value = MagicMock()
         orchestrator = RandomOrchestrator(**orchestrator_config)
-
-        speaker = orchestrator.select_random_speaker()
+        with patch.object(
+            RandomOrchestrator,
+            "get_agents_metadata",
+            return_value={
+                "agent1": {"name": "agent1"},
+                "agent2": {"name": "agent2"},
+            },
+        ):
+            speaker = orchestrator.select_random_speaker()
         assert speaker in ["agent1", "agent2"]
         assert orchestrator.current_speaker == speaker

@@ -109,6 +109,8 @@ This quickstart demonstrates how to design and run sequential and parallel workf
 Learn to orchestrate **autonomous, role-driven agents** inside Dapr Workflows using the `@agent_activity` decorator.  
 These patterns focus on chaining and coordinating specialized agents that reason, plan, and act within durable, stateful workflows.
 
+> Currently, this does not work with `DurableAgents`.
+
 - **Agent-driven Tasks**: Execute workflow activities through autonomous agents with defined roles and instructions  
 - **Sequential & Composed Flows**: Chain multiple agents together, passing context and results between steps  
 - **Resilient Orchestration**: Combine agent reasoning with Dapr’s durable state, recovery, and execution guarantees  
