@@ -45,16 +45,10 @@ class Questions(BaseModel):
 def research_workflow(ctx: DaprWorkflowContext, topic: str):
     """Defines a Dapr workflow for researching a given topic."""
     # 1) Generate research questions
-    questions: Questions = yield ctx.call_activity(
-        generate_questions, input={"topic": topic}
-    )
+    questions = yield ctx.call_activity(generate_questions, input={"topic": topic})
 
-    # Handle both dict and model cases gracefully
-    q_list = (
-        [q["text"] for q in questions["questions"]]
-        if isinstance(questions, dict)
-        else [q.text for q in questions.questions]
-    )
+    # Extract question texts from the dictionary structure
+    q_list = [q["text"] for q in questions["questions"]]
 
     # 2) Gather information for each question in parallel
     parallel_tasks = [
