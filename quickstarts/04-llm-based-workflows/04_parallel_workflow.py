@@ -45,9 +45,7 @@ class Questions(BaseModel):
 def research_workflow(ctx: DaprWorkflowContext, topic: str):
     """Defines a Dapr workflow for researching a given topic."""
     # 1) Generate research questions
-    questions = yield ctx.call_activity(
-        generate_questions, input={"topic": topic}
-    )
+    questions = yield ctx.call_activity(generate_questions, input={"topic": topic})
 
     # Extract question texts from the dictionary structure
     q_list = [q["text"] for q in questions["questions"]]
