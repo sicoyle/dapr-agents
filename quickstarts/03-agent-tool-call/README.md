@@ -75,66 +75,9 @@ Note: Many LLM providers are compatible with OpenAI's API (DeepSeek, Google AI, 
 
 ### Tool Creation and Agent Execution
 
-This example shows how to create tools and an agent that can use them:
+This example shows how to create tools and an agent that can use them.
 
-1. First, create the tools in `weather_tools.py`:
-
-```python
-from dapr_agents import tool
-from pydantic import BaseModel, Field
-
-class GetWeatherSchema(BaseModel):
-    location: str = Field(description="location to get weather for")
-
-@tool(args_model=GetWeatherSchema)
-def get_weather(location: str) -> str:
-    """Get weather information based on location."""
-    import random
-    temperature = random.randint(60, 80)
-    return f"{location}: {temperature}F."
-
-class JumpSchema(BaseModel):
-    distance: str = Field(description="Distance for agent to jump")
-
-@tool(args_model=JumpSchema)
-def jump(distance: str) -> str:
-    """Jump a specific distance."""
-    return f"I jumped the following distance {distance}"
-
-tools = [get_weather, jump]
-```
-
-2. Then, create the agent in `weather_agent.py`:
-
-```python
-import asyncio
-from weather_tools import tools
-from dapr_agents import Agent
-from dotenv import load_dotenv
-
-load_dotenv()
-
-AIAgent = Agent(
-    name="Stevie",
-    role="Weather Assistant",
-    goal="Assist Humans with weather related tasks.",
-    instructions=[
-        "Always answer the user's main weather question directly and clearly.",
-        "If you perform any additional actions (like jumping), summarize those actions and their results.",
-        "At the end, provide a concise summary that combines the weather information for all requested locations and any other actions you performed.",
-    ],
-    tools=tools
-)
-
-# Wrap your async call
-async def main():
-    await AIAgent.run("What is the weather in Virginia, New York and Washington DC?")
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-3. Run the weather agent:
+Run the weather agent:
 
 <!-- STEP
 name: Run text completion example
@@ -239,39 +182,7 @@ spec:
 
 Save the file in a `./components` dir.
 
-2. Enable Dapr memory in code
-
-```python
-import asyncio
-from weather_tools import tools
-from dapr_agents import Agent
-from dotenv import load_dotenv
-from dapr_agents.memory import ConversationDaprStateMemory
-
-load_dotenv()
-
-AIAgent = Agent(
-    name="Stevie",
-    role="Weather Assistant",
-    goal="Assist Humans with weather related tasks.",
-    instructions=[
-        "Always answer the user's main weather question directly and clearly.",
-        "If you perform any additional actions (like jumping), summarize those actions and their results.",
-        "At the end, provide a concise summary that combines the weather information for all requested locations and any other actions you performed.",
-    ],
-    memory=ConversationDaprStateMemory(store_name="historystore", session_id="some-id"),
-    tools=tools
-)
-
-# Wrap your async call
-async def main():
-    await AIAgent.run("What is the weather in Virginia, New York and Washington DC?")
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-3. Run the agent with Dapr
+2. Run the agent with Dapr
 
 ```bash
 dapr run --app-id weatheragent --resources-path ./components -- python weather_agent_dapr.py
@@ -319,50 +230,9 @@ pip install -r requirements.txt
 
 #### Instrumented Weather Agent
 
-Create `weather_agent_tracing.py` with Phoenix OpenTelemetry integration:
+Create and agent with Phoenix OpenTelemetry integration. For example, see [`weather_agent_tracing.py`](./weather_agent_tracing.py).
 
-```python
-import asyncio
-from weather_tools import tools
-from dapr_agents import Agent
-from dotenv import load_dotenv
-
-load_dotenv()
-
-AIAgent = Agent(
-    name="Stevie",
-    role="Weather Assistant", 
-    goal="Assist Humans with weather related tasks.",
-    instructions=[
-        "Always answer the user's main weather question directly and clearly.",
-        "If you perform any additional actions (like jumping), summarize those actions and their results.",
-        "At the end, provide a concise summary that combines the weather information for all requested locations and any other actions you performed.",
-    ],
-    tools=tools,
-)
-
-# Wrap your async call
-async def main():
-    from phoenix.otel import register
-    from dapr_agents.observability import DaprAgentsInstrumentor
-
-    # Register Dapr Agents with Phoenix OpenTelemetry
-    tracer_provider = register(
-        project_name="dapr-weather-agents",
-        protocol="http/protobuf",
-    )
-    
-    # Initialize Dapr Agents OpenTelemetry instrumentor
-    instrumentor = DaprAgentsInstrumentor()
-    instrumentor.instrument(tracer_provider=tracer_provider, skip_dep_check=True)
-
-    await AIAgent.run("What is the weather in Virginia, New York and Washington DC?")
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-Alternatively, you can use the DurableAgent with this same setup using `weather_durable_agent_tracing.py`.
+Alternatively, you can use the DurableAgent with this same setup using [`weather_durable_agent_tracing.py`](./weather_durable_agent_tracing.py).
 
 #### Run with Observability
 
