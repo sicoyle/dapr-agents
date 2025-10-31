@@ -4,7 +4,7 @@ import logging
 from dotenv import load_dotenv
 from weather_tools import tools
 
-from dapr_agents import DurableAgent, MemoryStore
+from dapr_agents import DurableAgent
 
 logging.basicConfig(level=logging.INFO)
 
@@ -35,12 +35,10 @@ async def main():
             "Use tools when appropriate to fetch weather data.",
         ],
         message_bus_name="messagepubsub",
-        memory_store=MemoryStore(
-            name="statestore",
-            # Optional
-            local_directory="./local-state",
-            session_id="session",
-        ),
+        state_store_name="workflowstatestore",
+        state_key="workflow_state",
+        agents_registry_store_name="agentstatestore",
+        agents_registry_key="agents_registry",
         tools=tools,
     )
     # 2️⃣ Start the agent service
