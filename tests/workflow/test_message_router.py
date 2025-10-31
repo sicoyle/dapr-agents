@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from typing import Union, Optional
 from dataclasses import dataclass
@@ -552,7 +553,11 @@ def test_register_message_handlers_discovers_standalone_function():
     def handle_order(message: OrderCreated):
         return "success"
 
-    closers = register_message_handlers([handle_order], mock_client, loop=None)
+    loop = asyncio.new_event_loop()
+    try:
+        closers = register_message_handlers([handle_order], mock_client, loop=loop)
+    finally:
+        loop.close()
 
     # Should create one subscription
     assert mock_client.subscribe_with_handler.call_count == 1
@@ -580,7 +585,11 @@ def test_register_message_handlers_discovers_class_methods():
             return "cancelled"
 
     handler = OrderHandler()
-    closers = register_message_handlers([handler], mock_client, loop=None)
+    loop = asyncio.new_event_loop()
+    try:
+        closers = register_message_handlers([handler], mock_client, loop=loop)
+    finally:
+        loop.close()
 
     # Should create two subscriptions
     assert mock_client.subscribe_with_handler.call_count == 2
@@ -610,7 +619,11 @@ def test_register_message_handlers_ignores_undecorated_methods():
             return "ignored"
 
     handler = MixedHandler()
-    closers = register_message_handlers([handler], mock_client, loop=None)
+    loop = asyncio.new_event_loop()
+    try:
+        closers = register_message_handlers([handler], mock_client, loop=loop)
+    finally:
+        loop.close()
 
     # Should only create one subscription (for decorated method)
     assert mock_client.subscribe_with_handler.call_count == 1
@@ -632,9 +645,13 @@ def test_register_message_handlers_handles_multiple_targets():
             pass
 
     handler_instance = OrderHandler()
-    closers = register_message_handlers(
-        [standalone_handler, handler_instance], mock_client, loop=None
-    )
+    loop = asyncio.new_event_loop()
+    try:
+        closers = register_message_handlers(
+            [standalone_handler, handler_instance], mock_client, loop=loop
+        )
+    finally:
+        loop.close()
 
     # Should create two subscriptions
     assert mock_client.subscribe_with_handler.call_count == 2
@@ -654,9 +671,13 @@ def test_register_message_handlers_returns_closers():
     def handle_cancelled(message: OrderCancelled):
         pass
 
-    closers = register_message_handlers(
-        [handle_created, handle_cancelled], mock_client, loop=None
-    )
+    loop = asyncio.new_event_loop()
+    try:
+        closers = register_message_handlers(
+            [handle_created, handle_cancelled], mock_client, loop=loop
+        )
+    finally:
+        loop.close()
 
     # Should return two closers
     assert len(closers) == 2
