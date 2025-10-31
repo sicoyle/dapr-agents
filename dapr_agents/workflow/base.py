@@ -7,7 +7,7 @@ import time
 import sys
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, Sequence
 
 from dapr.ext.workflow import (
     DaprWorkflowClient,
@@ -16,7 +16,7 @@ from dapr.ext.workflow import (
 )
 from dapr.ext.workflow.workflow_state import WorkflowState
 from durabletask import task as dtask
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dapr_agents.agents.base import ChatClientBase
 from dapr_agents.llm.utils.defaults import get_default_llm
@@ -46,6 +46,14 @@ class WorkflowApp(BaseModel, SignalHandlingMixin):
         default=300,
         description="Default timeout duration in seconds for workflow tasks.",
     )
+    grpc_max_send_message_length: Optional[int] = Field(
+        default=None,
+        description="Maximum message length in bytes for gRPC send operations. Default is 4MB if not specified. Useful for AI workflows with large payloads (e.g., images).",
+    )
+    grpc_max_receive_message_length: Optional[int] = Field(
+        default=None,
+        description="Maximum message length in bytes for gRPC receive operations. Default is 4MB if not specified. Useful for AI workflows with large payloads (e.g., images).",
+    )
 
     # Initialized in model_post_init
     wf_runtime: Optional[WorkflowRuntime] = Field(
@@ -68,10 +76,30 @@ class WorkflowApp(BaseModel, SignalHandlingMixin):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    @model_validator(mode="before")
+    def validate_grpc_chanell_options(cls, values: Any):
+        if not isinstance(values, dict):
+            return values
+
+        if values.get("grpc_max_send_message_length") is not None:
+            if values["grpc_max_send_message_length"] < 0:
+                raise ValueError("grpc_max_send_message_length must be greater than 0")
+
+        if values.get("grpc_max_receive_message_length") is not None:
+            if values["grpc_max_receive_message_length"] < 0:
+                raise ValueError(
+                    "grpc_max_receive_message_length must be greater than 0"
+                )
+
+        return values
+
     def model_post_init(self, __context: Any) -> None:
         """
         Initialize the Dapr workflow runtime and register tasks & workflows.
         """
+        if self.grpc_max_send_message_length or self.grpc_max_receive_message_length:
+            self._configure_grpc_channel_options()
+
         # Initialize LLM first
         if self.llm is None:
             self.llm = get_default_llm()
@@ -91,6 +119,95 @@ class WorkflowApp(BaseModel, SignalHandlingMixin):
             logger.warning(f"Could not set up signal handlers: {e}")
 
         super().model_post_init(__context)
+
+    def _configure_grpc_channel_options(self) -> None:
+        """
+        Configure gRPC channel options before workflow runtime initialization.
+        This patches the durabletask internal channel factory to support custom message size limits.
+
+        This is particularly useful for AI-powered workflows that may need to handle large payloads
+        such as images, which can exceed the default 4MB gRPC message size limit.
+        """
+        try:
+            import grpc
+            from durabletask.internal import shared
+
+            # Create custom options list
+            options = []
+            if self.grpc_max_send_message_length:
+                options.append(
+                    ("grpc.max_send_message_length", self.grpc_max_send_message_length)
+                )
+                logger.debug(
+                    f"Configured gRPC max_send_message_length: {self.grpc_max_send_message_length} bytes ({self.grpc_max_send_message_length / (1024 * 1024):.2f} MB)"
+                )
+            if self.grpc_max_receive_message_length:
+                options.append(
+                    (
+                        "grpc.max_receive_message_length",
+                        self.grpc_max_receive_message_length,
+                    )
+                )
+                logger.debug(
+                    f"Configured gRPC max_receive_message_length: {self.grpc_max_receive_message_length} bytes ({self.grpc_max_receive_message_length / (1024 * 1024):.2f} MB)"
+                )
+
+            # Patch the function to include our custom options
+            def get_grpc_channel_with_options(
+                host_address: Optional[str],
+                secure_channel: bool = False,
+                interceptors: Optional[Sequence["grpc.ClientInterceptor"]] = None,
+            ):
+                # This is a copy of the original get_grpc_channel function in durabletask.internal.shared at
+                # https://github.com/dapr/durabletask-python/blob/7070cb07d07978d079f8c099743ee4a66ae70e05/durabletask/internal/shared.py#L30C1-L61C19
+                # but with my option overrides applied above.
+                if host_address is None:
+                    host_address = shared.get_default_host_address()
+
+                for protocol in getattr(shared, "SECURE_PROTOCOLS", []):
+                    if host_address.lower().startswith(protocol):
+                        secure_channel = True
+                        # remove the protocol from the host name
+                        host_address = host_address[len(protocol) :]
+                        break
+
+                for protocol in getattr(shared, "INSECURE_PROTOCOLS", []):
+                    if host_address.lower().startswith(protocol):
+                        secure_channel = False
+                        # remove the protocol from the host name
+                        host_address = host_address[len(protocol) :]
+                        break
+
+                # Create the base channel
+                if secure_channel:
+                    credentials = grpc.ssl_channel_credentials()
+                    channel = grpc.secure_channel(
+                        host_address, credentials, options=options
+                    )
+                else:
+                    channel = grpc.insecure_channel(host_address, options=options)
+
+                # Apply interceptors ONLY if they exist
+                if interceptors:
+                    channel = grpc.intercept_channel(channel, *interceptors)
+
+                return channel
+
+            # Replace the function
+            shared.get_grpc_channel = get_grpc_channel_with_options
+
+            logger.debug(
+                "Successfully patched durabletask gRPC channel factory with custom options"
+            )
+
+        except ImportError as e:
+            logger.error(
+                f"Failed to import required modules for gRPC configuration: {e}"
+            )
+            raise
+        except Exception as e:
+            logger.error(f"Failed to configure gRPC channel options: {e}")
+            raise
 
     def graceful_shutdown(self) -> None:
         """
