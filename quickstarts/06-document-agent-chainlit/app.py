@@ -4,8 +4,9 @@ from dotenv import load_dotenv
 from unstructured.partition.pdf import partition_pdf
 
 from dapr_agents import Agent
+from dapr_agents.memory import ConversationDaprStateMemory
 from dapr_agents.types import AssistantMessage
-from dapr_agents import OpenAIChatClient, MemoryStore
+from dapr_agents import OpenAIChatClient
 
 load_dotenv()
 
@@ -20,11 +21,8 @@ agent = Agent(
     name="KnowledgeBase",
     role="Content Expert",
     instructions=instructions,
-    memory_store=MemoryStore(
-        name="conversationstore",
-        # Optional
-        local_directory="./local-state",
-        session_id="session",
+    memory=ConversationDaprStateMemory(
+        store_name="conversationstore", session_id="my-unique-id"
     ),
     llm=OpenAIChatClient(model="gpt-3.5-turbo"),
 )
