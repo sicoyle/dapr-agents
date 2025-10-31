@@ -16,8 +16,7 @@ def orchestrator_config():
     }
 
 
-@pytest.mark.asyncio
-async def test_random_orchestrator_initialization(orchestrator_config):
+def test_random_orchestrator_initialization(orchestrator_config):
     """Test that RandomOrchestrator can be initialized."""
     with patch(
         "dapr_agents.workflow.orchestrators.random.OrchestratorWorkflowBase.model_post_init"
@@ -49,8 +48,7 @@ async def test_process_input(orchestrator_config):
         assert result["content"] == task
 
 
-@pytest.mark.asyncio
-async def test_select_random_speaker(orchestrator_config):
+def test_select_random_speaker(orchestrator_config):
     """Test the select_random_speaker task."""
     with patch(
         "dapr_agents.workflow.orchestrators.random.OrchestratorWorkflowBase.model_post_init"
