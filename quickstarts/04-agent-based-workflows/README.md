@@ -1,7 +1,6 @@
+# Agent-based Workflow Patterns
 
-# LLM-based Workflow Patterns
-
-This quickstart demonstrates how to orchestrate sequential and parallel tasks using Dapr Agents' workflow capabilities powered by Language Models (LLMs). You'll learn how to build resilient, stateful workflows that leverage LLMs for reasoning, structured output, and automation, all using the new `@llm_activity` decorator and native Dapr workflow runtime.
+This quickstart demonstrates how to orchestrate agentic tasks using Dapr Workflows and the `@agent_activity` decorator from Dapr Agents. You’ll learn how to compose multi-step workflows that call autonomous agents—each powered by LLMs—for reasoning, decision-making, and task execution.
 
 ## Prerequisites
 
@@ -106,56 +105,49 @@ spec:
 
 ## Examples
 
-### 1. Sequential Task Execution
+### 1. Sequential Agent Chain (01_sequential_workflow.py)
 
-This example demonstrates the Chaining Pattern by executing two activities in sequence.
+This example chains three autonomous agents in a Dapr Workflow.
+Each agent performs one stage of the reasoning process: extraction, planning, and expansion.
 
-Run the sequential task chain workflow:
+Workflow Overview
 
-<!-- STEP
-name: Run text completion example
-expected_stdout_lines:
-  - "== APP == Character:"
-  - "== APP == Line:"
-  - "== APP == Results:"
-timeout_seconds: 30
-output_match_mode: substring
--->
+| Step | Agent | Responsibility |
+| --- | --- | --- |
+| 1️⃣ | DestinationExtractor | Identify the destination city from the user message |
+| 2️⃣ | PlannerAgent | Create a concise 3-day outline for the destination |
+| 3️⃣ | ItineraryAgent | Expand the outline into a detailed itinerary |
+
+Run
+
 ```bash
-dapr run --app-id dapr-agent-wf-sequence --resources-path components/ -- python 03_sequential_workflow.py
+dapr run --app-id dapr-agent-planner --resources-path components/ -- python 01_sequential_workflow.py
 ```
-<!-- END_STEP -->
 
-**How it works:**
-In this chaining pattern, the workflow executes tasks in strict sequence:
-1. The `get_character()` task executes first and returns a character name
-2. Only after completion, the `get_line()` task runs using that character name as input
-3. Each task awaits the previous task's completion before starting
+How It Works
 
-### 2. Parallel Task Execution
+* The workflow begins with the user message, e.g., `"Plan a trip to Paris."`
+* `extract_destination` calls the `DestinationExtractor` agent to return the city name.
+* `plan_outline` uses the `PlannerAgent` to generate a 3-day itinerary outline.
+* `expand_itinerary` passes that outline to the `ItineraryAgent`, which expands it into a detailed plan.
+* The final output is logged as a structured itinerary text.
 
-This example demonstrates the Fan-out/Fan-in Pattern with a research use case. It will execute 3 activities in parallel; then synchronize these activities do not proceed with the execution of subsequent activities until all preceding activities have completed.
+#### Code Highlights
 
-Run the parallel research workflow:
+* `@agent_activity` decorator: Wraps an activity function so that Dapr automatically delegates its implementation to an Agent.
+The function body can remain empty (pass); execution is routed through the agent’s reasoning loop.
+* Agents: Each agent defines:
+    * name, role, and instructions
+    * a shared llm client (DaprChatClient)
+    * internal memory, message history, and optional tools
+* Workflow Orchestration: The `@runtime.workflow` function coordinates agent tasks:
 
-<!-- STEP
-name: Run parallel workflows example
-expected_stdout_lines:
-  - "Starting research workflow on: The environmental impact of quantum computing"
-  - "Research Report:"
-output_match_mode: substring
--->
-```bash
-dapr run --app-id dapr-agent-research --resources-path components/ -- python 04_parallel_workflow.py
+```python
+dest = yield ctx.call_activity(extract_destination, input=user_msg)
+outline = yield ctx.call_activity(plan_outline, input=dest["content"])
+itinerary = yield ctx.call_activity(expand_itinerary, input=outline["content"])
+return itinerary["content"]
 ```
-<!-- END_STEP -->
-
-**How it works:**
-This fan-out/fan-in pattern combines sequential and parallel execution:
-1. First, `generate_questions()` executes sequentially
-2. Multiple `gather_information()` tasks run in parallel using `ctx.when_all()`
-3. The workflow waits for all parallel tasks to complete
-4. Finally, `synthesize_results()` executes with all gathered data
 
 ## Integration with Dapr
 
@@ -175,4 +167,4 @@ Dapr Agents workflows leverage Dapr's core capabilities:
 
 ## Next Steps
 
-After completing this quickstart, move on to the [Agent Based Workflow Quickstart](../04-agent-absed-workflows/README.md) to learn how to integrate the concept of an agent on specific activity steps.
+After completing this quickstart, move on to the [Multi-Agent Workflow quickstart](../05-multi-agent-workflows/README.md) to learn how to create distributed systems of collaborating agents.
