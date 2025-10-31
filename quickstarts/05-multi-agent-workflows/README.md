@@ -124,112 +124,16 @@ dapr-llm.yaml             # Multi-App Run Template using the LLM orchestrator
 
 ### Agent Service Implementation
 
-Each agent is implemented as a separate service. Here's an example for the Hobbit agent:
-
-```python
-from dapr_agents import Agent, DurableAgent
-from dotenv import load_dotenv
-import asyncio
-import logging
-
-async def main():
-    try:
-        hobbit_service = DurableAgent(
-          name="Frodo",
-          role="Hobbit",
-          goal="Carry the One Ring to Mount Doom, resisting its corruptive power while navigating danger and uncertainty.",
-          instructions=[
-              "Speak like Frodo, with humility, determination, and a growing sense of resolve.",
-              "Endure hardships and temptations, staying true to the mission even when faced with doubt.",
-              "Seek guidance and trust allies, but bear the ultimate burden alone when necessary.",
-              "Move carefully through enemy-infested lands, avoiding unnecessary risks.",
-              "Respond concisely, accurately, and relevantly, ensuring clarity and strict alignment with the task."],
-          message_bus_name="messagepubsub",
-          state_store_name="workflowstatestore",
-          state_key="workflow_state",
-          agents_registry_store_name="agentstatestore",
-          agents_registry_key="agents_registry",
-          broadcast_topic_name="beacon_channel",
-        )
-
-        await hobbit_service.start()
-    except Exception as e:
-        print(f"Error starting service: {e}")
-
-if __name__ == "__main__":
-    load_dotenv()
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
-```
-
+Each agent is implemented as a separate service. Here's an example for the Hobbit agent in [app.py](./services/hobbit/app.py).
 Similar implementations exist for the Wizard (Gandalf) and Elf (Legolas) agents.
 
 ### Workflow Orchestrator Implementations
 
-The workflow orchestrators manage the interaction between agents. Currently, Dapr Agents support three workflow types: RoundRobin, Random, and LLM-based. Here's an example for the Random workflow orchestrator (you can find examples for RoundRobin and LLM-based orchestrators in the project):
-
-```python
-from dapr_agents import RandomOrchestrator
-from dotenv import load_dotenv
-import asyncio
-import logging
-
-async def main():
-    try:
-        random_workflow_service = RandomOrchestrator(
-            name="RandomOrchestrator",
-            message_bus_name="messagepubsub",
-            state_store_name="agenticworkflowstate",
-            state_key="workflow_state",
-            agents_registry_store_name="agentstatestore",
-            agents_registry_key="agents_registry",
-            max_iterations=3
-        ).as_service(port=8004)
-        await random_workflow_service.start()
-    except Exception as e:
-        print(f"Error starting service: {e}")
-
-if __name__ == "__main__":
-    load_dotenv()
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
-```
+The workflow orchestrators manage the interaction between agents. Currently, Dapr Agents support three workflow types: RoundRobin, Random, and LLM-based. Here's an example for the Random workflow orchestrator (you can find examples for RoundRobin and LLM-based orchestrators in the project).
 
 ### Running the Multi-Agent System
 
-The project includes three dapr multi-app run configuration files (`dapr-random.yaml`, `dapr-roundrobin.yaml` and `dapr-llm.yaml` ) for running all services and an additional Client application for interacting with the agents:
-
-Example: `dapr-random.yaml`
-```yaml
-version: 1
-common:
-  resourcesPath: ./components
-  logLevel: info
-  appLogDestination: console
-  daprdLogDestination: console
-
-apps:
-- appID: HobbitApp
-  appDirPath: ./services/hobbit/
-  command: ["python3", "app.py"]
-
-- appID: WizardApp
-  appDirPath: ./services/wizard/
-  command: ["python3", "app.py"]
-
-- appID: ElfApp
-  appDirPath: ./services/elf/
-  command: ["python3", "app.py"]
-
-- appID: WorkflowApp
-  appDirPath: ./services/workflow-random/
-  command: ["python3", "app.py"]
-  appPort: 8004
-
-- appID: ClientApp
-  appDirPath: ./services/client/
-  command: ["python3", "http_client.py"]
-```
+The project includes three dapr multi-app run configuration files (`dapr-random.yaml`, `dapr-roundrobin.yaml` and `dapr-llm.yaml` ) for running all services and an additional Client application for interacting with the agents.
 
 Start all services using the Dapr CLI:
 

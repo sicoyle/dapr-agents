@@ -54,38 +54,7 @@ python text_completion.py
 ```
 <!-- END_STEP -->
 
-The script demonstrates basic usage of Dapr Agents' OpenAIChatClient for text generation:
-
-```python
-from dotenv import load_dotenv
-
-from dapr_agents import OpenAIChatClient
-from dapr_agents.types import LLMChatResponse, UserMessage
-
-# Load environment variables from .env
-load_dotenv()
-
-# Basic chat completion
-llm = OpenAIChatClient()
-response: LLMChatResponse = llm.generate("Name a famous dog!")
-
-if response.get_message() is not None:
-    print("Response: ", response.get_message().content)
-
-# Chat completion using a prompty file for context
-llm = OpenAIChatClient.from_prompty("basic.prompty")
-response: LLMChatResponse = llm.generate(input_data={"question": "What is your name?"})
-
-if response.get_message() is not None:
-    print("Response with prompty: ", response.get_message().content)
-
-# Chat completion with user input
-llm = OpenAIChatClient()
-response: LLMChatResponse = llm.generate(messages=[UserMessage("hello")])
-
-if response.get_message() is not None and "hello" in response.get_message().content.lower():
-    print("Response with user input: ", response.get_message().content)
-```
+The script demonstrates basic usage of Dapr Agents' OpenAIChatClient for text generation.
 
 **2. Expected output:** The LLM will respond with the name of a famous dog (e.g., "Lassie", "Hachiko", etc.).
 
@@ -105,38 +74,7 @@ python structured_completion.py
 ```
 <!-- END_STEP -->
 
-This example shows how to use Pydantic models to get structured data from LLMs:
-
-```python
-import json
-
-from dotenv import load_dotenv
-from pydantic import BaseModel
-
-from dapr_agents import OpenAIChatClient
-from dapr_agents.types import UserMessage
-
-# Load environment variables from .env
-load_dotenv()
-
-
-# Define our data model
-class Dog(BaseModel):
-    name: str
-    breed: str
-    reason: str
-
-
-# Initialize the chat client
-llm = OpenAIChatClient()
-
-# Get structured response
-response: Dog = llm.generate(
-    messages=[UserMessage("One famous dog in history.")], response_format=Dog
-)
-
-print(json.dumps(response.model_dump(), indent=2))
-```
+This example shows how to use Pydantic models to get structured data from LLMs.
 
 **Expected output:** A structured Dog object with name, breed, and reason fields (e.g., `Dog(name='Hachiko', breed='Akita', reason='Known for his remarkable loyalty...')`)
 
@@ -152,31 +90,6 @@ Run the `text_completion_stream.py` script to see token‐by‐token output:
 python text_completion_stream.py
 ```
 
-The scripts:
-
-```python
-from dotenv import load_dotenv
-
-from dapr_agents import OpenAIChatClient
-from dapr_agents.types.message import LLMChatResponseChunk
-from typing import Iterator
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
-# Load environment variables from .env
-load_dotenv()
-
-# Basic chat completion
-llm = OpenAIChatClient()
-
-response: Iterator[LLMChatResponseChunk] = llm.generate("Name a famous dog!", stream=True)
-
-for chunk in response:
-    if chunk.result.content:
-        print(chunk.result.content, end="", flush=True)
-```
-
 This will print each partial chunk as it arrives, so you can build up the full answer in real time.
 
 **2. Streaming with Tool Calls:**
@@ -185,55 +98,6 @@ Use `text_completion_stream_with_tools.py` to combine streaming with function‐
 
 ```bash
 python text_completion_stream_with_tools.py
-```
-
-```python
-from dotenv import load_dotenv
-
-from dapr_agents import OpenAIChatClient
-from dapr_agents.types.message import LLMChatResponseChunk
-from typing import Iterator
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
-# Load environment variables from .env
-load_dotenv()
-
-# Basic chat completion
-llm = OpenAIChatClient()
-
-# Define a tool for addition
-def add_numbers(a: int, b: int) -> int:
-    return a + b
-
-# Define the tool function call schema
-add_tool = {
-    "type": "function",
-    "function": {
-        "name": "add_numbers",
-        "description": "Add two numbers together.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "a": {"type": "integer", "description": "The first number."},
-                "b": {"type": "integer", "description": "The second number."}
-            },
-            "required": ["a", "b"]
-        }
-    }
-}
-
-# Define messages for the chat
-messages = [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Add 5 and 7 and 2 and 2."}
-]
-
-response: Iterator[LLMChatResponseChunk] = llm.generate(messages=messages, tools=[add_tool], stream=True)
-
-for chunk in response:
-    print(chunk.result)
 ```
 
 Here, the model can decide to call your `add_numbers` function mid‐stream, and you’ll see those calls (and their results) as they come in.
