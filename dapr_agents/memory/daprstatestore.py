@@ -98,7 +98,9 @@ class ConversationDaprStateMemory(MemoryBase):
             f"Adding message {message} with key {message_key} to session {self.session_id}"
         )
         self.dapr_store.save_state(
-            self.session_id, json.dumps(existing), {"contentType": "application/json"}
+            self.session_id,
+            json.dumps(existing),
+            state_metadata={"contentType": "application/json"},
         )
 
     def add_messages(self, messages: List[Union[Dict[str, Any], BaseMessage]]) -> None:

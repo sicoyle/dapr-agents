@@ -1,8 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, Mock
-from dapr_agents.agents.durableagent.agent import DurableAgent
-from dapr_agents.agents.durableagent.state import DurableAgentWorkflowEntry
-from dapr_agents.agents.durableagent.state import DurableAgentWorkflowState
+from dapr_agents.agents.durable import DurableAgent
+from dapr_agents.agents.schemas import AgentWorkflowEntry, AgentWorkflowState
 from dapr_agents.tool.base import AgentTool
 
 
@@ -11,7 +10,7 @@ def patch_dapr_check(monkeypatch):
     monkeypatch.setattr(DurableAgent, "save_state", lambda self: None)
 
     # The following monkeypatches are for legacy compatibility with dict-like access in tests.
-    # If DurableAgentWorkflowState supports dict-like access natively, these can be removed.
+    # If AgentWorkflowState supports dict-like access natively, these can be removed.
     def _getitem(self, key):
         return getattr(self, key)
 
@@ -21,8 +20,8 @@ def patch_dapr_check(monkeypatch):
         setattr(self, key, default)
         return default
 
-    DurableAgentWorkflowState.__getitem__ = _getitem
-    DurableAgentWorkflowState.setdefault = _setdefault
+    AgentWorkflowState.__getitem__ = _getitem
+    AgentWorkflowState.setdefault = _setdefault
     # Patch DaprStateStore to use a mock DaprClient that supports context manager
     import dapr_agents.storage.daprstores.statestore as statestore
 
@@ -47,29 +46,13 @@ def patch_dapr_check(monkeypatch):
             pass
 
     statestore.DaprClient = MockDaprClient
-    # Patch DaprStateStore to use a mock DaprClient that supports context manager
-    from dapr_agents.workflow import agentic
-    from dapr_agents.workflow import base
-
-    # Mock the WorkflowApp initialization to prevent DaprClient creation
-    def mock_workflow_app_post_init(self, __context):
-        self.wf_runtime = Mock()
-        self.wf_runtime_is_running = False
-        self.wf_client = Mock()
-        self.client = Mock()
-        self.tasks = {}
-        self.workflows = {}
-
-    monkeypatch.setattr(
-        base.WorkflowApp, "model_post_init", mock_workflow_app_post_init
-    )
 
     # Patch out agent registration logic (skip state store entirely)
     def mock_register_agentic_system(self):
         pass
 
     monkeypatch.setattr(
-        agentic.AgenticWorkflow, "register_agentic_system", mock_register_agentic_system
+        DurableAgent, "register_agentic_system", mock_register_agentic_system
     )
 
     yield
@@ -138,22 +121,24 @@ def mock_mcp_session():
 
 @pytest.fixture
 def durable_agent_with_mcp_tool(mock_mcp_tool, mock_mcp_session):
-    from dapr_agents.tool.executor import AgentToolExecutor
+    from dapr_agents.agents.configs import AgentPubSubConfig, AgentStateConfig
+    from dapr_agents.storage.daprstores.stateservice import StateStoreService
 
     agent_tool = AgentTool.from_mcp(mock_mcp_tool, session=mock_mcp_session)
-    tool_executor = AgentToolExecutor(tools=[agent_tool])
+
     agent = DurableAgent(
         name="TestDurableAgent",
         role="Math Assistant",
         goal="Help humans do math",
         instructions=["Test math instructions"],
         tools=[agent_tool],
-        state=DurableAgentWorkflowState().model_dump(),
-        state_store_name="teststatestore",
-        message_bus_name="testpubsub",
-        agents_registry_store_name="testregistry",
+        pubsub_config=AgentPubSubConfig(
+            pubsub_name="testpubsub",
+        ),
+        state_config=AgentStateConfig(
+            store=StateStoreService(store_name="teststatestore")
+        ),
     )
-    agent.__pydantic_private__["_tool_executor"] = tool_executor
     return agent
 
 
@@ -161,19 +146,19 @@ def durable_agent_with_mcp_tool(mock_mcp_tool, mock_mcp_session):
 async def test_execute_tool_activity_with_mcp_tool(durable_agent_with_mcp_tool):
     # Test the mocked MCP tool (add) with DurableAgent
     instance_id = "test-instance-123"
-    workflow_entry = {
-        "input": "What is 2 plus 2?",
-        "source": None,
-        "triggering_workflow_instance_id": None,
-        "workflow_instance_id": instance_id,
-        "workflow_name": "AgenticWorkflow",
-        "status": "RUNNING",
-        "messages": [],
-        "tool_history": [],
-        "end_time": None,
-        "trace_context": None,
-    }
-    durable_agent_with_mcp_tool.state["instances"][instance_id] = workflow_entry
+
+    # Use AgentWorkflowEntry for state setup
+    entry = AgentWorkflowEntry(
+        input_value="What is 2 plus 2?",
+        source=None,
+        triggering_workflow_instance_id=None,
+        workflow_instance_id=instance_id,
+        workflow_name="AgenticWorkflow",
+        status="RUNNING",
+        messages=[],
+        tool_history=[],
+    )
+    durable_agent_with_mcp_tool._state_model.instances[instance_id] = entry
 
     # Print available tool names for debugging
     tool_names = [t.name for t in durable_agent_with_mcp_tool.tool_executor.tools]
@@ -183,20 +168,28 @@ async def test_execute_tool_activity_with_mcp_tool(durable_agent_with_mcp_tool):
         (n for n in tool_names if n.lower().startswith("add")), tool_names[0]
     )
 
-    tool_call = {
-        "id": "call_123",
-        "function": {"name": tool_name, "arguments": '{"a": 2, "b": 2}'},
-    }
+    # Create mock context
+    mock_ctx = Mock()
 
+    # Call run_tool activity with new signature (ctx, payload)
     await durable_agent_with_mcp_tool.run_tool(
-        tool_call, instance_id, "2024-01-01T00:00:00Z"
+        mock_ctx,
+        {
+            "instance_id": instance_id,
+            "tool_call": {
+                "id": "call_123",
+                "type": "function",
+                "function": {"name": tool_name, "arguments": '{"a": 2, "b": 2}'},
+            },
+        },
     )
-    instance_data = durable_agent_with_mcp_tool.state["instances"][instance_id]
-    assert len(instance_data["tool_history"]) == 1
-    tool_entry = instance_data["tool_history"][0]
-    assert tool_entry["tool_call_id"] == "call_123"
-    assert tool_entry["tool_name"] == tool_name
-    assert tool_entry["execution_result"] == "4"
+
+    # Verify via AgentWorkflowEntry
+    assert len(entry.tool_history) == 1
+    tool_entry = entry.tool_history[0]
+    assert tool_entry.tool_call_id == "call_123"
+    assert tool_entry.tool_name == tool_name
+    assert tool_entry.execution_result == "4"
 
 
 # Shared fixture to start the math server with streamable HTTP
@@ -252,35 +245,37 @@ async def test_add_tool_with_real_server_http(start_math_server_http):
 @pytest.mark.asyncio
 async def test_durable_agent_with_real_server_http(start_math_server_http):
     agent_tools = await get_agent_tools_from_http()
-    from dapr_agents.tool.executor import AgentToolExecutor
+    from dapr_agents.agents.configs import AgentPubSubConfig, AgentStateConfig
+    from dapr_agents.storage.daprstores.stateservice import StateStoreService
 
-    tool_executor = AgentToolExecutor(tools=agent_tools)
     agent = DurableAgent(
         name="TestDurableAgent",
         role="Math Assistant",
         goal="Help humans do math",
         instructions=["Test math instructions"],
         tools=agent_tools,
-        state=DurableAgentWorkflowState().model_dump(),
-        state_store_name="teststatestore",
-        message_bus_name="testpubsub",
-        agents_registry_store_name="testregistry",
+        pubsub_config=AgentPubSubConfig(
+            pubsub_name="testpubsub",
+        ),
+        state_config=AgentStateConfig(
+            store=StateStoreService(store_name="teststatestore")
+        ),
     )
-    agent.__pydantic_private__["_tool_executor"] = tool_executor
+
     instance_id = "test-instance-456"
-    workflow_entry = {
-        "input": "What is 2 plus 2?",
-        "source": None,
-        "triggering_workflow_instance_id": None,
-        "workflow_instance_id": instance_id,
-        "workflow_name": "AgenticWorkflow",
-        "status": "RUNNING",
-        "messages": [],
-        "tool_history": [],
-        "end_time": None,
-        "trace_context": None,
-    }
-    agent.state["instances"][instance_id] = workflow_entry
+    # Use AgentWorkflowEntry for state setup
+    entry = AgentWorkflowEntry(
+        input_value="What is 2 plus 2?",
+        source=None,
+        triggering_workflow_instance_id=None,
+        workflow_instance_id=instance_id,
+        workflow_name="AgenticWorkflow",
+        status="RUNNING",
+        messages=[],
+        tool_history=[],
+    )
+    agent._state_model.instances[instance_id] = entry
+
     # Print available tool names
     tool_names = [t.name for t in agent.tool_executor.tools]
     print("Available tool names (integration test):", tool_names)
@@ -288,14 +283,26 @@ async def test_durable_agent_with_real_server_http(start_math_server_http):
     tool_name = next(
         (n for n in tool_names if n.lower().startswith("add")), tool_names[0]
     )
-    tool_call = {
-        "id": "call_456",
-        "function": {"name": tool_name, "arguments": '{"a": 2, "b": 2}'},
-    }
-    await agent.run_tool(tool_call, instance_id, "2024-01-01T00:00:00Z")
-    instance_data = agent.state["instances"][instance_id]
-    assert len(instance_data["tool_history"]) == 1
-    tool_entry = instance_data["tool_history"][0]
-    assert tool_entry["tool_call_id"] == "call_456"
-    assert tool_entry["tool_name"] == tool_name
-    assert tool_entry["execution_result"] == "4"
+
+    # Create mock context
+    mock_ctx = Mock()
+
+    # Call run_tool activity with new signature (ctx, payload)
+    await agent.run_tool(
+        mock_ctx,
+        {
+            "instance_id": instance_id,
+            "tool_call": {
+                "id": "call_456",
+                "type": "function",
+                "function": {"name": tool_name, "arguments": '{"a": 2, "b": 2}'},
+            },
+        },
+    )
+
+    # Verify via AgentWorkflowEntry
+    assert len(entry.tool_history) == 1
+    tool_entry = entry.tool_history[0]
+    assert tool_entry.tool_call_id == "call_456"
+    assert tool_entry.tool_name == tool_name
+    assert tool_entry.execution_result == "4"

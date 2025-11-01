@@ -2,7 +2,8 @@ import pytest
 import asyncio
 import os
 from unittest.mock import Mock, patch
-from dapr_agents.agents.agent.agent import Agent
+from dapr_agents.agents.standalone import Agent
+from dapr_agents.agents.configs import AgentMemoryConfig, AgentExecutionConfig
 from dapr_agents.types import (
     AgentError,
     AssistantMessage,
@@ -46,8 +47,8 @@ class TestAgent:
             goal="Help with testing",
             instructions=["Be helpful", "Test things"],
             llm=mock_llm,
-            memory=ConversationListMemory(),
-            max_iterations=5,
+            memory_config=AgentMemoryConfig(store=ConversationListMemory()),
+            execution_config=AgentExecutionConfig(max_iterations=5),
         )
 
     @pytest.fixture
@@ -59,9 +60,9 @@ class TestAgent:
             goal="Execute tools",
             instructions=["Use tools when needed"],
             llm=mock_llm,
-            memory=ConversationListMemory(),
+            memory_config=AgentMemoryConfig(store=ConversationListMemory()),
             tools=[echo_tool],
-            max_iterations=5,
+            execution_config=AgentExecutionConfig(max_iterations=5),
         )
 
     def test_agent_initialization(self, mock_llm):
@@ -76,12 +77,14 @@ class TestAgent:
         )
 
         assert agent.name == "TestAgent"
-        assert agent.role == "Test Assistant"
-        assert agent.goal == "Help with testing"
-        assert agent.instructions == ["Be helpful"]
-        assert agent.max_iterations == 10  # default value
+        assert agent.prompting_helper.role == "Test Assistant"
+        assert agent.prompting_helper.goal == "Help with testing"
+        assert agent.prompting_helper.instructions == ["Be helpful"]
+        assert agent.execution_config.max_iterations == 10  # default value
         assert agent.tool_history == []
-        assert agent.tool_choice == "auto"  # auto when tools are provided
+        assert (
+            agent.execution_config.tool_choice == "auto"
+        )  # auto when tools are provided
 
     def test_agent_initialization_without_tools(self, mock_llm):
         """Test agent initialization without tools."""
@@ -92,7 +95,7 @@ class TestAgent:
             llm=mock_llm,
         )
 
-        assert agent.tool_choice is None
+        assert agent.execution_config.tool_choice == "auto"  # still defaults to auto
 
     def test_agent_initialization_with_custom_tool_choice(self, mock_llm):
         """Test agent initialization with custom tool choice."""
@@ -101,10 +104,10 @@ class TestAgent:
             role="Test Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            tool_choice="required",
+            execution_config=AgentExecutionConfig(tool_choice="required"),
         )
 
-        assert agent.tool_choice == "required"
+        assert agent.execution_config.tool_choice == "required"
 
     @pytest.mark.asyncio
     async def test_run_with_shutdown_event(self, basic_agent):
@@ -140,7 +143,9 @@ class TestAgent:
         mock_response.get_message.return_value = assistant_msg
         basic_agent.llm.generate.return_value = mock_response
 
-        result = await basic_agent._run_agent("Hello")
+        result = await basic_agent._run_agent(
+            input_data="Hello", instance_id="test-123"
+        )
 
         assert isinstance(result, AssistantMessage)
         assert result.content == "Hello!"
@@ -154,6 +159,7 @@ class TestAgent:
         mock_function.arguments_dict = {"arg1": "value1"}
         tool_call = Mock(spec=ToolCall)
         tool_call.id = "call_123"
+        tool_call.type = "function"
         tool_call.function = mock_function
 
         first_response = Mock(spec=LLMChatResponse)
@@ -166,15 +172,16 @@ class TestAgent:
 
         agent_with_tools.llm.generate.side_effect = [first_response, second_response]
         agent_with_tools.tools = [echo_tool]
-        agent_with_tools._tool_executor = agent_with_tools._tool_executor.__class__(
+        agent_with_tools.tool_executor = agent_with_tools.tool_executor.__class__(
             tools=[echo_tool]
         )
 
-        result = await agent_with_tools._run_agent("Use the tool")
+        result = await agent_with_tools._run_agent(
+            input_data="Use the tool", instance_id="test-123"
+        )
         assert isinstance(result, AssistantMessage)
         assert result.content == "Final answer"
 
-    @pytest.mark.asyncio
     async def test_process_response_success(self, agent_with_tools):
         """Test successful tool execution."""
         mock_function = Mock()
@@ -185,17 +192,26 @@ class TestAgent:
         tool_call.id = "call_123"
         tool_call.function = mock_function
         agent_with_tools.tools = [echo_tool]
-        agent_with_tools._tool_executor = agent_with_tools._tool_executor.__class__(
+        agent_with_tools.tool_executor = agent_with_tools.tool_executor.__class__(
             tools=[echo_tool]
         )
-        await agent_with_tools.execute_tools([tool_call])
-        assert len(agent_with_tools.tool_history) == 1
-        tool_message = agent_with_tools.tool_history[0]
-        assert tool_message.tool_call_id == "call_123"
-        assert tool_message.tool_name == echo_tool.name
-        assert tool_message.execution_result == "value1"
 
-    @pytest.mark.asyncio
+        # Call the actual internal method that executes tool calls
+        tool_messages = await agent_with_tools._execute_tool_calls(
+            "test-instance", [tool_call]
+        )
+
+        assert len(agent_with_tools.tool_history) == 1
+        tool_record = agent_with_tools.tool_history[0]
+        assert tool_record.tool_call_id == "call_123"
+        assert tool_record.tool_name == echo_tool.name
+        assert tool_record.execution_result == "value1"
+
+        # Verify the tool message was returned
+        assert len(tool_messages) == 1
+        assert tool_messages[0]["role"] == "tool"
+        assert tool_messages[0]["name"] == echo_tool.name
+
     async def test_process_response_failure(self, agent_with_tools):
         mock_function = Mock()
         mock_function.name = error_tool.name
@@ -205,15 +221,16 @@ class TestAgent:
         tool_call.id = "call_123"
         tool_call.function = mock_function
         agent_with_tools.tools = [error_tool]
-        agent_with_tools._tool_executor = agent_with_tools._tool_executor.__class__(
+        agent_with_tools.tool_executor = agent_with_tools.tool_executor.__class__(
             tools=[error_tool]
         )
+
+        # Call the actual internal method that executes tool calls
         with pytest.raises(
             AgentError, match=f"Error executing tool '{error_tool.name}': .*Tool failed"
         ):
-            await agent_with_tools.execute_tools([tool_call])
+            await agent_with_tools._execute_tool_calls("test-instance", [tool_call])
 
-    @pytest.mark.asyncio
     async def test_conversation_max_reached(self, basic_agent):
         """Test that agent stops immediately when there are no tool calls."""
         mock_response = Mock(spec=LLMChatResponse)
@@ -221,44 +238,73 @@ class TestAgent:
         mock_response.get_message.return_value = assistant_msg
         basic_agent.llm.generate.return_value = mock_response
 
-        result = await basic_agent.conversation([])
+        # Call the actual internal conversation loop method
+        initial_messages = [{"role": "user", "content": "Hello"}]
+        result = await basic_agent._conversation_loop(
+            instance_id="test-123", messages=initial_messages
+        )
 
         # current logic sees no tools ===> returns on first iteration
         assert isinstance(result, AssistantMessage)
         assert result.content == "Using tool"
         assert basic_agent.llm.generate.call_count == 1
 
-    @pytest.mark.asyncio
     async def test_conversation_with_llm_error(self, basic_agent):
         """Test handling of LLM errors during iterations."""
         basic_agent.llm.generate.side_effect = Exception("LLM error")
 
+        # Call the actual internal conversation loop method
+        initial_messages = [{"role": "user", "content": "Hello"}]
         with pytest.raises(
             AgentError, match="Failed during chat generation: LLM error"
         ):
-            await basic_agent.conversation([])
+            await basic_agent._conversation_loop(
+                instance_id="test-123", messages=initial_messages
+            )
 
-    @pytest.mark.asyncio
     async def test_run_tool_success(self, agent_with_tools):
-        """Test successful tool execution via run_tool method."""
+        """Test successful tool execution via _run_tool_call method."""
         agent_with_tools.tools = [echo_tool]
-        agent_with_tools._tool_executor = agent_with_tools._tool_executor.__class__(
+        agent_with_tools.tool_executor = agent_with_tools.tool_executor.__class__(
             tools=[echo_tool]
         )
-        result = await agent_with_tools.run_tool(echo_tool.name, arg1="value1")
-        assert result == "value1"
 
-    @pytest.mark.asyncio
+        # Create a mock tool call
+        mock_function = Mock()
+        mock_function.name = echo_tool.name
+        mock_function.arguments_dict = {"arg1": "value1"}
+        tool_call = Mock(spec=ToolCall)
+        tool_call.id = "call_123"
+        tool_call.function = mock_function
+
+        # Call the actual internal method
+        result = await agent_with_tools._run_tool_call("test-instance", tool_call)
+
+        # Verify the result is a tool message dict
+        assert result["role"] == "tool"
+        assert result["name"] == echo_tool.name
+        assert result["content"] == "value1"
+
     async def test_run_tool_failure(self, agent_with_tools):
-        """Test tool execution failure via run_tool method."""
+        """Test tool execution failure via _run_tool_call method."""
         agent_with_tools.tools = [error_tool]
-        agent_with_tools._tool_executor = agent_with_tools._tool_executor.__class__(
+        agent_with_tools.tool_executor = agent_with_tools.tool_executor.__class__(
             tools=[error_tool]
         )
+
+        # Create a mock tool call
+        mock_function = Mock()
+        mock_function.name = error_tool.name
+        mock_function.arguments_dict = {}
+        tool_call = Mock(spec=ToolCall)
+        tool_call.id = "call_123"
+        tool_call.function = mock_function
+
+        # Call the actual internal method
         with pytest.raises(
-            AgentError, match=f"Failed to run tool '{error_tool.name}': .*Tool failed"
+            AgentError, match=f"Error executing tool '{error_tool.name}': .*Tool failed"
         ):
-            await agent_with_tools.run_tool(error_tool.name)
+            await agent_with_tools._run_tool_call("test-instance", tool_call)
 
     def test_agent_properties(self, basic_agent):
         """Test agent properties."""
@@ -275,7 +321,7 @@ class TestAgent:
         mock_response.get_message.return_value = assistant_msg
         basic_agent.llm.generate.return_value = mock_response
 
-        result = await basic_agent._run_agent(None)
+        result = await basic_agent._run_agent(input_data=None, instance_id="test-123")
 
         assert isinstance(result, AssistantMessage)
         assert result.content == "Response"

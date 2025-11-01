@@ -12,7 +12,7 @@ from dapr_agents.workflow.utils.routers import (
     validate_message_model,
     parse_cloudevent,
 )
-from dapr_agents.workflow.utils.registration import register_message_handlers
+from dapr_agents.workflow.utils.registration import register_message_routes
 
 
 # Test Models
@@ -87,42 +87,21 @@ def test_extract_message_models_non_class():
 # Tests for message_router decorator
 
 
-def test_message_router_requires_pubsub():
-    """Test that message_router raises ValueError when pubsub is missing."""
+def test_message_router_requires_message_model():
+    """Test that message_router raises TypeError when message_model is missing and can't be inferred."""
     with pytest.raises(
-        ValueError,
-        match="`pubsub` and `topic` are required when using @message_router with arguments",
+        TypeError,
+        match="`@message_router` requires `message_model`",
     ):
-
-        @message_router(topic="orders")
-        def handler(message: OrderCreated):
-            pass
-
-
-def test_message_router_requires_topic():
-    """Test that message_router raises ValueError when topic is missing."""
-    with pytest.raises(
-        ValueError,
-        match="`pubsub` and `topic` are required when using @message_router with arguments",
-    ):
-
-        @message_router(pubsub="messagepubsub")
-        def handler(message: OrderCreated):
-            pass
-
-
-def test_message_router_requires_message_parameter():
-    """Test that message_router raises ValueError when 'message' parameter is missing."""
-    with pytest.raises(ValueError, match="must have a 'message' parameter"):
 
         @message_router(pubsub="messagepubsub", topic="orders")
-        def handler(data: OrderCreated):  # Wrong parameter name
+        def handler(data: OrderCreated):  # Wrong parameter name, can't infer
             pass
 
 
 def test_message_router_requires_type_hint():
     """Test that message_router raises TypeError when message parameter has no type hint."""
-    with pytest.raises(TypeError, match="must type-hint the 'message' parameter"):
+    with pytest.raises(TypeError, match="`@message_router` requires `message_model`"):
 
         @message_router(pubsub="messagepubsub", topic="orders")
         def handler(message):  # No type hint
@@ -555,7 +534,9 @@ def test_register_message_handlers_discovers_standalone_function():
 
     loop = asyncio.new_event_loop()
     try:
-        closers = register_message_handlers([handle_order], mock_client, loop=loop)
+        closers = register_message_routes(
+            dapr_client=mock_client, targets=[handle_order], loop=loop
+        )
     finally:
         loop.close()
 
@@ -587,7 +568,9 @@ def test_register_message_handlers_discovers_class_methods():
     handler = OrderHandler()
     loop = asyncio.new_event_loop()
     try:
-        closers = register_message_handlers([handler], mock_client, loop=loop)
+        closers = register_message_routes(
+            dapr_client=mock_client, targets=[handler], loop=loop
+        )
     finally:
         loop.close()
 
@@ -621,7 +604,9 @@ def test_register_message_handlers_ignores_undecorated_methods():
     handler = MixedHandler()
     loop = asyncio.new_event_loop()
     try:
-        closers = register_message_handlers([handler], mock_client, loop=loop)
+        closers = register_message_routes(
+            dapr_client=mock_client, targets=[handler], loop=loop
+        )
     finally:
         loop.close()
 
@@ -647,8 +632,10 @@ def test_register_message_handlers_handles_multiple_targets():
     handler_instance = OrderHandler()
     loop = asyncio.new_event_loop()
     try:
-        closers = register_message_handlers(
-            [standalone_handler, handler_instance], mock_client, loop=loop
+        closers = register_message_routes(
+            dapr_client=mock_client,
+            targets=[standalone_handler, handler_instance],
+            loop=loop,
         )
     finally:
         loop.close()
@@ -673,8 +660,10 @@ def test_register_message_handlers_returns_closers():
 
     loop = asyncio.new_event_loop()
     try:
-        closers = register_message_handlers(
-            [handle_created, handle_cancelled], mock_client, loop=loop
+        closers = register_message_routes(
+            dapr_client=mock_client,
+            targets=[handle_created, handle_cancelled],
+            loop=loop,
         )
     finally:
         loop.close()

@@ -1,6 +1,6 @@
 import asyncio
 from weather_tools import tools
-from dapr_agents import Agent
+from dapr_agents.agents.standalone import Agent
 from dotenv import load_dotenv
 from dapr_agents.llm.openai import OpenAIChatClient
 

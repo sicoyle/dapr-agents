@@ -1,5 +1,5 @@
-from .agent.agent import Agent
 from .base import AgentBase
-from .durableagent.agent import DurableAgent
+from .standalone import Agent
+from .durable import DurableAgent
 
 __all__ = ["AgentBase", "Agent", "DurableAgent"]

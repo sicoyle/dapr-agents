@@ -1,6 +1,20 @@
 import pytest
-from dapr_agents.document.embedder.sentence import SentenceTransformerEmbedder
-from dapr_agents.storage.vectorstores.chroma import ChromaVectorStore
+
+try:
+    import chromadb  # noqa: F401
+    from dapr_agents.document.embedder.sentence import SentenceTransformerEmbedder
+    from dapr_agents.storage.vectorstores.chroma import ChromaVectorStore
+
+    CHROMA_AVAILABLE = True
+except ImportError:
+    CHROMA_AVAILABLE = False
+    SentenceTransformerEmbedder = None  # type: ignore
+    ChromaVectorStore = None  # type: ignore
+
+pytestmark = pytest.mark.skipif(
+    not CHROMA_AVAILABLE,
+    reason="chromadb or sentence-transformers not installed - optional dependencies",
+)
 
 
 class TestChromaVectorStore:

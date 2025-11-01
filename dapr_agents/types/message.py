@@ -279,8 +279,7 @@ class LLMChatCandidate(BaseModel):
     message: AssistantMessage
     finish_reason: Optional[str] = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class LLMChatResponse(BaseModel):

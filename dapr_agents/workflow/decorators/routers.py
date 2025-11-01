@@ -1,19 +1,15 @@
 from __future__ import annotations
 
-import inspect
 import logging
 from copy import deepcopy
-from typing import (
-    Any,
-    Callable,
-    Optional,
-    get_type_hints,
-)
+from typing import Any, Callable, List, Literal, Optional, Type, get_type_hints
 
 from dapr_agents.workflow.utils.core import is_supported_model
 from dapr_agents.workflow.utils.routers import extract_message_models
 
 logger = logging.getLogger(__name__)
+
+HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 
 
 def message_router(
@@ -23,67 +19,54 @@ def message_router(
     topic: Optional[str] = None,
     dead_letter_topic: Optional[str] = None,
     broadcast: bool = False,
+    message_model: Optional[Any] = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
-    Decorate a message handler with routing metadata.
-
-    The handler must accept a parameter named `message`. Its type hint defines the
-    expected payload model(s), e.g.:
-
-        @message_router(pubsub="pubsub", topic="orders")
-        def on_order(message: OrderCreated): ...
-
-        @message_router(pubsub="pubsub", topic="events")
-        def on_event(message: Union[Foo, Bar]): ...
+    Tag a callable as a **Pub/Sub → Workflow** entry with routing + schema metadata.
 
     Args:
-        func: (optional) bare-decorator form support.
-        pubsub: Name of the Dapr pub/sub component (required when used with args).
-        topic: Topic name to subscribe to (required when used with args).
-        dead_letter_topic: Optional dead-letter topic (defaults to f"{topic}_DEAD").
-        broadcast: Optional flag you can use downstream for fan-out semantics.
+        func (Optional[Callable[..., Any]]):
+            The function to decorate (if used without parentheses).
+        pubsub (Optional[str]):
+            The name of the Dapr pub/sub component. Optional when wiring via `PubSubRouteSpec`.
+        topic (Optional[str]):
+            The pub/sub topic to subscribe to. Optional when wiring via `PubSubRouteSpec`.
+        dead_letter_topic (Optional[str]):
+            The dead-letter topic to publish failed messages to.
+        broadcast (bool):
+            Whether to treat this as a broadcast subscription.
+        message_model (Optional[Any]):
+            The message model class or Union[...] to use for validation.
 
     Returns:
-        The original function tagged with `_message_router_data`.
+        Callable[[Callable[..., Any]], Callable[..., Any]]:
+            The decorated function.
     """
 
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
-        # Validate required kwargs only when decorator is used with args
-        if pubsub is None or topic is None:
-            raise ValueError(
-                "`pubsub` and `topic` are required when using @message_router with arguments."
-            )
+        # Resolve message model(s)
+        if message_model is None:
+            # Back-compat fallback: try to infer from a `message` param if present, but not required.
+            try:
+                hints = get_type_hints(f, globalns=f.__globals__)
+            except Exception:
+                logger.debug(
+                    "Failed to resolve type hints for %s", f.__name__, exc_info=True
+                )
+                hints = getattr(f, "__annotations__", {}) or {}
+            inferred = hints.get("message")
+            models = extract_message_models(inferred) if inferred else []
+        else:
+            models = extract_message_models(message_model)
 
-        sig = inspect.signature(f)
-        if "message" not in sig.parameters:
-            raise ValueError(f"'{f.__name__}' must have a 'message' parameter.")
-
-        # Resolve forward refs under PEP 563 / future annotations
-        try:
-            hints = get_type_hints(f, globalns=f.__globals__)
-        except Exception:
-            logger.debug(
-                "Failed to fully resolve type hints for %s", f.__name__, exc_info=True
-            )
-            hints = getattr(f, "__annotations__", {}) or {}
-
-        raw_hint = hints.get("message")
-        if raw_hint is None:
-            raise TypeError(
-                f"'{f.__name__}' must type-hint the 'message' parameter "
-                "(e.g., 'message: MyModel' or 'message: Union[A, B]')"
-            )
-
-        models = extract_message_models(raw_hint)
         if not models:
             raise TypeError(
-                f"Unsupported or unresolved message type for '{f.__name__}': {raw_hint!r}"
+                "`@message_router` requires `message_model` (class or Union[...])."
             )
 
-        # Optional early validation of supported schema kinds
         for m in models:
             if not is_supported_model(m):
-                raise TypeError(f"Unsupported model type in '{f.__name__}': {m!r}")
+                raise TypeError(f"Unsupported model type: {m!r}")
 
         data = {
             "pubsub": pubsub,
@@ -91,11 +74,10 @@ def message_router(
             "dead_letter_topic": dead_letter_topic
             or (f"{topic}_DEAD" if topic else None),
             "is_broadcast": broadcast,
-            "message_schemas": models,  # list[type]
-            "message_types": [m.__name__ for m in models],  # list[str]
+            "message_schemas": models,
+            "message_types": [m.__name__ for m in models],
         }
 
-        # Attach metadata; deepcopy for defensive isolation
         setattr(f, "_is_message_handler", True)
         setattr(f, "_message_router_data", deepcopy(data))
 
@@ -109,5 +91,82 @@ def message_router(
         )
         return f
 
-    # Support both @message_router(...) and bare @message_router usage
+    return decorator if func is None else decorator(func)
+
+
+def http_router(
+    func: Optional[Callable[..., Any]] = None,
+    *,
+    path: Optional[str] = None,
+    method: HttpMethod = "POST",
+    summary: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    response_model: Optional[Type[Any]] = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    Tag a callable as a **plain-HTTP** endpoint with schema metadata for its JSON body.
+
+    Args:
+        func (Optional[Callable[..., Any]]):
+            The function to decorate (if used without parentheses).
+        path (Optional[str]):
+            The HTTP path to route to.
+        method (HttpMethod):
+            The HTTP method to route to.
+        summary (Optional[str]):
+            A short summary of the endpoint.
+        tags (Optional[List[str]]):
+            A list of tags for grouping endpoints.
+        response_model (Optional[Type[Any]]):
+            The response model class to use for validation.
+
+    Returns:
+        Callable[[Callable[..., Any]], Callable[..., Any]]:
+            The decorated function.
+    """
+
+    def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
+        if path is None:
+            raise ValueError("`@http_router` requires `path`.")
+        method_upper = method.upper()
+
+        try:
+            hints = get_type_hints(f, globalns=f.__globals__)
+        except Exception:
+            logger.debug(
+                "Failed to fully resolve type hints for %s", f.__name__, exc_info=True
+            )
+            hints = getattr(f, "__annotations__", {}) or {}
+
+        raw_hint = hints.get("request")
+        models = extract_message_models(raw_hint) if raw_hint is not None else []
+        if not models:
+            raise TypeError(
+                "`@http_router` requires a type-hinted `request` parameter."
+            )
+
+        for m in models:
+            if not is_supported_model(m):
+                raise TypeError(f"Unsupported request model type: {m!r}")
+
+        data = {
+            "path": path,
+            "method": method_upper,
+            "summary": summary,
+            "tags": (tags or []),
+            "response_model": response_model,
+            "request_schemas": models,
+            "request_type_names": [m.__name__ for m in models],
+        }
+        setattr(f, "_is_http_handler", True)
+        setattr(f, "_http_route_data", deepcopy(data))
+        logger.debug(
+            "@http_router: '%s' => models %s (%s %s)",
+            f.__name__,
+            [m.__name__ for m in models],
+            method_upper,
+            path,
+        )
+        return f
+
     return decorator if func is None else decorator(func)
