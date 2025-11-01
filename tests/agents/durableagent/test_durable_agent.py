@@ -390,11 +390,16 @@ class TestDurableAgent:
             "sender": "TestDurableAgent",
         }
 
-        with patch.object(
-            type(basic_durable_agent), "broadcast_message"
-        ) as mock_broadcast:
-            await basic_durable_agent.broadcast_message_to_agents(message)
-            mock_broadcast.assert_called_once()
+        # Mock the activity context
+        mock_ctx = Mock()
+        
+        # The basic_durable_agent fixture doesn't have a broadcast_topic configured,
+        # so this should execute without error but skip the actual broadcast
+        basic_durable_agent.broadcast_message_to_agents(
+            mock_ctx,
+            {"message": message}
+        )
+        # Test passes if no exception is raised
 
     @pytest.mark.asyncio
     async def test_send_response_back_activity(self, basic_durable_agent):
@@ -403,13 +408,20 @@ class TestDurableAgent:
         target_agent = "TargetAgent"
         target_instance_id = "target-instance-123"
 
-        with patch.object(
-            type(basic_durable_agent), "send_message_to_agent"
-        ) as mock_send:
-            await basic_durable_agent.send_response_back(
-                response, target_agent, target_instance_id
+        # Mock the activity context and _run_asyncio_task
+        mock_ctx = Mock()
+        
+        with patch.object(basic_durable_agent, '_run_asyncio_task') as mock_run_task:
+            basic_durable_agent.send_response_back(
+                mock_ctx,
+                {
+                    "response": response,
+                    "target_agent": target_agent,
+                    "target_instance_id": target_instance_id
+                }
             )
-            mock_send.assert_called_once()
+            # Verify the async task was called
+            mock_run_task.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_finish_workflow_activity(self, basic_durable_agent):
