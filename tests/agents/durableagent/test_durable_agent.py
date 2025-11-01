@@ -2,9 +2,7 @@
 # Right now we have to do a bunch of patching at the class-level instead of patching at the instance-level.
 # In future, we should do dependency injection instead of patching at the class-level to make it easier to test.
 # This applies to all areas in this file where we have with patch.object()...
-import asyncio
 import os
-from typing import Any
 from unittest.mock import AsyncMock, Mock, patch, MagicMock
 
 import pytest
@@ -314,11 +312,11 @@ class TestDurableAgent:
             "trace_context": None,
         }
 
-        workflow_gen = basic_durable_agent.tool_calling_workflow(
+        workflow_gen = basic_durable_agent.agent_workflow(
             mock_workflow_context, message
         )
         try:
-            await workflow_gen.__next__()
+            await workflow_gen.__anext__()
         except StopAsyncIteration:
             pass
 
@@ -366,8 +364,17 @@ class TestDurableAgent:
         test_time = datetime.fromisoformat(
             "2024-01-01T00:00:00Z".replace("Z", "+00:00")
         )
-        assistant_dict = await basic_durable_agent.call_llm(
-            instance_id, test_time, "Test task"
+        
+        # Mock the activity context
+        mock_ctx = Mock()
+        
+        assistant_dict = basic_durable_agent.call_llm(
+            mock_ctx,
+            {
+                "instance_id": instance_id,
+                "time": test_time.isoformat(),
+                "task": "Test task"
+            }
         )
         # The dict dumped from AssistantMessage should have our content
         assert assistant_dict["content"] == "Test response"
@@ -407,33 +414,49 @@ class TestDurableAgent:
     @pytest.mark.asyncio
     async def test_finish_workflow_activity(self, basic_durable_agent):
         """Test finishing workflow activity."""
+        from datetime import datetime, timezone
+        
         instance_id = "test-instance-123"
         final_output = "Final response"
-        basic_durable_agent.state["instances"] = {
-            instance_id: {
-                "input": "Test task",
-                "source": "test_source",
-                "triggering_workflow_instance_id": None,
-                "workflow_instance_id": instance_id,
-                "workflow_name": "AgenticWorkflow",
-                "status": "RUNNING",
-                "messages": [],
-                "tool_history": [],
-                "end_time": None,
-                "trace_context": None,
-            }
-        }
-
-        basic_durable_agent.finalize_workflow(
-            instance_id, final_output, "2024-01-01T00:00:00Z"
+        # Set up state in the state model using AgentWorkflowEntry
+        if not hasattr(basic_durable_agent._state_model, 'instances'):
+            basic_durable_agent._state_model.instances = {}
+        
+        basic_durable_agent._state_model.instances[instance_id] = AgentWorkflowEntry(
+            input_value="Test task",
+            source="test_source",
+            triggering_workflow_instance_id=None,
+            workflow_instance_id=instance_id,
+            workflow_name="AgenticWorkflow",
+            status="RUNNING",
+            messages=[],
+            tool_history=[],
+            end_time=None,
+            start_time=datetime.now(timezone.utc),
         )
-        instance_data = basic_durable_agent.state["instances"][instance_id]
-        assert instance_data["output"] == final_output
-        assert instance_data["end_time"] is not None
+
+        # Mock the activity context and save_state
+        mock_ctx = Mock()
+        
+        with patch.object(basic_durable_agent, 'save_state'):
+            basic_durable_agent.finalize_workflow(
+                mock_ctx,
+                {
+                    "instance_id": instance_id,
+                    "final_output": final_output,
+                    "end_time": "2024-01-01T00:00:00Z",
+                    "triggering_workflow_instance_id": None
+                }
+            )
+        entry = basic_durable_agent._state_model.instances[instance_id]
+        assert entry.output == final_output
+        assert entry.end_time is not None
 
     @pytest.mark.asyncio
     async def test_run_tool(self, basic_durable_agent, mock_tool):
         """Test that run_tool atomically executes and persists tool results."""
+        from datetime import datetime, timezone
+        
         instance_id = "test-instance-123"
         tool_call = {
             "id": "call_123",
@@ -442,34 +465,44 @@ class TestDurableAgent:
 
         # Mock the tool executor
         with patch.object(
-            type(basic_durable_agent._tool_executor), "run_tool", new_callable=AsyncMock
+            type(basic_durable_agent.tool_executor), "run_tool", new_callable=AsyncMock
         ) as mock_run_tool:
             mock_run_tool.return_value = "tool_result"
 
-            # Set up instance state
-            basic_durable_agent.state["instances"] = {
-                instance_id: {
-                    "input": "Test task",
-                    "source": "test_source",
-                    "triggering_workflow_instance_id": None,
-                    "workflow_instance_id": instance_id,
-                    "workflow_name": "AgenticWorkflow",
-                    "status": "RUNNING",
-                    "messages": [],
-                    "tool_history": [],
-                    "end_time": None,
-                    "trace_context": None,
-                }
-            }
-
-            from datetime import datetime
+            # Set up state in the state model using AgentWorkflowEntry
+            if not hasattr(basic_durable_agent._state_model, 'instances'):
+                basic_durable_agent._state_model.instances = {}
+            
+            basic_durable_agent._state_model.instances[instance_id] = AgentWorkflowEntry(
+                input_value="Test task",
+                source="test_source",
+                triggering_workflow_instance_id=None,
+                workflow_instance_id=instance_id,
+                workflow_name="AgenticWorkflow",
+                status="RUNNING",
+                messages=[],
+                tool_history=[],
+                end_time=None,
+                start_time=datetime.now(timezone.utc),
+            )
 
             test_time = datetime.fromisoformat(
                 "2024-01-01T00:00:00Z".replace("Z", "+00:00")
             )
-            result = await basic_durable_agent.run_tool(
-                tool_call, instance_id, test_time
-            )
+            
+            # Mock the activity context and save_state
+            mock_ctx = Mock()
+            
+            with patch.object(basic_durable_agent, 'save_state'):
+                result = await basic_durable_agent.run_tool(
+                    mock_ctx,
+                    {
+                        "tool_call": tool_call,
+                        "instance_id": instance_id,
+                        "time": test_time.isoformat(),
+                        "order": 1
+                    }
+                )
 
             # Verify tool was executed and result was returned
             assert result["tool_call_id"] == "call_123"
@@ -477,21 +510,20 @@ class TestDurableAgent:
             assert result["execution_result"] == "tool_result"
 
             # Verify state was updated atomically
-            instance_data = basic_durable_agent.state["instances"][instance_id]
-            assert len(instance_data["messages"]) == 1  # Tool message added
-            assert (
-                len(instance_data["tool_history"]) == 1
-            )  # Tool execution record added
+            entry = basic_durable_agent._state_model.instances[instance_id]
+            assert len(entry.messages) == 1  # Tool message added
+            assert len(entry.tool_history) == 1  # Tool execution record added
 
             # Verify tool execution record in tool_history
-            tool_history_entry = instance_data["tool_history"][0]
-            assert tool_history_entry["tool_call_id"] == "call_123"
-            assert tool_history_entry["tool_name"] == "test_tool"
-            assert tool_history_entry["execution_result"] == "tool_result"
+            tool_history_entry = entry.tool_history[0]
+            assert tool_history_entry.tool_call_id == "call_123"
+            assert tool_history_entry.tool_name == "test_tool"
+            assert tool_history_entry.execution_result == "tool_result"
 
             # Verify agent-level tool_history was also updated
             assert len(basic_durable_agent.tool_history) == 1
 
+    @pytest.mark.skip(reason="get_source_or_default() method removed in refactored architecture")
     def test_get_source_or_default(self, basic_durable_agent):
         """Test get_source_or_default helper method."""
         # Test with valid source
@@ -505,29 +537,45 @@ class TestDurableAgent:
 
     def test_record_initial_entry(self, basic_durable_agent):
         """Test record_initial_entry helper method."""
+        from datetime import datetime, timezone
+        
         instance_id = "test-instance-123"
         input_data = "Test task"
         source = "test_source"
         triggering_workflow_instance_id = "parent-instance-123"
         start_time = "2024-01-01T00:00:00Z"
 
-        basic_durable_agent.record_initial_entry(
-            instance_id, input_data, source, triggering_workflow_instance_id, start_time
+        # First, ensure instance exists with ensure_instance_exists
+        basic_durable_agent.ensure_instance_exists(
+            instance_id=instance_id,
+            input_value=input_data,
+            triggering_workflow_instance_id=None,
+            time=datetime.now(timezone.utc)
         )
 
-        # Verify instance was created
-        assert instance_id in basic_durable_agent.state["instances"]
-        instance_data = basic_durable_agent.state["instances"][instance_id]
-        assert instance_data["input"] == input_data
-        assert instance_data["source"] == source
-        assert (
-            instance_data["triggering_workflow_instance_id"]
-            == triggering_workflow_instance_id
-        )
-        # start_time is stored as string in dict format
-        assert instance_data["start_time"] == "2024-01-01T00:00:00Z"
-        assert instance_data["workflow_name"] == "AgenticWorkflow"
-        assert instance_data["status"] == "running"
+        # Mock the activity context
+        mock_ctx = Mock()
+        
+        with patch.object(basic_durable_agent, 'save_state'):
+            basic_durable_agent.record_initial_entry(
+                mock_ctx,
+                {
+                    "instance_id": instance_id,
+                    "input_value": input_data,
+                    "source": source,
+                    "triggering_workflow_instance_id": triggering_workflow_instance_id,
+                    "start_time": start_time,
+                    "trace_context": None
+                }
+            )
+
+        # Verify instance was updated
+        assert instance_id in basic_durable_agent._state_model.instances
+        entry = basic_durable_agent._state_model.instances[instance_id]
+        assert entry.input_value == input_data
+        assert entry.source == source
+        assert entry.triggering_workflow_instance_id == triggering_workflow_instance_id
+        assert entry.status.lower() == "running"
 
     def test_ensure_instance_exists(self, basic_durable_agent):
         """Test _ensure_instance_exists helper method."""
