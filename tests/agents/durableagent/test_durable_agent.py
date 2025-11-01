@@ -11,6 +11,13 @@ import pytest
 from dapr.ext.workflow import DaprWorkflowContext
 
 from dapr_agents.agents.durable import DurableAgent
+from dapr_agents.agents.configs import (
+    AgentPubSubConfig,
+    AgentStateConfig,
+    AgentRegistryConfig,
+    AgentMemoryConfig,
+    AgentExecutionConfig,
+)
 from dapr_agents.agents.schemas import (
     AgentTaskResponse,
     BroadcastMessage,
@@ -20,6 +27,7 @@ from dapr_agents.agents.schemas import (
 )
 from dapr_agents.llm import OpenAIChatClient
 from dapr_agents.memory import ConversationDaprStateMemory
+from dapr_agents.storage.daprstores.stateservice import StateStoreService
 from dapr_agents.tool.base import AgentTool
 from dapr_agents.types import (
     AssistantMessage,
@@ -33,73 +41,16 @@ from dapr_agents.types import (
 # We need this otherwise these tests all fail since they require Dapr to be available.
 @pytest.fixture(autouse=True)
 def patch_dapr_check(monkeypatch):
+    """Mock Dapr dependencies to prevent requiring a running Dapr instance."""
     from unittest.mock import Mock
+    import dapr.ext.workflow as wf
 
-    from dapr_agents.workflow import agentic, base
+    # Mock WorkflowRuntime to prevent Dapr checks
+    mock_runtime = Mock(spec=wf.WorkflowRuntime)
+    monkeypatch.setattr(wf, "WorkflowRuntime", lambda: mock_runtime)
 
-    # Mock the WorkflowApp initialization to prevent DaprClient creation which does an internal check for Dapr availability.
-    def mock_workflow_app_post_init(self, __context: Any) -> None:
-        self.wf_runtime = Mock()
-        self.wf_runtime_is_running = False
-        self.wf_client = Mock()
-        self.client = Mock()
-        self.tasks = {}
-        self.workflows["AgenticWorkflow"] = getattr(self, "tool_calling_workflow", None)
-
-        try:
-            super(base.WorkflowApp, self).model_post_init(__context)
-        except AttributeError:
-            # If parent doesn't have model_post_init, that's fine
-            pass
-
-    monkeypatch.setattr(
-        base.WorkflowApp, "model_post_init", mock_workflow_app_post_init
-    )
-
-    def mock_agentic_post_init(self, __context: Any) -> None:
-        self._text_formatter = Mock()
-        self.client = Mock()
-        self._state_store_client = Mock()
-        # Configure the mock to return a tuple as expected by try_get_state
-        self._state_store_client.try_get_state.return_value = (False, None)
-        # Configure the mock for save_state method
-        self._state_store_client.save_state.return_value = None
-        self._agent_metadata = {
-            "name": getattr(self, "name", "TestAgent"),
-            "role": getattr(self, "role", "Test Role"),
-            "goal": getattr(self, "goal", "Test Goal"),
-            "instructions": getattr(self, "instructions", []),
-            "topic_name": getattr(
-                self, "agent_topic_name", getattr(self, "name", "TestAgent")
-            ),
-            "pubsub_name": getattr(self, "message_bus_name", "testpubsub"),
-            "orchestrator": False,
-        }
-        self._workflow_name = "AgenticWorkflow"
-        self._is_running = False
-        self._shutdown_event = asyncio.Event()
-        self._subscriptions = {}
-        self._topic_handlers = {}
-
-        if not hasattr(self, "state") or self.state is None:
-            self.state = AgentWorkflowState().model_dump()
-
-        # Call the WorkflowApp model_post_init which we have mocked above.
-        super(agentic.AgenticWorkflow, self).model_post_init(__context)
-
-    monkeypatch.setattr(
-        agentic.AgenticWorkflow, "model_post_init", mock_agentic_post_init
-    )
-
-    # No-op for testing
-    def mock_register_agentic_system(self):
-        pass
-
-    monkeypatch.setattr(
-        agentic.AgenticWorkflow, "register_agentic_system", mock_register_agentic_system
-    )
-
-    yield
+    # Return the mock runtime for tests that need it
+    yield mock_runtime
 
 
 class MockDaprClient:
@@ -186,13 +137,22 @@ class TestDurableAgent:
             goal="Help with testing",
             instructions=["Be helpful", "Test things"],
             llm=mock_llm,
-            memory=ConversationDaprStateMemory(
-                store_name="teststatestore", session_id="test_session"
+            pubsub_config=AgentPubSubConfig(
+                pubsub_name="testpubsub",
+                agent_topic="TestDurableAgent",
             ),
-            max_iterations=5,
-            state_store_name="teststatestore",
-            message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
+            state_config=AgentStateConfig(
+                store=StateStoreService(store_name="teststatestore")
+            ),
+            registry_config=AgentRegistryConfig(
+                store=StateStoreService(store_name="testregistry")
+            ),
+            memory_config=AgentMemoryConfig(
+                store=ConversationDaprStateMemory(
+                    store_name="teststatestore", session_id="test_session"
+                )
+            ),
+            execution_config=AgentExecutionConfig(max_iterations=5),
         )
 
     @pytest.fixture
@@ -204,14 +164,23 @@ class TestDurableAgent:
             goal="Execute tools",
             instructions=["Use tools when needed"],
             llm=mock_llm,
-            memory=ConversationDaprStateMemory(
-                store_name="teststatestore", session_id="test_session"
+            pubsub_config=AgentPubSubConfig(
+                pubsub_name="testpubsub",
+                agent_topic="ToolDurableAgent",
+            ),
+            state_config=AgentStateConfig(
+                store=StateStoreService(store_name="teststatestore")
+            ),
+            registry_config=AgentRegistryConfig(
+                store=StateStoreService(store_name="testregistry")
+            ),
+            memory_config=AgentMemoryConfig(
+                store=ConversationDaprStateMemory(
+                    store_name="teststatestore", session_id="test_session"
+                )
             ),
             tools=[mock_tool],
-            max_iterations=5,
-            state_store_name="teststatestore",
-            message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
+            execution_config=AgentExecutionConfig(max_iterations=5),
         )
 
     def test_durable_agent_initialization(self, mock_llm):
@@ -222,23 +191,26 @@ class TestDurableAgent:
             goal="Help with testing",
             instructions=["Be helpful"],
             llm=mock_llm,
-            state_store_name="teststatestore",
-            message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
+            pubsub_config=AgentPubSubConfig(
+                pubsub_name="testpubsub",
+                agent_topic="TestDurableAgent",
+            ),
+            state_config=AgentStateConfig(
+                store=StateStoreService(store_name="teststatestore")
+            ),
+            registry_config=AgentRegistryConfig(
+                store=StateStoreService(store_name="testregistry")
+            ),
         )
 
         assert agent.name == "TestDurableAgent"
-        assert agent.role == "Test Durable Assistant"
-        assert agent.goal == "Help with testing"
-        assert agent.instructions == ["Be helpful"]
-        assert agent.max_iterations == 10  # default value
+        assert agent.prompting_helper.role == "Test Durable Assistant"
+        assert agent.prompting_helper.goal == "Help with testing"
+        assert agent.prompting_helper.instructions == ["Be helpful"]
+        assert agent.execution_config.max_iterations == 10  # default value
         assert agent.tool_history == []
-        assert agent.state_store_name == "teststatestore"
-        assert agent.message_bus_name == "testpubsub"
-        assert agent.agent_topic_name == "TestDurableAgent"
-        assert agent.state is not None
-        validated_state = AgentWorkflowState.model_validate(agent.state)
-        assert isinstance(validated_state, AgentWorkflowState)
+        assert agent.pubsub_config.pubsub_name == "testpubsub"
+        assert agent.pubsub_config.agent_topic == "TestDurableAgent"
 
     def test_durable_agent_initialization_with_custom_topic(self, mock_llm):
         """Test durable agent initialization with custom topic name."""
@@ -247,13 +219,19 @@ class TestDurableAgent:
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            agent_topic_name="custom-topic",
-            state_store_name="teststatestore",
-            message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
+            pubsub_config=AgentPubSubConfig(
+                pubsub_name="testpubsub",
+                agent_topic="custom-topic",
+            ),
+            state_config=AgentStateConfig(
+                store=StateStoreService(store_name="teststatestore")
+            ),
+            registry_config=AgentRegistryConfig(
+                store=StateStoreService(store_name="testregistry")
+            ),
         )
 
-        assert agent.agent_topic_name == "custom-topic"
+        assert agent.pubsub_config.agent_topic == "custom-topic"
 
     def test_durable_agent_initialization_name_from_role(self, mock_llm):
         """Test durable agent initialization with name derived from role."""

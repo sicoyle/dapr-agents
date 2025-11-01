@@ -3,6 +3,7 @@ import asyncio
 import os
 from unittest.mock import Mock, patch
 from dapr_agents.agents.standalone import Agent
+from dapr_agents.agents.configs import AgentMemoryConfig, AgentExecutionConfig
 from dapr_agents.types import (
     AgentError,
     AssistantMessage,
@@ -46,8 +47,8 @@ class TestAgent:
             goal="Help with testing",
             instructions=["Be helpful", "Test things"],
             llm=mock_llm,
-            memory=ConversationListMemory(),
-            max_iterations=5,
+            memory_config=AgentMemoryConfig(store=ConversationListMemory()),
+            execution_config=AgentExecutionConfig(max_iterations=5),
         )
 
     @pytest.fixture
@@ -59,9 +60,9 @@ class TestAgent:
             goal="Execute tools",
             instructions=["Use tools when needed"],
             llm=mock_llm,
-            memory=ConversationListMemory(),
+            memory_config=AgentMemoryConfig(store=ConversationListMemory()),
             tools=[echo_tool],
-            max_iterations=5,
+            execution_config=AgentExecutionConfig(max_iterations=5),
         )
 
     def test_agent_initialization(self, mock_llm):
@@ -76,12 +77,12 @@ class TestAgent:
         )
 
         assert agent.name == "TestAgent"
-        assert agent.role == "Test Assistant"
-        assert agent.goal == "Help with testing"
-        assert agent.instructions == ["Be helpful"]
-        assert agent.max_iterations == 10  # default value
+        assert agent.prompting_helper.role == "Test Assistant"
+        assert agent.prompting_helper.goal == "Help with testing"
+        assert agent.prompting_helper.instructions == ["Be helpful"]
+        assert agent.execution_config.max_iterations == 10  # default value
         assert agent.tool_history == []
-        assert agent.tool_choice == "auto"  # auto when tools are provided
+        assert agent.execution_config.tool_choice == "auto"  # auto when tools are provided
 
     def test_agent_initialization_without_tools(self, mock_llm):
         """Test agent initialization without tools."""
@@ -92,7 +93,7 @@ class TestAgent:
             llm=mock_llm,
         )
 
-        assert agent.tool_choice is None
+        assert agent.execution_config.tool_choice == "auto"  # still defaults to auto
 
     def test_agent_initialization_with_custom_tool_choice(self, mock_llm):
         """Test agent initialization with custom tool choice."""
@@ -101,10 +102,10 @@ class TestAgent:
             role="Test Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            tool_choice="required",
+            execution_config=AgentExecutionConfig(tool_choice="required"),
         )
 
-        assert agent.tool_choice == "required"
+        assert agent.execution_config.tool_choice == "required"
 
     @pytest.mark.asyncio
     async def test_run_with_shutdown_event(self, basic_agent):

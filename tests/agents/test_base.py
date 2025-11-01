@@ -43,7 +43,7 @@ class TestAgentBaseClass:
     @pytest.fixture
     def minimal_agent(self, mock_llm_client):
         """Create a minimal test agent with only required fields."""
-        return TestAgentBase(llm=mock_llm_client)
+        return TestAgentBase(name="MinimalAgent", llm=mock_llm_client)
 
     @pytest.fixture
     def agent_with_system_prompt(self, mock_llm_client):
@@ -72,11 +72,11 @@ class TestAgentBaseClass:
     def test_agent_creation_with_all_fields(self, basic_agent):
         """Test agent creation with all fields specified."""
         assert basic_agent.name == "TestAgent"
-        assert basic_agent.role == "Test Role"
-        assert basic_agent.goal == "Test Goal"
-        assert basic_agent.instructions == ["Test instruction 1", "Test instruction 2"]
-        assert basic_agent.max_iterations == 10
-        assert basic_agent.template_format == "jinja2"
+        assert basic_agent.prompting_helper.role == "Test Role"
+        assert basic_agent.prompting_helper.goal == "Test Goal"
+        assert basic_agent.prompting_helper.instructions == ["Test instruction 1", "Test instruction 2"]
+        assert basic_agent.execution_config.max_iterations == 10
+        assert basic_agent.prompting_helper.template_format == "jinja2"
         assert isinstance(basic_agent.memory, ConversationListMemory)
         assert basic_agent.llm is not None
 
