@@ -629,66 +629,78 @@ class TestDurableAgent:
 
     def test_process_user_message(self, basic_durable_agent):
         """Test _process_user_message helper method."""
+        from datetime import datetime, timezone
+        
         instance_id = "test-instance-123"
         task = "Hello, world!"
         user_message_copy = {"role": "user", "content": "Hello, world!"}
 
-        # Set up instance
-        basic_durable_agent.state["instances"][instance_id] = {
-            "input": "Test task",
-            "source": "test_source",
-            "triggering_workflow_instance_id": None,
-            "workflow_instance_id": instance_id,
-            "workflow_name": "AgenticWorkflow",
-            "status": "RUNNING",
-            "messages": [],
-            "tool_history": [],
-            "end_time": None,
-            "trace_context": None,
-        }
+        # Set up instance using AgentWorkflowEntry
+        if not hasattr(basic_durable_agent._state_model, 'instances'):
+            basic_durable_agent._state_model.instances = {}
+        
+        basic_durable_agent._state_model.instances[instance_id] = AgentWorkflowEntry(
+            input_value="Test task",
+            source="test_source",
+            triggering_workflow_instance_id=None,
+            workflow_instance_id=instance_id,
+            workflow_name="AgenticWorkflow",
+            status="RUNNING",
+            messages=[],
+            tool_history=[],
+            end_time=None,
+            start_time=datetime.now(timezone.utc),
+        )
 
-        # Mock memory.add_message
+        # Mock memory.add_message and save_state
         with patch.object(type(basic_durable_agent.memory), "add_message"):
-            basic_durable_agent._process_user_message(
-                instance_id, task, user_message_copy
-            )
+            with patch.object(basic_durable_agent, 'save_state'):
+                basic_durable_agent._process_user_message(
+                    instance_id, task, user_message_copy
+                )
 
         # Verify message was added to instance
-        instance_data = basic_durable_agent.state["instances"][instance_id]
-        assert len(instance_data["messages"]) == 1
-        assert instance_data["messages"][0]["role"] == "user"
-        assert instance_data["messages"][0]["content"] == "Hello, world!"
-        assert instance_data["last_message"]["role"] == "user"
+        entry = basic_durable_agent._state_model.instances[instance_id]
+        assert len(entry.messages) == 1
+        assert entry.messages[0].role == "user"
+        assert entry.messages[0].content == "Hello, world!"
+        assert entry.last_message.role == "user"
 
     def test_save_assistant_message(self, basic_durable_agent):
         """Test _save_assistant_message helper method."""
+        from datetime import datetime, timezone
+        
         instance_id = "test-instance-123"
         assistant_message = {"role": "assistant", "content": "Hello back!"}
 
-        # Set up instance
-        basic_durable_agent.state["instances"][instance_id] = {
-            "input": "Test task",
-            "source": "test_source",
-            "triggering_workflow_instance_id": None,
-            "workflow_instance_id": instance_id,
-            "workflow_name": "AgenticWorkflow",
-            "status": "RUNNING",
-            "messages": [],
-            "tool_history": [],
-            "end_time": None,
-            "trace_context": None,
-        }
+        # Set up instance using AgentWorkflowEntry
+        if not hasattr(basic_durable_agent._state_model, 'instances'):
+            basic_durable_agent._state_model.instances = {}
+        
+        basic_durable_agent._state_model.instances[instance_id] = AgentWorkflowEntry(
+            input_value="Test task",
+            source="test_source",
+            triggering_workflow_instance_id=None,
+            workflow_instance_id=instance_id,
+            workflow_name="AgenticWorkflow",
+            status="RUNNING",
+            messages=[],
+            tool_history=[],
+            end_time=None,
+            start_time=datetime.now(timezone.utc),
+        )
 
-        # Mock memory.add_message
+        # Mock memory.add_message and save_state
         with patch.object(type(basic_durable_agent.memory), "add_message"):
-            basic_durable_agent._save_assistant_message(instance_id, assistant_message)
+            with patch.object(basic_durable_agent, 'save_state'):
+                basic_durable_agent._save_assistant_message(instance_id, assistant_message)
 
         # Verify message was added to instance
-        instance_data = basic_durable_agent.state["instances"][instance_id]
-        assert len(instance_data["messages"]) == 1
-        assert instance_data["messages"][0]["role"] == "assistant"
-        assert instance_data["messages"][0]["content"] == "Hello back!"
-        assert instance_data["last_message"]["role"] == "assistant"
+        entry = basic_durable_agent._state_model.instances[instance_id]
+        assert len(entry.messages) == 1
+        assert entry.messages[0].role == "assistant"
+        assert entry.messages[0].content == "Hello back!"
+        assert entry.last_message.role == "assistant"
 
     def test_get_last_message_from_state(self, basic_durable_agent):
         """Test _get_last_message_from_state helper method."""
