@@ -10,12 +10,10 @@ from unittest.mock import AsyncMock, Mock, patch, MagicMock
 import pytest
 from dapr.ext.workflow import DaprWorkflowContext
 
-from dapr_agents.agents.durableagent.agent import DurableAgent
-from dapr_agents.agents.durableagent.schemas import (
+from dapr_agents.agents.durable import DurableAgent
+from dapr_agents.agents.schemas import (
     AgentTaskResponse,
     BroadcastMessage,
-)
-from dapr_agents.agents.durableagent.state import (
     AgentWorkflowMessage,
     AgentWorkflowEntry,
     AgentWorkflowState,

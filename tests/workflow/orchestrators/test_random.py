@@ -1,7 +1,7 @@
 """Tests for the RandomOrchestrator."""
 import pytest
 from unittest.mock import MagicMock, patch
-from dapr_agents.workflow.orchestrators import RandomOrchestrator
+from dapr_agents.agents.orchestrators import RandomOrchestrator
 
 
 @pytest.fixture

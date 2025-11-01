@@ -1,8 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, Mock
-from dapr_agents.agents.durableagent.agent import DurableAgent
-from dapr_agents.agents.durableagent.state import AgentWorkflowEntry
-from dapr_agents.agents.durableagent.state import AgentWorkflowState
+from dapr_agents.agents.durable import DurableAgent
+from dapr_agents.agents.schemas import AgentWorkflowEntry, AgentWorkflowState
 from dapr_agents.tool.base import AgentTool
 
 

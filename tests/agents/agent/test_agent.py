@@ -2,7 +2,7 @@ import pytest
 import asyncio
 import os
 from unittest.mock import Mock, patch
-from dapr_agents.agents.agent.agent import Agent
+from dapr_agents.agents.standalone import Agent
 from dapr_agents.types import (
     AgentError,
     AssistantMessage,
