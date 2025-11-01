@@ -79,9 +79,7 @@ async def main() -> None:
         team_name=team_name,
     )
 
-    execution_config = AgentExecutionConfig(
-        max_iterations=3
-    )
+    execution_config = AgentExecutionConfig(max_iterations=3)
 
     # -------------------------------------------------------------------------
     # Orchestrator instance

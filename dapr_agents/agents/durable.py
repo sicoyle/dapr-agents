@@ -287,7 +287,9 @@ class DurableAgent(AgentBase):
 
         if not ctx.is_replaying:
             verdict = (
-                "max_iterations_reached" if turn == self.execution_config.max_iterations else "completed"
+                "max_iterations_reached"
+                if turn == self.execution_config.max_iterations
+                else "completed"
             )
             logger.info(
                 "Workflow %s finalized for agent %s with verdict=%s",

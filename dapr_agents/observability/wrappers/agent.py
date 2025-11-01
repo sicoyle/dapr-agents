@@ -135,7 +135,9 @@ class AgentRunWrapper:
             "agent.goal": getattr(instance, "goal", None),
             "agent.tools": [tool.name for tool in getattr(instance, "tools", [])],
             "agent.tools.count": len(getattr(instance, "tools", [])),
-            "agent.execution_config.max_iterations": getattr(instance, "execution_config.max_iterations", None),
+            "agent.execution_config.max_iterations": getattr(
+                instance, "execution_config.max_iterations", None
+            ),
         }
 
         # Extract actual input value - the user's query/request

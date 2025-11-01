@@ -265,7 +265,9 @@ class Agent(AgentBase):
         final_reply: Optional[AssistantMessage] = None
 
         for turn in range(1, self.execution_config.max_iterations + 1):
-            logger.info("Iteration %d/%d started.", turn, self.execution_config.max_iterations)
+            logger.info(
+                "Iteration %d/%d started.", turn, self.execution_config.max_iterations
+            )
             try:
                 response: LLMChatResponse = self.llm.generate(
                     messages=pending_messages,
