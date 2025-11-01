@@ -27,28 +27,33 @@ def test_random_orchestrator_initialization(orchestrator_config):
 
 @pytest.mark.asyncio
 async def test_process_input(orchestrator_config):
-    """Test the process_input task."""
+    """Test the _process_input_activity task."""
     with patch("dapr.ext.workflow.WorkflowRuntime") as mock_runtime:
         mock_runtime.return_value = MagicMock()
         orchestrator = RandomOrchestrator(**orchestrator_config)
+        
+        # Mock the activity context
+        mock_ctx = MagicMock()
         task = "test task"
-        result = await orchestrator.process_input(task)
+        result = orchestrator._process_input_activity(mock_ctx, {"task": task})
 
         assert result["role"] == "user"
-        assert result["name"] == "test_orchestrator"
+        assert result["name"] == "user"
         assert result["content"] == task
 
 
 def test_select_random_speaker(orchestrator_config):
-    """Test the select_random_speaker task."""
+    """Test the _select_random_speaker_activity task."""
     with patch("dapr.ext.workflow.WorkflowRuntime") as mock_runtime, patch.object(
         RandomOrchestrator,
-        "get_agents_metadata",
+        "list_team_agents",
         return_value={"agent1": {"name": "agent1"}, "agent2": {"name": "agent2"}},
     ):
         mock_runtime.return_value = MagicMock()
         orchestrator = RandomOrchestrator(**orchestrator_config)
 
-        speaker = orchestrator.select_random_speaker()
+        # Mock the activity context
+        mock_ctx = MagicMock()
+        speaker = orchestrator._select_random_speaker_activity(mock_ctx)
+        
         assert speaker in ["agent1", "agent2"]
-        assert orchestrator.current_speaker == speaker
