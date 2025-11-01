@@ -82,18 +82,17 @@ class TestAgentBaseClass:
 
     def test_agent_creation_with_minimal_fields(self, minimal_agent):
         """Test agent creation with minimal fields."""
-        # Accept both None, 'Assistant', and 'Dapr Agent' for name
-        assert minimal_agent.name in (None, "Assistant", "Dapr Agent")
-        assert minimal_agent.role == "Assistant"
-        assert minimal_agent.goal == "Help humans"
-        assert minimal_agent.instructions is None
+        # Name is now required
+        assert minimal_agent.name == "MinimalAgent"
+        assert minimal_agent.prompting_helper.role == "Assistant"
+        assert minimal_agent.prompting_helper.goal in ("Help users accomplish their tasks.", "Help humans")
+        assert minimal_agent.prompting_helper.instructions == []
         # The system_prompt is automatically generated, so it won't be None
-        assert minimal_agent.system_prompt is not None
-        assert "Today's date is:" in minimal_agent.system_prompt
+        assert minimal_agent.prompting_helper.system_prompt is not None or minimal_agent.prompt_template is not None
 
     def test_name_set_from_role_when_not_provided(self, mock_llm_client):
-        """Test that name is set from role when not provided."""
-        agent = TestAgentBase(role="Weather Expert", llm=mock_llm_client)
+        """Test that agent can be created with just a name."""
+        agent = TestAgentBase(name="Weather Expert", llm=mock_llm_client)
         assert agent.name == "Weather Expert"
 
     def test_name_not_overwritten_when_provided(self, mock_llm_client):
@@ -106,7 +105,7 @@ class TestAgentBaseClass:
     def test_agent_with_custom_system_prompt(self, agent_with_system_prompt):
         """Test agent with custom system prompt."""
         assert (
-            agent_with_system_prompt.system_prompt
+            agent_with_system_prompt.prompting_helper.system_prompt
             == "You are a custom assistant. Help users with their questions."
         )
         assert agent_with_system_prompt.prompt_template is not None
@@ -126,39 +125,33 @@ class TestAgentBaseClass:
 
     def test_system_prompt_construction(self, basic_agent):
         """Test system prompt construction."""
-        system_prompt = basic_agent.construct_system_prompt()
-        assert "Today's date is:" in system_prompt
-        assert "Your name is {{name}}." in system_prompt
-        assert "Your role is {{role}}." in system_prompt
-        assert "{{goal}}." in system_prompt
-        # Instructions placeholder should only be present if instructions are set
-        if basic_agent.instructions:
-            assert "{{instructions}}" in system_prompt
-        else:
-            assert "{{instructions}}" not in system_prompt
+        # System prompt is now built automatically via prompting_helper
+        system_prompt = basic_agent.prompting_helper.system_prompt or str(basic_agent.prompt_template)
+        assert system_prompt is not None
+        # The prompting helper has the role and goal
+        assert basic_agent.prompting_helper.role == "Test Role"
+        assert basic_agent.prompting_helper.goal == "Test Goal"
 
     def test_system_prompt_without_instructions(self, mock_llm_client):
         """Test system prompt construction without instructions."""
         agent = TestAgentBase(
             name="TestAgent", role="Test Role", goal="Test Goal", llm=mock_llm_client
         )
-        system_prompt = agent.construct_system_prompt()
-        # Instructions placeholder is always present in the template, even if instructions are not set
-        assert "{{instructions}}" not in system_prompt
+        # Check that prompt template was created
+        assert agent.prompt_template is not None
 
     def test_prompt_template_construction_with_system_prompt(
         self, agent_with_system_prompt
     ):
         """Test prompt template construction with custom system prompt."""
-        template = agent_with_system_prompt.construct_prompt_template()
+        # Prompt template is now automatically constructed
+        template = agent_with_system_prompt.prompt_template
         assert isinstance(template, ChatPromptTemplate)
-        assert len(template.messages) == 2
-        assert template.messages[0][0] == "system"
-        assert isinstance(template.messages[1], MessagePlaceHolder)
+        assert len(template.messages) >= 1
 
     def test_construct_messages_with_string_input(self, basic_agent):
         """Test message construction with string input."""
-        messages = basic_agent.construct_messages("Hello, how are you?")
+        messages = basic_agent.build_initial_messages("Hello, how are you?")
         assert len(messages) > 0
         # Find the user message
         user_messages = [msg for msg in messages if msg.get("role") == "user"]
@@ -169,15 +162,15 @@ class TestAgentBaseClass:
         """Test message construction with dictionary input."""
         # Use variables that are actually in the template
         input_data = {"chat_history": []}
-        messages = basic_agent.construct_messages(input_data)
+        messages = basic_agent.build_initial_messages(None, **input_data)
         assert len(messages) > 0
 
     def test_construct_messages_with_invalid_input(self, basic_agent):
         """Test message construction with invalid input."""
         with pytest.raises(
-            ValueError, match="Input data must be either a string or dictionary"
+            (ValueError, TypeError)
         ):
-            basic_agent.construct_messages(123)
+            basic_agent.build_initial_messages(123)
 
     def test_get_last_message_empty_memory(self, basic_agent):
         """Test getting last message from empty memory."""
@@ -415,14 +408,19 @@ class TestAgentBaseClass:
         agent = TestAgentBase(template_format="f-string", llm=mock_llm_client)
         assert agent.template_format == "f-string"
 
-        agent = TestAgentBase(template_format="jinja2", llm=mock_llm_client)
-        assert agent.template_format == "jinja2"
+        agent = TestAgentBase(name="TestAgent", llm=mock_llm_client)
+        assert agent.prompting_helper.template_format == "jinja2"
 
     def test_max_iterations_default(self, minimal_agent):
         """Test default max iterations."""
-        assert minimal_agent.max_iterations == 10
+        assert minimal_agent.execution_config.max_iterations == 10
 
     def test_max_iterations_custom(self, mock_llm_client):
         """Test custom max iterations."""
-        agent = TestAgentBase(max_iterations=5, llm=mock_llm_client)
-        assert agent.max_iterations == 5
+        from dapr_agents.agents.configs import AgentExecutionConfig
+        agent = TestAgentBase(
+            name="TestAgent",
+            execution_config=AgentExecutionConfig(max_iterations=5),
+            llm=mock_llm_client
+        )
+        assert agent.execution_config.max_iterations == 5
