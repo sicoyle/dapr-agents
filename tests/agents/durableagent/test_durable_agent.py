@@ -703,64 +703,101 @@ class TestDurableAgent:
         assert entry.last_message.role == "assistant"
 
     def test_get_last_message_from_state(self, basic_durable_agent):
-        """Test _get_last_message_from_state helper method."""
+        """Test accessing last_message from instance state."""
+        from datetime import datetime, timezone
+        
         instance_id = "test-instance-123"
 
-        # Set up instance with last_message
-        basic_durable_agent.state["instances"][instance_id] = {
-            "input": "Test task",
-            "source": "test_source",
-            "triggering_workflow_instance_id": None,
-            "workflow_instance_id": instance_id,
-            "workflow_name": "AgenticWorkflow",
-            "status": "RUNNING",
-            "messages": [],
-            "tool_history": [],
-            "end_time": None,
-            "trace_context": None,
-            "last_message": AgentWorkflowMessage(
-                role="assistant", content="Last message"
-            ).model_dump(mode="json"),
-        }
+        # Set up instance with last_message using AgentWorkflowEntry
+        if not hasattr(basic_durable_agent._state_model, 'instances'):
+            basic_durable_agent._state_model.instances = {}
+        
+        last_msg = AgentWorkflowMessage(role="assistant", content="Last message")
+        basic_durable_agent._state_model.instances[instance_id] = AgentWorkflowEntry(
+            input_value="Test task",
+            source="test_source",
+            triggering_workflow_instance_id=None,
+            workflow_instance_id=instance_id,
+            workflow_name="AgenticWorkflow",
+            status="RUNNING",
+            messages=[],
+            tool_history=[],
+            end_time=None,
+            start_time=datetime.now(timezone.utc),
+            last_message=last_msg,
+        )
 
-        result = basic_durable_agent._get_last_message_from_state(instance_id)
-        assert result["role"] == "assistant"
-        assert result["content"] == "Last message"
+        # Access last_message directly from the entry
+        entry = basic_durable_agent._state_model.instances.get(instance_id)
+        assert entry is not None
+        assert entry.last_message.role == "assistant"
+        assert entry.last_message.content == "Last message"
 
         # Test with non-existent instance
-        result = basic_durable_agent._get_last_message_from_state("non-existent")
+        result = basic_durable_agent._state_model.instances.get("non-existent")
         assert result is None
 
-    def test_create_tool_message_objects(self, basic_durable_agent):
-        """Test _create_tool_message_objects helper method."""
-        tool_result = {
-            "tool_call_id": "call_123",
-            "tool_name": "test_tool",
-            "tool_args": {"arg1": "value1"},
-            "execution_result": "tool_result",
+    @pytest.mark.asyncio
+    async def test_create_tool_message_objects(self, basic_durable_agent):
+        """Test that tool message objects are created correctly (via run_tool activity)."""
+        from datetime import datetime, timezone
+        
+        instance_id = "test-instance-123"
+        tool_call = {
+            "id": "call_123",
+            "function": {"name": "test_tool", "arguments": '{"arg1": "value1"}'},
         }
 
-        (
-            tool_msg,
-            agent_msg,
-            tool_history_entry,
-        ) = basic_durable_agent._create_tool_message_objects(tool_result)
+        # Set up instance
+        if not hasattr(basic_durable_agent._state_model, 'instances'):
+            basic_durable_agent._state_model.instances = {}
+        
+        basic_durable_agent._state_model.instances[instance_id] = AgentWorkflowEntry(
+            input_value="Test task",
+            source="test_source",
+            triggering_workflow_instance_id=None,
+            workflow_instance_id=instance_id,
+            workflow_name="AgenticWorkflow",
+            status="RUNNING",
+            messages=[],
+            tool_history=[],
+            end_time=None,
+            start_time=datetime.now(timezone.utc),
+        )
 
-        # Verify tool message
-        assert tool_msg.tool_call_id == "call_123"
-        assert tool_msg.name == "test_tool"
-        assert tool_msg.content == "tool_result"
+        # Mock tool executor
+        with patch.object(type(basic_durable_agent.tool_executor), "run_tool", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = "tool_result"
+            
+            mock_ctx = Mock()
+            
+            with patch.object(basic_durable_agent, 'save_state'):
+                result = await basic_durable_agent.run_tool(
+                    mock_ctx,
+                    {
+                        "tool_call": tool_call,
+                        "instance_id": instance_id,
+                        "time": datetime.now(timezone.utc).isoformat(),
+                        "order": 1
+                    }
+                )
 
-        # Verify agent message (AgentWorkflowMessage)
-        assert agent_msg.role == "tool"
-        assert agent_msg.tool_call_id == "call_123"
-        assert agent_msg.content == "tool_result"
-
-        # Verify tool history entry (ToolExecutionRecord)
-        assert tool_history_entry.tool_call_id == "call_123"
-        assert tool_history_entry.tool_name == "test_tool"
-        assert tool_history_entry.tool_args == {"arg1": "value1"}
-        assert tool_history_entry.execution_result == "tool_result"
+        # Verify the tool result structure
+        assert result["tool_call_id"] == "call_123"
+        assert result["tool_name"] == "test_tool"
+        assert result["execution_result"] == "tool_result"
+        
+        # Verify messages and history were added to instance
+        entry = basic_durable_agent._state_model.instances[instance_id]
+        assert len(entry.messages) == 1
+        assert entry.messages[0].role == "tool"
+        assert entry.messages[0].id == "call_123"  # AgentWorkflowMessage uses 'id' not 'tool_call_id'
+        assert entry.messages[0].name == "test_tool"
+        
+        assert len(entry.tool_history) == 1
+        assert entry.tool_history[0].tool_call_id == "call_123"
+        assert entry.tool_history[0].tool_name == "test_tool"
+        assert entry.tool_history[0].execution_result == "tool_result"
 
     def test_append_tool_message_to_instance(self, basic_durable_agent):
         """Test _append_tool_message_to_instance helper method."""
