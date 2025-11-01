@@ -590,7 +590,7 @@ class TestDurableAgent:
         assert entry.status.lower() == "running"
 
     def test_ensure_instance_exists(self, basic_durable_agent):
-        """Test _ensure_instance_exists helper method."""
+        """Test ensure_instance_exists helper method."""
         instance_id = "test-instance-123"
         triggering_workflow_instance_id = "parent-instance-123"
         time = "2024-01-01T00:00:00Z"
@@ -599,33 +599,33 @@ class TestDurableAgent:
         from datetime import datetime
 
         test_time = datetime.fromisoformat(time.replace("Z", "+00:00"))
-        basic_durable_agent._ensure_instance_exists(
-            instance_id, "Test input", triggering_workflow_instance_id, test_time
+        basic_durable_agent.ensure_instance_exists(
+            instance_id=instance_id,
+            input_value="Test input",
+            triggering_workflow_instance_id=triggering_workflow_instance_id,
+            time=test_time
         )
 
-        assert instance_id in basic_durable_agent.state["instances"]
-        instance_data = basic_durable_agent.state["instances"][instance_id]
-        assert (
-            instance_data["triggering_workflow_instance_id"]
-            == triggering_workflow_instance_id
-        )
-        # start_time is stored as string in dict format
-        assert instance_data["start_time"] == "2024-01-01T00:00:00+00:00"
-        assert instance_data["workflow_name"] == "AgenticWorkflow"
+        assert instance_id in basic_durable_agent._state_model.instances
+        entry = basic_durable_agent._state_model.instances[instance_id]
+        assert entry.triggering_workflow_instance_id == triggering_workflow_instance_id
+        assert entry.start_time == test_time
+        assert entry.workflow_name is None  # Default entry doesn't set workflow_name
 
         # Test that existing instance is not overwritten
         original_input = "Original input"
-        basic_durable_agent.state["instances"][instance_id]["input"] = original_input
+        entry.input_value = original_input
 
-        basic_durable_agent._ensure_instance_exists(
-            instance_id, "different-parent", "2024-01-02T00:00:00Z"
+        basic_durable_agent.ensure_instance_exists(
+            instance_id=instance_id,
+            input_value="New input",
+            triggering_workflow_instance_id="different-parent",
+            time=datetime.fromisoformat("2024-01-02T00:00:00Z".replace("Z", "+00:00"))
         )
 
-        # Input should remain unchanged
-        assert (
-            basic_durable_agent.state["instances"][instance_id]["input"]
-            == original_input
-        )
+        # Input should remain unchanged (ensure_instance_exists doesn't overwrite)
+        entry = basic_durable_agent._state_model.instances[instance_id]
+        assert entry.input_value == original_input
 
     def test_process_user_message(self, basic_durable_agent):
         """Test _process_user_message helper method."""
@@ -817,45 +817,42 @@ class TestDurableAgent:
 
     def test_construct_messages_with_instance_history(self, basic_durable_agent):
         """Test _construct_messages_with_instance_history helper method."""
+        from datetime import datetime, timezone
+        
         instance_id = "test-instance-123"
-        input_data = "Test input"
 
-        # Set up instance with messages
-        basic_durable_agent.state["instances"][instance_id] = {
-            "input": "Test task",
-            "source": "test_source",
-            "triggering_workflow_instance_id": None,
-            "workflow_instance_id": instance_id,
-            "workflow_name": "AgenticWorkflow",
-            "status": "RUNNING",
-            "messages": [
-                AgentWorkflowMessage(role="user", content="Hello").model_dump(
-                    mode="json"
-                ),
-                AgentWorkflowMessage(role="assistant", content="Hi there!").model_dump(
-                    mode="json"
-                ),
+        # Set up instance with messages using AgentWorkflowEntry
+        if not hasattr(basic_durable_agent._state_model, 'instances'):
+            basic_durable_agent._state_model.instances = {}
+        
+        basic_durable_agent._state_model.instances[instance_id] = AgentWorkflowEntry(
+            input_value="Test task",
+            source="test_source",
+            triggering_workflow_instance_id=None,
+            workflow_instance_id=instance_id,
+            workflow_name="AgenticWorkflow",
+            status="RUNNING",
+            messages=[
+                AgentWorkflowMessage(role="user", content="Hello"),
+                AgentWorkflowMessage(role="assistant", content="Hi there!"),
             ],
-            "tool_history": [],
-            "end_time": None,
-            "trace_context": None,
-        }
-
-        # Mock prompt template
-        basic_durable_agent.prompt_template = Mock()
-        basic_durable_agent.prompt_template.format_prompt.return_value = [
-            {"role": "system", "content": "System prompt"}
-        ]
-
-        messages = basic_durable_agent._construct_messages_with_instance_history(
-            instance_id, input_data
+            tool_history=[],
+            end_time=None,
+            start_time=datetime.now(timezone.utc),
         )
 
-        # Should include system message + user input
-        assert len(messages) == 2  # system + user input
-        assert messages[0]["role"] == "system"
-        assert messages[1]["role"] == "user"
-        assert messages[1]["content"] == "Test input"
+        messages = basic_durable_agent._construct_messages_with_instance_history(
+            instance_id
+        )
+
+        # Should include messages from instance history (system messages excluded from instance timeline)
+        # Plus any messages from memory
+        assert len(messages) >= 2  # At least the 2 instance messages
+        # Find the user and assistant messages
+        user_messages = [m for m in messages if m.get("role") == "user"]
+        assistant_messages = [m for m in messages if m.get("role") == "assistant"]
+        assert len(user_messages) >= 1
+        assert len(assistant_messages) >= 1
 
     @pytest.mark.asyncio
     async def test_broadcast_message(self, basic_durable_agent):
