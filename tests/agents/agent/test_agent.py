@@ -141,7 +141,7 @@ class TestAgent:
         mock_response.get_message.return_value = assistant_msg
         basic_agent.llm.generate.return_value = mock_response
 
-        result = await basic_agent._run_agent("Hello")
+        result = await basic_agent._run_agent(input_data="Hello", instance_id="test-123")
 
         assert isinstance(result, AssistantMessage)
         assert result.content == "Hello!"

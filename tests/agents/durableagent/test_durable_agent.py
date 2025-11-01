@@ -236,16 +236,24 @@ class TestDurableAgent:
     def test_durable_agent_initialization_name_from_role(self, mock_llm):
         """Test durable agent initialization with name derived from role."""
         agent = DurableAgent(
+            name="Test Durable Assistant",
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            state_store_name="teststatestore",
-            message_bus_name="testpubsub",
-            agents_registry_store_name="testregistry",
+            pubsub_config=AgentPubSubConfig(
+                pubsub_name="testpubsub",
+                agent_topic="Test Durable Assistant",
+            ),
+            state_config=AgentStateConfig(
+                store=StateStoreService(store_name="teststatestore")
+            ),
+            registry_config=AgentRegistryConfig(
+                store=StateStoreService(store_name="testregistry")
+            ),
         )
 
         assert agent.name == "Test Durable Assistant"
-        assert agent.agent_topic_name == "Test Durable Assistant"
+        assert agent.pubsub_config.agent_topic == "Test Durable Assistant"
 
     def test_durable_agent_metadata(self, basic_durable_agent):
         """Test durable agent metadata creation."""
