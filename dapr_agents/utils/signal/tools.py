@@ -108,7 +108,11 @@ def install_signal_handlers(
 
         for s, prev in previous.items():
             try:
-                signal.signal(s, prev)
+                # Only pass prev to signal.signal if it's a valid handler type
+                if prev is None or callable(prev) or isinstance(prev, int):
+                    signal.signal(s, prev)
+                else:
+                    signal.signal(s, None)
             except Exception:
                 # Avoid raising from cleanup paths.
                 pass
