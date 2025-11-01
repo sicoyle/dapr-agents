@@ -4,6 +4,7 @@ import signal
 from unittest.mock import Mock, patch
 
 from dapr_agents.agents.base import AgentBase
+from dapr_agents.agents.configs import AgentMemoryConfig
 from dapr_agents.memory import ConversationListMemory
 from dapr_agents.llm import OpenAIChatClient
 from dapr_agents.prompt import ChatPromptTemplate
@@ -257,31 +258,39 @@ class TestAgentBaseClass:
         mock_vector_store = MockVectorStore()
         mock_llm = MockLLMClient()
         memory = DummyVectorMemory(mock_vector_store)
-        agent = TestAgentBase(memory=memory, llm=mock_llm)
+        agent = TestAgentBase(
+            name="TestAgent",
+            memory_config=AgentMemoryConfig(store=memory),
+            llm=mock_llm
+        )
 
-        # Access chat_history as a property
-        result = agent.chat_history
+        # Call get_chat_history() method instead of accessing property
+        result = agent.get_chat_history()
         assert isinstance(result, list)
         assert isinstance(result[0], Mock)
 
     def test_chat_history_with_regular_memory(self, mock_llm_client):
         """Test chat history retrieval with regular memory."""
         memory = ConversationListMemory()
-        agent = TestAgentBase(memory=memory, llm=mock_llm_client)
+        agent = TestAgentBase(
+            name="TestAgent",
+            memory_config=AgentMemoryConfig(store=memory),
+            llm=mock_llm_client
+        )
 
         with patch.object(
             ConversationListMemory,
             "get_messages",
             return_value=[Mock(spec=MessageContent)],
         ):
-            result = agent.chat_history
+            result = agent.get_chat_history()
             assert isinstance(result, list)
             assert isinstance(result[0], Mock)
 
     def test_prefill_agent_attributes_missing_fields_warns(
         self, mock_llm_client, caplog
     ):
-        """Test pre-filling agent attributes logs a warning if fields are missing in the template."""
+        """Test that prompt variables are prefilled correctly even when some are not used in template."""
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 ("system", "Just a system message"),
@@ -296,12 +305,13 @@ class TestAgentBaseClass:
             llm=mock_llm_client,
             prompt_template=prompt_template,
         )
-        with caplog.at_level("WARNING"):
-            agent.prefill_agent_attributes()
-            assert (
-                "Agent attributes set but not referenced in prompt_template"
-                in caplog.text
-            )
+        # Verify that prompting_helper was initialized and prefilled variables
+        assert agent.prompting_helper is not None
+        assert agent.prompting_helper.name == "TestAgent"
+        assert agent.prompting_helper.role == "TestRole"
+        assert agent.prompting_helper.goal == "TestGoal"
+        # The prompt template should be prefilled
+        assert agent.prompt_template is not None
 
     def test_validate_llm_openai_without_api_key(self, monkeypatch):
         """Test validation fails when OpenAI is used without API key."""
@@ -325,7 +335,7 @@ class TestAgentBaseClass:
             side_effect=Exception("Memory error"),
         ):
             with pytest.raises(Exception, match="Memory error"):
-                TestAgentBase(llm=mock_llm_client)
+                TestAgentBase(name="TestAgent", llm=mock_llm_client)
 
     @pytest.mark.skip(reason="Signal handlers only exist in standalone.Agent, not AgentBase")
     def test_signal_handler_setup(self, basic_agent):
@@ -342,40 +352,49 @@ class TestAgentBaseClass:
             assert basic_agent._shutdown_event.is_set()
 
     def test_conflicting_prompt_templates(self, caplog):
-        """Test warning when both agent and LLM have prompt templates."""
+        """Test that agent can have its own prompt template even when LLM has one."""
         mock_llm = MockLLMClient()
         mock_llm.prompt_template = ChatPromptTemplate.from_messages(
-            [("system", "test")]
+            [("system", "llm template")]
         )
-        mock_prompt_template = ChatPromptTemplate.from_messages([("system", "test2")])
+        mock_prompt_template = ChatPromptTemplate.from_messages([("system", "agent template")])
 
-        with caplog.at_level("WARNING"):
-            TestAgentBase(llm=mock_llm, prompt_template=mock_prompt_template)
-            assert (
-                "Agent attributes set but not referenced in prompt_template"
-                in caplog.text
-                or "Agent attributes set but not used in prompt_template" in caplog.text
-            )
+        agent = TestAgentBase(
+            name="TestAgent",
+            llm=mock_llm,
+            prompt_template=mock_prompt_template
+        )
+        # Agent's prompt template should be used and set on LLM
+        assert agent.prompt_template is not None
+        assert agent.llm.prompt_template is not None
+        # The LLM should now have the agent's template
+        assert agent.llm.prompt_template == agent.prompt_template
 
     def test_agent_with_custom_prompt_template(self):
         """Test agent with custom prompt template."""
         mock_prompt_template = ChatPromptTemplate.from_messages([("system", "test")])
         mock_llm = MockLLMClient()
         mock_llm.prompt_template = None
-        agent = TestAgentBase(llm=mock_llm, prompt_template=mock_prompt_template)
+        agent = TestAgentBase(
+            name="TestAgent",
+            llm=mock_llm,
+            prompt_template=mock_prompt_template
+        )
         assert agent.prompt_template is not None
         assert agent.llm.prompt_template is not None
         assert agent.prompt_template.messages == agent.llm.prompt_template.messages
 
     def test_agent_with_llm_prompt_template(self):
-        """Test agent with LLM prompt template."""
+        """Test agent initialization when LLM has a prompt template."""
         mock_prompt_template = ChatPromptTemplate.from_messages([("system", "test")])
         mock_llm = MockLLMClient()
         mock_llm.prompt_template = mock_prompt_template
-        agent = TestAgentBase(llm=mock_llm)
+        agent = TestAgentBase(name="TestAgent", llm=mock_llm)
+        # Agent should build its own prompt template from profile
         assert agent.prompt_template is not None
         assert agent.llm.prompt_template is not None
-        assert agent.prompt_template.messages == agent.llm.prompt_template.messages
+        # LLM should have agent's template set on it
+        assert agent.llm.prompt_template == agent.prompt_template
 
     def test_run_method_implementation(self, basic_agent):
         """Test that the concrete run method works."""
@@ -392,6 +411,7 @@ class TestAgentBaseClass:
         executor = basic_agent.tool_executor
         assert executor is not None
 
+    @pytest.mark.skip(reason="model_fields_set is Pydantic-specific; AgentBase is now a dataclass")
     def test_model_fields_set_detection(self, mock_llm_client):
         """Test that model_fields_set properly detects user-set attributes."""
         agent = TestAgentBase(
