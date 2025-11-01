@@ -57,10 +57,10 @@ class RandomOrchestrator(OrchestratorBase):
             pubsub_config=pubsub_config,
             state_config=state_config,
             registry_config=registry_config,
-            execution_config=execution_config,
             agent_metadata=agent_metadata,
             runtime=runtime,
         )
+        self.execution_config = execution_config or AgentExecutionConfig()
         self.timeout = max(1, timeout_seconds)
         self.current_speaker: Optional[str] = None
 
