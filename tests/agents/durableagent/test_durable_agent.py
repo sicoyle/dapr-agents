@@ -799,43 +799,67 @@ class TestDurableAgent:
         assert entry.tool_history[0].tool_name == "test_tool"
         assert entry.tool_history[0].execution_result == "tool_result"
 
-    def test_append_tool_message_to_instance(self, basic_durable_agent):
-        """Test _append_tool_message_to_instance helper method."""
+    @pytest.mark.asyncio
+    async def test_append_tool_message_to_instance(self, basic_durable_agent):
+        """Test that tool messages are appended to instance via run_tool activity."""
         instance_id = "test-instance-123"
 
-        # Set up instance
-        basic_durable_agent.state["instances"][instance_id] = {
-            "input": "Test task",
-            "source": "test_source",
-            "triggering_workflow_instance_id": None,
-            "workflow_instance_id": instance_id,
-            "workflow_name": "AgenticWorkflow",
-            "status": "RUNNING",
-            "messages": [],
-            "tool_history": [],
-            "end_time": None,
-            "trace_context": None,
-        }
+        # Set up instance using AgentWorkflowEntry
+        entry = AgentWorkflowEntry(
+            input_value="Test task",
+            source="test_source",
+            triggering_workflow_instance_id=None,
+            workflow_instance_id=instance_id,
+            workflow_name="AgenticWorkflow",
+            status="RUNNING",
+            messages=[],
+            tool_history=[],
+        )
+        basic_durable_agent._state_model.instances[instance_id] = entry
 
-        # Create mock objects
+        # Create a simple test tool
+        from dapr_agents.tool.base import AgentTool
 
-        agent_msg = AgentWorkflowMessage(role="assistant", content="Tool result")
-        tool_history_entry = ToolExecutionRecord(
-            tool_call_id="call_123",
-            tool_name="test_tool",
-            execution_result="tool_result",
+        def test_tool_func(x):
+            """Test tool for verification."""
+            return "tool_result"
+
+        test_tool = AgentTool.from_func(test_tool_func)
+        basic_durable_agent.tools.append(test_tool)
+        # Recreate tool executor with the new tool
+        from dapr_agents.tool.executor import AgentToolExecutor
+
+        basic_durable_agent.tool_executor = AgentToolExecutor(
+            tools=list(basic_durable_agent.tools)
         )
 
-        basic_durable_agent._append_tool_message_to_instance(
-            instance_id, agent_msg, tool_history_entry
-        )
+        # Mock save_state to prevent actual persistence
+        with patch.object(basic_durable_agent, "save_state"):
+            mock_ctx = Mock()
 
-        # Verify instance was updated
-        instance_data = basic_durable_agent.state["instances"][instance_id]
-        assert len(instance_data["messages"]) == 1
-        assert instance_data["messages"][0]["role"] == "assistant"
-        assert len(instance_data["tool_history"]) == 1
-        assert instance_data["tool_history"][0]["tool_call_id"] == "call_123"
+            # Call run_tool activity which appends messages and tool_history
+            await basic_durable_agent.run_tool(
+                mock_ctx,
+                {
+                    "instance_id": instance_id,
+                    "tool_call": {
+                        "id": "call_123",
+                        "type": "function",
+                        "function": {
+                            "name": "TestToolFunc",  # Tool name is CamelCase version of function name
+                            "arguments": '{"x": "test"}',  # Pass string to match type hint default
+                        },
+                    },
+                },
+            )
+
+        # Verify entry was updated with message and tool_history
+        assert len(entry.messages) == 1
+        assert entry.messages[0].role == "tool"
+        assert entry.messages[0].id == "call_123"  # AgentWorkflowMessage uses 'id'
+        assert len(entry.tool_history) == 1
+        assert entry.tool_history[0].tool_call_id == "call_123"
+        assert entry.tool_history[0].tool_name == "TestToolFunc"
 
     def test_update_agent_memory_and_history(self, basic_durable_agent):
         """Test _update_agent_memory_and_history helper method."""
