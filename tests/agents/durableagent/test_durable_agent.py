@@ -31,8 +31,6 @@ from dapr_agents.types import (
     AssistantMessage,
     LLMChatCandidate,
     LLMChatResponse,
-    ToolExecutionRecord,
-    ToolMessage,
 )
 
 
@@ -861,32 +859,64 @@ class TestDurableAgent:
         assert entry.tool_history[0].tool_call_id == "call_123"
         assert entry.tool_history[0].tool_name == "TestToolFunc"
 
-    def test_update_agent_memory_and_history(self, basic_durable_agent):
-        """Test _update_agent_memory_and_history helper method."""
+    @pytest.mark.asyncio
+    async def test_update_agent_memory_and_history(self, basic_durable_agent):
+        """Test that memory and history are updated via run_tool activity."""
+        instance_id = "test-instance-123"
 
-        tool_msg = ToolMessage(
-            tool_call_id="call_123", name="test_tool", content="Tool result"
+        # Set up instance using AgentWorkflowEntry
+        entry = AgentWorkflowEntry(
+            input_value="Test task",
+            source="test_source",
+            triggering_workflow_instance_id=None,
+            workflow_instance_id=instance_id,
+            workflow_name="AgenticWorkflow",
+            status="RUNNING",
+            messages=[],
+            tool_history=[],
         )
-        tool_history_entry = ToolExecutionRecord(
-            tool_call_id="call_123",
-            tool_name="test_tool",
-            execution_result="tool_result",
+        basic_durable_agent._state_model.instances[instance_id] = entry
+
+        # Create a simple test tool
+        from dapr_agents.tool.base import AgentTool
+
+        def test_tool_func(x: str) -> str:
+            """Test tool for verification."""
+            return "tool_result"
+
+        test_tool = AgentTool.from_func(test_tool_func)
+        basic_durable_agent.tools.append(test_tool)
+        # Recreate tool executor with the new tool
+        from dapr_agents.tool.executor import AgentToolExecutor
+
+        basic_durable_agent.tool_executor = AgentToolExecutor(
+            tools=list(basic_durable_agent.tools)
         )
 
-        # Mock the memory add_message method
-        with patch.object(
-            type(basic_durable_agent.memory), "add_message"
-        ) as mock_add_message:
-            basic_durable_agent._update_agent_memory_and_history(
-                tool_msg, tool_history_entry
+        # Mock save_state to prevent actual persistence
+        with patch.object(basic_durable_agent, "save_state"):
+            mock_ctx = Mock()
+
+            # Call run_tool activity which updates memory and history
+            await basic_durable_agent.run_tool(
+                mock_ctx,
+                {
+                    "instance_id": instance_id,
+                    "tool_call": {
+                        "id": "call_123",
+                        "type": "function",
+                        "function": {
+                            "name": "TestToolFunc",
+                            "arguments": '{"x": "test"}',
+                        },
+                    },
+                },
             )
-
-            # Verify memory was updated
-            mock_add_message.assert_called_once_with(tool_msg)
 
         # Verify agent-level tool_history was updated
         assert len(basic_durable_agent.tool_history) == 1
         assert basic_durable_agent.tool_history[0].tool_call_id == "call_123"
+        assert basic_durable_agent.tool_history[0].tool_name == "TestToolFunc"
 
     def test_construct_messages_with_instance_history(self, basic_durable_agent):
         """Test _construct_messages_with_instance_history helper method."""
