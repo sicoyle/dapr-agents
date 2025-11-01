@@ -1,4 +1,19 @@
+import pytest
+
 from dapr_agents.document.embedder.sentence import SentenceTransformerEmbedder
+
+# Check if sentence-transformers is available
+try:
+    import sentence_transformers  # noqa: F401
+
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(
+    not SENTENCE_TRANSFORMERS_AVAILABLE,
+    reason="sentence-transformers not installed",
+)
 
 
 class TestSentenceTransformerEmbedder:

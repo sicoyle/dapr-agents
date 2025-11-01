@@ -1,4 +1,12 @@
 import pytest
+
+# Skip all tests in this module if chromadb or sentence-transformers is not installed
+pytest.importorskip("chromadb", reason="chromadb not installed - optional dependency")
+pytest.importorskip(
+    "sentence_transformers",
+    reason="sentence-transformers not installed - optional dependency",
+)
+
 from dapr_agents.document.embedder.sentence import SentenceTransformerEmbedder
 from dapr_agents.storage.vectorstores.chroma import ChromaVectorStore
 

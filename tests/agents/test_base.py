@@ -1,6 +1,4 @@
 import pytest
-import asyncio
-import signal
 from unittest.mock import Mock, patch
 
 from dapr_agents.agents.base import AgentBase
@@ -14,7 +12,7 @@ from .mocks.llm_client import MockLLMClient
 from .mocks.vectorstore import MockVectorStore
 
 
-class TestAgentBase(AgentBase):
+class ConcreteAgentBase(AgentBase):
     """Concrete implementation of AgentBase for testing."""
 
     def run(self, input_data):
@@ -33,7 +31,7 @@ class TestAgentBaseClass:
     @pytest.fixture
     def basic_agent(self, mock_llm_client):
         """Create a basic test agent."""
-        return TestAgentBase(
+        return ConcreteAgentBase(
             name="TestAgent",
             role="Test Role",
             goal="Test Goal",
@@ -44,12 +42,12 @@ class TestAgentBaseClass:
     @pytest.fixture
     def minimal_agent(self, mock_llm_client):
         """Create a minimal test agent with only required fields."""
-        return TestAgentBase(name="MinimalAgent", llm=mock_llm_client)
+        return ConcreteAgentBase(name="MinimalAgent", llm=mock_llm_client)
 
     @pytest.fixture
     def agent_with_system_prompt(self, mock_llm_client):
         """Create an agent with a custom system prompt."""
-        return TestAgentBase(
+        return ConcreteAgentBase(
             name="CustomAgent",
             system_prompt="You are a custom assistant. Help users with their questions.",
             llm=mock_llm_client,
@@ -60,13 +58,15 @@ class TestAgentBaseClass:
         """Create an agent with tools."""
         mock_tool = Mock(spec=AgentTool)
         mock_tool.name = "test_tool"
-        return TestAgentBase(name="ToolAgent", tools=[mock_tool], llm=mock_llm_client)
+        return ConcreteAgentBase(
+            name="ToolAgent", tools=[mock_tool], llm=mock_llm_client
+        )
 
     @pytest.fixture
     def agent_with_vector_store(self, mock_llm_client):
         """Create an agent with vector store."""
         mock_vector_store = MockVectorStore()
-        return TestAgentBase(
+        return ConcreteAgentBase(
             name="VectorAgent", vector_store=mock_vector_store, llm=mock_llm_client
         )
 
@@ -75,7 +75,10 @@ class TestAgentBaseClass:
         assert basic_agent.name == "TestAgent"
         assert basic_agent.prompting_helper.role == "Test Role"
         assert basic_agent.prompting_helper.goal == "Test Goal"
-        assert basic_agent.prompting_helper.instructions == ["Test instruction 1", "Test instruction 2"]
+        assert basic_agent.prompting_helper.instructions == [
+            "Test instruction 1",
+            "Test instruction 2",
+        ]
         assert basic_agent.execution_config.max_iterations == 10
         assert basic_agent.prompting_helper.template_format == "jinja2"
         assert isinstance(basic_agent.memory, ConversationListMemory)
@@ -86,19 +89,25 @@ class TestAgentBaseClass:
         # Name is now required
         assert minimal_agent.name == "MinimalAgent"
         assert minimal_agent.prompting_helper.role == "Assistant"
-        assert minimal_agent.prompting_helper.goal in ("Help users accomplish their tasks.", "Help humans")
+        assert minimal_agent.prompting_helper.goal in (
+            "Help users accomplish their tasks.",
+            "Help humans",
+        )
         assert minimal_agent.prompting_helper.instructions == []
         # The system_prompt is automatically generated, so it won't be None
-        assert minimal_agent.prompting_helper.system_prompt is not None or minimal_agent.prompt_template is not None
+        assert (
+            minimal_agent.prompting_helper.system_prompt is not None
+            or minimal_agent.prompt_template is not None
+        )
 
     def test_name_set_from_role_when_not_provided(self, mock_llm_client):
         """Test that agent can be created with just a name."""
-        agent = TestAgentBase(name="Weather Expert", llm=mock_llm_client)
+        agent = ConcreteAgentBase(name="Weather Expert", llm=mock_llm_client)
         assert agent.name == "Weather Expert"
 
     def test_name_not_overwritten_when_provided(self, mock_llm_client):
         """Test that name is not overwritten when explicitly provided."""
-        agent = TestAgentBase(
+        agent = ConcreteAgentBase(
             name="CustomName", role="Weather Expert", llm=mock_llm_client
         )
         assert agent.name == "CustomName"
@@ -127,7 +136,9 @@ class TestAgentBaseClass:
     def test_system_prompt_construction(self, basic_agent):
         """Test system prompt construction."""
         # System prompt is now built automatically via prompting_helper
-        system_prompt = basic_agent.prompting_helper.system_prompt or str(basic_agent.prompt_template)
+        system_prompt = basic_agent.prompting_helper.system_prompt or str(
+            basic_agent.prompt_template
+        )
         assert system_prompt is not None
         # The prompting helper has the role and goal
         assert basic_agent.prompting_helper.role == "Test Role"
@@ -135,7 +146,7 @@ class TestAgentBaseClass:
 
     def test_system_prompt_without_instructions(self, mock_llm_client):
         """Test system prompt construction without instructions."""
-        agent = TestAgentBase(
+        agent = ConcreteAgentBase(
             name="TestAgent", role="Test Role", goal="Test Goal", llm=mock_llm_client
         )
         # Check that prompt template was created
@@ -215,41 +226,6 @@ class TestAgentBaseClass:
             basic_agent.reset_memory()
             mock_reset.assert_called_once()
 
-    @pytest.mark.skip(reason="pre_fill_prompt_template method removed in new architecture")
-    def test_pre_fill_prompt_template(self, basic_agent):
-        """Test pre-filling prompt template with variables."""
-        # Store original template for comparison
-        original_template = basic_agent.prompt_template
-
-        # Pre-fill with a variable
-        basic_agent.pre_fill_prompt_template(custom_var="test_value")
-
-        # Verify the template was updated
-        assert basic_agent.prompt_template != original_template
-
-        # Verify the pre-filled variable is set
-        assert "custom_var" in basic_agent.prompt_template.pre_filled_variables
-        assert (
-            basic_agent.prompt_template.pre_filled_variables["custom_var"]
-            == "test_value"
-        )
-
-        # Verify the template can still be formatted
-        formatted = basic_agent.prompt_template.format_prompt()
-        assert formatted is not None
-
-    @pytest.mark.skip(reason="pre_fill_prompt_template method removed in new architecture")
-    def test_pre_fill_prompt_template_without_template(self, mock_llm_client):
-        """Test pre-filling prompt template when template is not initialized."""
-        agent = TestAgentBase(name="TestAgent", llm=mock_llm_client)
-        agent.prompt_template = None
-
-        with pytest.raises(
-            ValueError,
-            match="Prompt template must be initialized before pre-filling variables",
-        ):
-            agent.pre_fill_prompt_template(custom_var="test_value")
-
     def test_chat_history_with_vector_memory_and_task(self):
         """Test chat history retrieval with vector memory and task."""
         from tests.agents.mocks.vectorstore import MockVectorStore
@@ -258,10 +234,10 @@ class TestAgentBaseClass:
         mock_vector_store = MockVectorStore()
         mock_llm = MockLLMClient()
         memory = DummyVectorMemory(mock_vector_store)
-        agent = TestAgentBase(
+        agent = ConcreteAgentBase(
             name="TestAgent",
             memory_config=AgentMemoryConfig(store=memory),
-            llm=mock_llm
+            llm=mock_llm,
         )
 
         # Call get_chat_history() method instead of accessing property
@@ -272,10 +248,10 @@ class TestAgentBaseClass:
     def test_chat_history_with_regular_memory(self, mock_llm_client):
         """Test chat history retrieval with regular memory."""
         memory = ConversationListMemory()
-        agent = TestAgentBase(
+        agent = ConcreteAgentBase(
             name="TestAgent",
             memory_config=AgentMemoryConfig(store=memory),
-            llm=mock_llm_client
+            llm=mock_llm_client,
         )
 
         with patch.object(
@@ -297,7 +273,7 @@ class TestAgentBaseClass:
                 MessagePlaceHolder(variable_name="chat_history"),
             ]
         )
-        agent = TestAgentBase(
+        agent = ConcreteAgentBase(
             name="TestAgent",
             role="TestRole",
             goal="TestGoal",
@@ -326,7 +302,7 @@ class TestAgentBaseClass:
         with pytest.raises(
             openai.OpenAIError, match="api_key client option must be set"
         ):
-            TestAgentBase(llm=OpenAIChatClient())
+            ConcreteAgentBase(llm=OpenAIChatClient())
 
     def test_validate_memory_failure(self, mock_llm_client):
         """Test validation fails when memory initialization fails."""
@@ -335,21 +311,7 @@ class TestAgentBaseClass:
             side_effect=Exception("Memory error"),
         ):
             with pytest.raises(Exception, match="Memory error"):
-                TestAgentBase(name="TestAgent", llm=mock_llm_client)
-
-    @pytest.mark.skip(reason="Signal handlers only exist in standalone.Agent, not AgentBase")
-    def test_signal_handler_setup(self, basic_agent):
-        """Test that signal handlers are set up."""
-        assert hasattr(basic_agent, "_shutdown_event")
-        assert isinstance(basic_agent._shutdown_event, asyncio.Event)
-
-    @pytest.mark.skip(reason="Signal handlers only exist in standalone.Agent, not AgentBase")
-    def test_signal_handler(self, basic_agent):
-        """Test signal handler functionality."""
-        with patch("builtins.print") as mock_print:
-            basic_agent._signal_handler(signal.SIGINT, None)
-            mock_print.assert_called_once()
-            assert basic_agent._shutdown_event.is_set()
+                ConcreteAgentBase(name="TestAgent", llm=mock_llm_client)
 
     def test_conflicting_prompt_templates(self, caplog):
         """Test that agent can have its own prompt template even when LLM has one."""
@@ -357,12 +319,12 @@ class TestAgentBaseClass:
         mock_llm.prompt_template = ChatPromptTemplate.from_messages(
             [("system", "llm template")]
         )
-        mock_prompt_template = ChatPromptTemplate.from_messages([("system", "agent template")])
+        mock_prompt_template = ChatPromptTemplate.from_messages(
+            [("system", "agent template")]
+        )
 
-        agent = TestAgentBase(
-            name="TestAgent",
-            llm=mock_llm,
-            prompt_template=mock_prompt_template
+        agent = ConcreteAgentBase(
+            name="TestAgent", llm=mock_llm, prompt_template=mock_prompt_template
         )
         # Agent's prompt template should be used and set on LLM
         assert agent.prompt_template is not None
@@ -375,10 +337,8 @@ class TestAgentBaseClass:
         mock_prompt_template = ChatPromptTemplate.from_messages([("system", "test")])
         mock_llm = MockLLMClient()
         mock_llm.prompt_template = None
-        agent = TestAgentBase(
-            name="TestAgent",
-            llm=mock_llm,
-            prompt_template=mock_prompt_template
+        agent = ConcreteAgentBase(
+            name="TestAgent", llm=mock_llm, prompt_template=mock_prompt_template
         )
         assert agent.prompt_template is not None
         assert agent.llm.prompt_template is not None
@@ -389,7 +349,7 @@ class TestAgentBaseClass:
         mock_prompt_template = ChatPromptTemplate.from_messages([("system", "test")])
         mock_llm = MockLLMClient()
         mock_llm.prompt_template = mock_prompt_template
-        agent = TestAgentBase(name="TestAgent", llm=mock_llm)
+        agent = ConcreteAgentBase(name="TestAgent", llm=mock_llm)
         # Agent should build its own prompt template from profile
         assert agent.prompt_template is not None
         assert agent.llm.prompt_template is not None
@@ -411,29 +371,15 @@ class TestAgentBaseClass:
         executor = basic_agent.tool_executor
         assert executor is not None
 
-    @pytest.mark.skip(reason="model_fields_set is Pydantic-specific; AgentBase is now a dataclass")
-    def test_model_fields_set_detection(self, mock_llm_client):
-        """Test that model_fields_set properly detects user-set attributes."""
-        agent = TestAgentBase(
-            name="TestName",  # User set
-            role="TestRole",  # User set
-            goal="TestGoal",  # User set
-            llm=mock_llm_client,
-        )
-
-        # These should be in model_fields_set
-        assert "name" in agent.model_fields_set
-        assert "role" in agent.model_fields_set
-        assert "goal" in agent.model_fields_set
-
     def test_template_format_validation(self, mock_llm_client):
         """Test template format validation."""
         from dapr_agents.agents.configs import AgentProfileConfig
+
         profile = AgentProfileConfig(name="TestAgent", template_format="f-string")
-        agent = TestAgentBase(profile_config=profile, llm=mock_llm_client)
+        agent = ConcreteAgentBase(profile_config=profile, llm=mock_llm_client)
         assert agent.prompting_helper.template_format == "f-string"
 
-        agent = TestAgentBase(name="TestAgent", llm=mock_llm_client)
+        agent = ConcreteAgentBase(name="TestAgent", llm=mock_llm_client)
         assert agent.prompting_helper.template_format == "jinja2"
 
     def test_max_iterations_default(self, minimal_agent):
@@ -443,9 +389,10 @@ class TestAgentBaseClass:
     def test_max_iterations_custom(self, mock_llm_client):
         """Test custom max iterations."""
         from dapr_agents.agents.configs import AgentExecutionConfig
-        agent = TestAgentBase(
+
+        agent = ConcreteAgentBase(
             name="TestAgent",
             execution_config=AgentExecutionConfig(max_iterations=5),
-            llm=mock_llm_client
+            llm=mock_llm_client,
         )
         assert agent.execution_config.max_iterations == 5
