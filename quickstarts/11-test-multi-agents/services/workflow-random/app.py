@@ -82,6 +82,8 @@ async def main() -> None:
         team_name=team_name,
     )
 
+    execution = AgentExecutionConfig(max_iterations=max_iterations)
+
     # -------------------------------------------------------------------------
     # Orchestrator instance
     # -------------------------------------------------------------------------
@@ -91,7 +93,7 @@ async def main() -> None:
         state=state,
         registry=registry,
         agent_metadata={"legend": "One orchestrator to guide them all."},
-        max_iterations=max_iterations,
+        execution=execution,
         timeout_seconds=timeout_seconds,
         runtime=wf.WorkflowRuntime(),  # you can inject your own if needed
     )

@@ -11,6 +11,7 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    AgentExecutionConfig,
 )
 from dapr_agents.agents.orchestrators.llm import LLMOrchestrator
 from dapr_agents.storage.daprstores.stateservice import StateStoreService
@@ -82,6 +83,8 @@ async def main() -> None:
         team_name=team_name,
     )
 
+    execution = AgentExecutionConfig(max_iterations=max_iterations)
+
     # -------------------------------------------------------------------------
     # LLM Orchestrator instance
     # -------------------------------------------------------------------------
@@ -91,11 +94,11 @@ async def main() -> None:
         pubsub=pubsub,
         state=state,
         registry=registry,
+        execution=execution,
         agent_metadata={
             "type": "LLMOrchestrator",
             "description": "LLM-driven Orchestrator",
         },
-        max_iterations=max_iterations,
         timeout_seconds=timeout_seconds,
         runtime=wf.WorkflowRuntime(),  # you can inject your own if needed
     )

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import dapr.ext.workflow as wf
 from durabletask import task as dt_task
 
+from dapr_agents.agents.configs import AgentExecutionConfig
 from dapr_agents.agents.orchestrators.llm.base import LLMOrchestratorBase
 from dapr_agents.agents.schemas import (
     AgentTaskResponse,
@@ -48,6 +49,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
         *,
         name: str = "LLMOrchestrator",
         timeout_seconds: int = 60,
+        execution: Optional[AgentExecutionConfig] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -57,7 +59,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
             name (str): Logical name of the orchestrator.
             timeout_seconds (int): Timeout duration for awaiting agent responses (in seconds).
         """
-        super().__init__(name=name, **kwargs)
+        super().__init__(name=name, execution=execution, **kwargs)
         self.timeout = max(1, int(timeout_seconds))
 
     def register_workflows(self, runtime: wf.WorkflowRuntime) -> None:

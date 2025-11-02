@@ -9,6 +9,7 @@ import dapr.ext.workflow as wf
 
 from dapr_agents.agents.components import AgentComponents
 from dapr_agents.agents.configs import (
+    AgentExecutionConfig,
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
@@ -39,6 +40,7 @@ class OrchestratorBase(AgentComponents):
         pubsub: Optional[AgentPubSubConfig] = None,
         state: Optional[AgentStateConfig] = None,
         registry: Optional[AgentRegistryConfig] = None,
+        execution: Optional[AgentExecutionConfig] = None,
         agent_metadata: Optional[Dict[str, Any]] = None,
         runtime: Optional[wf.WorkflowRuntime] = None,
         workflow_client: Optional[wf.DaprWorkflowClient] = None,
@@ -65,6 +67,14 @@ class OrchestratorBase(AgentComponents):
             registry=registry,
             default_bundle=default_bundle,
         )
+
+        self.execution: AgentExecutionConfig = execution or AgentExecutionConfig()
+        try:
+            self.execution.max_iterations = max(
+                1, int(self.execution.max_iterations)
+            )
+        except Exception:
+            self.execution.max_iterations = 10
 
         # Ensure registry entry marks this as an orchestrator
         meta = dict(agent_metadata or {})
