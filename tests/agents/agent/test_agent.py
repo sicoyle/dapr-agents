@@ -82,9 +82,7 @@ class TestAgent:
         assert agent.prompting_helper.instructions == ["Be helpful"]
         assert agent.execution.max_iterations == 10  # default value
         assert agent.tool_history == []
-        assert (
-            agent.execution.tool_choice == "auto"
-        )  # auto when tools are provided
+        assert agent.execution.tool_choice == "auto"  # auto when tools are provided
 
     def test_agent_initialization_without_tools(self, mock_llm):
         """Test agent initialization without tools."""

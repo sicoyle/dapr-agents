@@ -70,9 +70,7 @@ class OrchestratorBase(AgentComponents):
 
         self.execution: AgentExecutionConfig = execution or AgentExecutionConfig()
         try:
-            self.execution.max_iterations = max(
-                1, int(self.execution.max_iterations)
-            )
+            self.execution.max_iterations = max(1, int(self.execution.max_iterations))
         except Exception:
             self.execution.max_iterations = 10
 

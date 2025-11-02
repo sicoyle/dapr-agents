@@ -78,9 +78,7 @@ class AgentComponents:
         # State configuration and model (flexible)
         # -----------------------------
         self._state = state
-        self.state_store = (
-            state.store if state and state.store else None
-        )
+        self.state_store = state.store if state and state.store else None
         override_state_key = state.state_key if state else None
         self.state_key = override_state_key or f"{self.name}:workflow_state"
 
@@ -125,9 +123,7 @@ class AgentComponents:
         self.registry_state = registry.store if registry else None
         self._registry_prefix = "agents:"
         self._registry_team_override = (
-            registry.team_name
-            if registry and registry.team_name
-            else "default"
+            registry.team_name if registry and registry.team_name else "default"
         )
 
         # -----------------------------

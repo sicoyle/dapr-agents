@@ -177,9 +177,7 @@ class AgentBase(AgentComponents):
         # -----------------------------
         self.execution = execution or AgentExecutionConfig()
         try:
-            self.execution.max_iterations = max(
-                1, int(self.execution.max_iterations)
-            )
+            self.execution.max_iterations = max(1, int(self.execution.max_iterations))
         except Exception:
             self.execution.max_iterations = 10
         if not self.tools:

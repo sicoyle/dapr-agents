@@ -135,9 +135,7 @@ def durable_agent_with_mcp_tool(mock_mcp_tool, mock_mcp_session):
         pubsub=AgentPubSubConfig(
             pubsub_name="testpubsub",
         ),
-        state=AgentStateConfig(
-            store=StateStoreService(store_name="teststatestore")
-        ),
+        state=AgentStateConfig(store=StateStoreService(store_name="teststatestore")),
     )
     return agent
 
@@ -257,9 +255,7 @@ async def test_durable_agent_with_real_server_http(start_math_server_http):
         pubsub=AgentPubSubConfig(
             pubsub_name="testpubsub",
         ),
-        state=AgentStateConfig(
-            store=StateStoreService(store_name="teststatestore")
-        ),
+        state=AgentStateConfig(store=StateStoreService(store_name="teststatestore")),
     )
 
     instance_id = "test-instance-456"
