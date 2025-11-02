@@ -80,7 +80,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
         self, ctx: wf.DaprWorkflowContext, message: Dict[str, Any]
     ):
         """
-        Orchestrates the workflow, handling up to `self.execution_config.max_iterations` turns using an LLM to choose the next step/agent.
+        Orchestrates the workflow, handling up to `self.execution.max_iterations` turns using an LLM to choose the next step/agent.
         """
         task_text: Optional[str] = message.get("task")
         parent_id: Optional[str] = message.get("workflow_instance_id")
@@ -95,12 +95,12 @@ class LLMOrchestrator(LLMOrchestratorBase):
             time=ctx.current_utc_datetime,
         )
 
-        for turn in range(1, self.execution_config.max_iterations + 1):
+        for turn in range(1, self.execution.max_iterations + 1):
             if not ctx.is_replaying:
                 logger.info(
                     "LLM turn %d/%d (instance=%s)",
                     turn,
-                    self.execution_config.max_iterations,
+                    self.execution.max_iterations,
                     instance_id,
                 )
 
@@ -254,7 +254,7 @@ class LLMOrchestrator(LLMOrchestratorBase):
                     "content": f"Step {step_id}, substep {substep_id} not found. Adjusting workflow…",
                 }
 
-            if verdict != "continue" or turn == self.execution_config.max_iterations:
+            if verdict != "continue" or turn == self.execution.max_iterations:
                 final_summary = yield ctx.call_activity(
                     self._finalize_workflow_with_summary,
                     input={

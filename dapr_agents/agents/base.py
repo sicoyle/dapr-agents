@@ -45,7 +45,7 @@ class AgentBase(AgentComponents):
         self,
         *,
         # Profile / prompt
-        profile_config: Optional[AgentProfileConfig] = None,
+        profile: Optional[AgentProfileConfig] = None,
         name: Optional[str] = None,
         role: Optional[str] = None,
         goal: Optional[str] = None,
@@ -54,27 +54,27 @@ class AgentBase(AgentComponents):
         system_prompt: Optional[str] = None,
         prompt_template: Optional[PromptTemplateBase] = None,
         # Components (infrastructure)
-        pubsub_config: Optional[AgentPubSubConfig] = None,
-        state_config: Optional[AgentStateConfig] = None,
-        registry_config: Optional[AgentRegistryConfig] = None,
+        pubsub: Optional[AgentPubSubConfig] = None,
+        state: Optional[AgentStateConfig] = None,
+        registry: Optional[AgentRegistryConfig] = None,
         base_metadata: Optional[Dict[str, Any]] = None,
         max_etag_attempts: int = 10,
         # Memory / runtime
-        memory_config: Optional[AgentMemoryConfig] = None,
+        memory: Optional[AgentMemoryConfig] = None,
         llm: Optional[ChatClientBase] = None,
         tools: Optional[Iterable[Any]] = None,
         # Metadata
         agent_metadata: Optional[Dict[str, Any]] = None,
         # Execution
-        execution_config: Optional[AgentExecutionConfig] = None,
+        execution: Optional[AgentExecutionConfig] = None,
     ) -> None:
         """
         Initialize an agent with behavior + infrastructure.
 
         Args:
-            profile_config: Base profile config (name/role/goal/prompts). Optional if
+            profile: Base profile config (name/role/goal/prompts). Optional if
                 individual fields are provided below.
-            name: Agent name (required if `profile_config` is omitted).
+            name: Agent name (required if `profile` is omitted).
             role: Agent role (e.g., "Assistant").
             goal: High-level agent objective.
             instructions: Additional instruction strings for the prompt.
@@ -82,14 +82,14 @@ class AgentBase(AgentComponents):
             system_prompt: System prompt override.
             prompt_template: Optional explicit prompt template instance.
 
-            pubsub_config: Pub/Sub config used by `AgentComponents`.
-            state_config: Durable state config used by `AgentComponents`.
-            registry_config: Team registry config used by `AgentComponents`.
-            execution_config: Execution dials for the agent run.
+            pubsub: Pub/Sub config used by `AgentComponents`.
+            state: Durable state config used by `AgentComponents`.
+            registry: Team registry config used by `AgentComponents`.
+            execution: Execution dials for the agent run.
             base_metadata: Default Dapr state metadata used by `AgentComponents`.
             max_etag_attempts: Concurrency retry count for registry mutations.
 
-            memory_config: Memory backend configuration. If omitted and a state store
+            memory: Memory backend configuration. If omitted and a state store
                 is configured, a Dapr-backed conversation memory is created by default.
             llm: Chat client. Defaults to `get_default_llm()`.
             tools: Optional tool callables or `AgentTool` instances.
@@ -98,7 +98,7 @@ class AgentBase(AgentComponents):
         """
         # Resolve and validate profile (ensures non-empty name).
         resolved_profile = self._build_profile(
-            base_profile=profile_config,
+            base_profile=profile,
             name=name,
             role=role,
             goal=goal,
@@ -106,15 +106,15 @@ class AgentBase(AgentComponents):
             style_guidelines=style_guidelines,
             system_prompt=system_prompt,
         )
-        self.profile_config = resolved_profile
+        self.profile = resolved_profile
         self.name = resolved_profile.name  # type: ignore[assignment]
 
         # Wire infrastructure via AgentComponents.
         super().__init__(
             name=self.name,
-            pubsub_config=pubsub_config,
-            state_config=state_config,
-            registry_config=registry_config,
+            pubsub=pubsub,
+            state=state,
+            registry=registry,
             base_metadata=base_metadata,
             max_etag_attempts=max_etag_attempts,
             default_bundle=DEFAULT_AGENT_WORKFLOW_BUNDLE,
@@ -123,14 +123,14 @@ class AgentBase(AgentComponents):
         # -----------------------------
         # Memory wiring
         # -----------------------------
-        self._memory_config = memory_config or AgentMemoryConfig()
-        if self._memory_config.store is None and state_config is not None:
+        self._memory = memory or AgentMemoryConfig()
+        if self._memory.store is None and state is not None:
             # Auto-provision a Dapr-backed memory if we have a state store.
-            self._memory_config.store = ConversationDaprStateMemory(  # type: ignore[union-attr]
-                store_name=state_config.store.store_name,
+            self._memory.store = ConversationDaprStateMemory(  # type: ignore[union-attr]
+                store_name=state.store.store_name,
                 session_id=f"{self.name}-session",
             )
-        self.memory = self._memory_config.store or ConversationListMemory()
+        self.memory = self._memory.store or ConversationListMemory()
 
         # -----------------------------
         # Prompting helper
@@ -145,15 +145,15 @@ class AgentBase(AgentComponents):
             template_format=resolved_profile.template_format,
             include_chat_history=True,
             prompt_template=prompt_template,
-            profile_config=resolved_profile,
+            profile=resolved_profile,
         )
         # Keep profile config synchronized with helper defaults.
-        if self.profile_config.name is None:
-            self.profile_config.name = self.prompting_helper.name
-        if self.profile_config.role is None:
-            self.profile_config.role = self.prompting_helper.role
-        if self.profile_config.goal is None:
-            self.profile_config.goal = self.prompting_helper.goal
+        if self.profile.name is None:
+            self.profile.name = self.prompting_helper.name
+        if self.profile.role is None:
+            self.profile.role = self.prompting_helper.role
+        if self.profile.goal is None:
+            self.profile.goal = self.prompting_helper.goal
 
         self.prompt_template = self.prompting_helper.prompt_template
         self._text_formatter = self.prompting_helper.text_formatter
@@ -175,14 +175,23 @@ class AgentBase(AgentComponents):
         # -----------------------------
         # Execution config
         # -----------------------------
-        self.execution_config = execution_config or AgentExecutionConfig()
+        self.execution = execution or AgentExecutionConfig()
         try:
-            self.execution_config.max_iterations = max(
-                1, int(self.execution_config.max_iterations)
+            self.execution.max_iterations = max(
+                1, int(self.execution.max_iterations)
             )
         except Exception:
-            self.execution_config.max_iterations = 10
-        self.execution_config.tool_choice = self.execution_config.tool_choice or "auto"
+            self.execution.max_iterations = 10
+        if not self.tools:
+            if self.execution.tool_choice is not None:
+                logger.debug(
+                    "No tools configured for agent '%s'; ignoring tool_choice=%r.",
+                    self.name,
+                    self.execution.tool_choice,
+                )
+            self.execution.tool_choice = None
+        elif self.execution.tool_choice is None:
+            self.execution.tool_choice = "auto"
 
         # -----------------------------
         # Load durable state (from AgentComponents)
@@ -202,7 +211,7 @@ class AgentBase(AgentComponents):
             "goal": self.prompting_helper.goal,
             "instructions": list(self.prompting_helper.instructions),
         }
-        if self.pubsub_config is not None:
+        if self.pubsub is not None:
             base_meta["topic_name"] = self.agent_topic_name
             base_meta["pubsub_name"] = self.message_bus_name
 
@@ -435,7 +444,7 @@ class AgentBase(AgentComponents):
         if not profile.name or not profile.name.strip():
             raise ValueError(
                 "Durable agents require a non-empty name "
-                "(provide name= or profile_config.name)."
+                "(provide name= or profile.name)."
             )
 
         return profile

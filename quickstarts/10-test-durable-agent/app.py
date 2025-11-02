@@ -40,18 +40,18 @@ async def main() -> None:
     agent_name = "blog-agent"
 
     # --- Pub/Sub & State/Registry wiring -------------------------------------
-    pubsub_config = AgentPubSubConfig(
+    pubsub = AgentPubSubConfig(
         pubsub_name="messagepubsub",
         agent_topic="blog.requests",
         broadcast_topic="agents.broadcast",
     )
 
     # State configuration - schema automatically set by DurableAgent
-    state_config = AgentStateConfig(
+    state = AgentStateConfig(
         store=StateStoreService(store_name="workflowstatestore", key_prefix="blog:")
     )
 
-    registry_config = AgentRegistryConfig(
+    registry = AgentRegistryConfig(
         store=StateStoreService(store_name="agentregistrystore"),
         team_name="bloggers",
     )
@@ -72,7 +72,7 @@ async def main() -> None:
     )
 
     # --- Memory (Dapr-backed conversation history) -----------------------------
-    memory_config = AgentMemoryConfig(
+    memory = AgentMemoryConfig(
         store=ConversationDaprStateMemory(
             store_name="memorystore",
             session_id=f"{agent_name}-session",
@@ -84,11 +84,11 @@ async def main() -> None:
 
     # --- Assemble durable agent ------------------------------------------------
     agent = DurableAgent(
-        profile_config=profile,
-        pubsub_config=pubsub_config,
-        state_config=state_config,
-        registry_config=registry_config,
-        memory_config=memory_config,
+        profile=profile,
+        pubsub=pubsub,
+        state=state,
+        registry=registry,
+        memory=memory,
         llm=llm,
     )
     agent.start()

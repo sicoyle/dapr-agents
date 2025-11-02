@@ -62,7 +62,7 @@ async def main() -> None:
     # -------------------------------------------------------------------------
     # Pub/Sub, State, Registry wiring
     # -------------------------------------------------------------------------
-    pubsub_config = AgentPubSubConfig(
+    pubsub = AgentPubSubConfig(
         pubsub_name=pubsub_name,
         agent_topic=orchestrator_topic,
         broadcast_topic=broadcast_topic,
@@ -71,13 +71,13 @@ async def main() -> None:
     # Orchestrators often don't persist workflow-local state; still allow it
     # so you can extend later (metrics, audit, etc).
     # Schema automatically set to LLMWorkflowState by LLMOrchestrator
-    state_config = AgentStateConfig(
+    state = AgentStateConfig(
         store=StateStoreService(
             store_name=workflow_state_store_name, key_prefix="llm.orchestrator:"
         ),
     )
 
-    registry_config = AgentRegistryConfig(
+    registry = AgentRegistryConfig(
         store=StateStoreService(store_name=registry_store_name),
         team_name=team_name,
     )
@@ -88,9 +88,9 @@ async def main() -> None:
     orchestrator = LLMOrchestrator(
         name=orchestrator_name,
         llm=llm,
-        pubsub_config=pubsub_config,
-        state_config=state_config,
-        registry_config=registry_config,
+        pubsub=pubsub,
+        state=state,
+        registry=registry,
         agent_metadata={
             "type": "LLMOrchestrator",
             "description": "LLM-driven Orchestrator",

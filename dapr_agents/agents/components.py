@@ -41,9 +41,9 @@ class AgentComponents:
         self,
         *,
         name: str,
-        pubsub_config: Optional[AgentPubSubConfig] = None,
-        state_config: Optional[AgentStateConfig] = None,
-        registry_config: Optional[AgentRegistryConfig] = None,
+        pubsub: Optional[AgentPubSubConfig] = None,
+        state: Optional[AgentStateConfig] = None,
+        registry: Optional[AgentRegistryConfig] = None,
         base_metadata: Optional[Dict[str, Any]] = None,
         max_etag_attempts: int = 10,
         default_bundle: Optional["StateModelBundle"] = None,
@@ -53,9 +53,9 @@ class AgentComponents:
 
         Args:
             name: Logical agent name; used for keys/topics when not overridden.
-            pubsub_config: Dapr pub/sub configuration for this agent.
-            state_config: Durable state (Dapr state store, key overrides, defaults, hooks).
-            registry_config: Agent registry backing store and team settings.
+            pubsub: Dapr pub/sub configuration for this agent.
+            state: Durable state (Dapr state store, key overrides, defaults, hooks).
+            registry: Agent registry backing store and team settings.
             base_metadata: Base metadata for Dapr state operations.
             max_etag_attempts: Max optimistic-concurrency retries on registry mutations.
             default_bundle: Default state schema bundle (injected by agent/orchestrator class).
@@ -65,31 +65,31 @@ class AgentComponents:
         # -----------------------------
         # Pub/Sub configuration (copy)
         # -----------------------------
-        self._pubsub_config: Optional[AgentPubSubConfig] = None
-        if pubsub_config is not None:
+        self._pubsub: Optional[AgentPubSubConfig] = None
+        if pubsub is not None:
             # Copy only what we need to avoid accidental external mutation.
-            self._pubsub_config = AgentPubSubConfig(
-                pubsub_name=pubsub_config.pubsub_name,
-                agent_topic=pubsub_config.agent_topic or name,
-                broadcast_topic=pubsub_config.broadcast_topic,
+            self._pubsub = AgentPubSubConfig(
+                pubsub_name=pubsub.pubsub_name,
+                agent_topic=pubsub.agent_topic or name,
+                broadcast_topic=pubsub.broadcast_topic,
             )
 
         # -----------------------------
         # State configuration and model (flexible)
         # -----------------------------
-        self._state_config = state_config
+        self._state = state
         self.state_store = (
-            state_config.store if state_config and state_config.store else None
+            state.store if state and state.store else None
         )
-        override_state_key = state_config.state_key if state_config else None
+        override_state_key = state.state_key if state else None
         self.state_key = override_state_key or f"{self.name}:workflow_state"
 
         bundle = None
-        if state_config is not None:
+        if state is not None:
             if default_bundle is not None:
-                state_config.ensure_bundle(default_bundle)
+                state.ensure_bundle(default_bundle)
             try:
-                bundle = state_config.get_state_model_bundle()
+                bundle = state.get_state_model_bundle()
             except RuntimeError:
                 bundle = None
         elif default_bundle is not None:
@@ -109,9 +109,9 @@ class AgentComponents:
         self._entry_container_getter = bundle.entry_container_getter
 
         # Seed the default model from config or empty instance
-        if state_config and state_config.default_state is not None:
+        if state and state.default_state is not None:
             default_state_model = self._state_model_cls.model_validate(
-                state_config.default_state
+                state.default_state
             )
         else:
             default_state_model = self._state_model_cls()
@@ -121,12 +121,12 @@ class AgentComponents:
         # -----------------------------
         # Registry configuration
         # -----------------------------
-        self._registry_config = registry_config
-        self.registry_state = registry_config.store if registry_config else None
+        self._registry = registry
+        self.registry_state = registry.store if registry else None
         self._registry_prefix = "agents:"
         self._registry_team_override = (
-            registry_config.team_name
-            if registry_config and registry_config.team_name
+            registry.team_name
+            if registry and registry.team_name
             else "default"
         )
 
@@ -144,30 +144,30 @@ class AgentComponents:
     # Pub/Sub helpers
     # ------------------------------------------------------------------
     @property
-    def pubsub_config(self) -> Optional[AgentPubSubConfig]:
+    def pubsub(self) -> Optional[AgentPubSubConfig]:
         """Return the configured pub/sub settings, if any."""
-        return self._pubsub_config
+        return self._pubsub
 
     @property
     def message_bus_name(self) -> str:
         """Return the Dapr pub/sub component name (bus)."""
-        if not self._pubsub_config:
+        if not self._pubsub:
             raise RuntimeError("No pubsub configuration available for this agent.")
-        return self._pubsub_config.pubsub_name
+        return self._pubsub.pubsub_name
 
     @property
     def agent_topic_name(self) -> str:
         """Return the per-agent topic name."""
-        if not self._pubsub_config:
+        if not self._pubsub:
             raise RuntimeError("No pubsub configuration available for this agent.")
-        return self._pubsub_config.agent_topic or self.name
+        return self._pubsub.agent_topic or self.name
 
     @property
     def broadcast_topic_name(self) -> Optional[str]:
         """Return the broadcast topic name, if one was configured."""
-        if not self._pubsub_config:
+        if not self._pubsub:
             return None
-        return self._pubsub_config.broadcast_topic
+        return self._pubsub.broadcast_topic
 
     # ------------------------------------------------------------------
     # State helpers
@@ -465,7 +465,7 @@ class AgentComponents:
         payload.setdefault("name", self.name)
         payload.setdefault("team", self._effective_team(team))
 
-        if self._pubsub_config is not None:
+        if self._pubsub is not None:
             payload.setdefault("topic_name", self.agent_topic_name)
             payload.setdefault("pubsub_name", self.message_bus_name)
             if self.broadcast_topic_name:

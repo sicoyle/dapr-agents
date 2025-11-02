@@ -65,8 +65,8 @@ class AgentStateConfig:
     Examples:
         # Schema auto-selected by agent type
         config = AgentStateConfig(store=StateStoreService(...))
-        agent = DurableAgent(state_config=config, ...)  # → AgentWorkflowState
-        orch = LLMOrchestrator(state_config=config, ...)  # → LLMWorkflowState
+        agent = DurableAgent(state=config, ...)  # → AgentWorkflowState
+        orch = LLMOrchestrator(state=config, ...)  # → LLMWorkflowState
 
         # With custom hooks
         config = AgentStateConfig(

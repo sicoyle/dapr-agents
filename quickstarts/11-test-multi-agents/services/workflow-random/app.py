@@ -63,7 +63,7 @@ async def main() -> None:
     # -------------------------------------------------------------------------
     # Pub/Sub, State, Registry wiring
     # -------------------------------------------------------------------------
-    pubsub_config = AgentPubSubConfig(
+    pubsub = AgentPubSubConfig(
         pubsub_name=pubsub_name,
         agent_topic=orchestrator_topic,  # <-- RandomOrchestrator subscribes here
         broadcast_topic=broadcast_topic,  # <-- Optional (fanout to agents)
@@ -71,13 +71,13 @@ async def main() -> None:
 
     # Orchestrators often don’t persist workflow-local state; still allow it
     # so you can extend later (metrics, audit, etc).
-    state_config = AgentStateConfig(
+    state = AgentStateConfig(
         store=StateStoreService(
             store_name=workflow_state_store_name, key_prefix="fellowship.random:"
         ),
     )
 
-    registry_config = AgentRegistryConfig(
+    registry = AgentRegistryConfig(
         store=StateStoreService(store_name=registry_store_name),
         team_name=team_name,
     )
@@ -87,9 +87,9 @@ async def main() -> None:
     # -------------------------------------------------------------------------
     orchestrator = RandomOrchestrator(
         name=orchestrator_name,
-        pubsub_config=pubsub_config,
-        state_config=state_config,
-        registry_config=registry_config,
+        pubsub=pubsub,
+        state=state,
+        registry=registry,
         agent_metadata={"legend": "One orchestrator to guide them all."},
         max_iterations=max_iterations,
         timeout_seconds=timeout_seconds,

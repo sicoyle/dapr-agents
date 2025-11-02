@@ -36,9 +36,9 @@ class OrchestratorBase(AgentComponents):
         self,
         *,
         name: str,
-        pubsub_config: Optional[AgentPubSubConfig] = None,
-        state_config: Optional[AgentStateConfig] = None,
-        registry_config: Optional[AgentRegistryConfig] = None,
+        pubsub: Optional[AgentPubSubConfig] = None,
+        state: Optional[AgentStateConfig] = None,
+        registry: Optional[AgentRegistryConfig] = None,
         agent_metadata: Optional[Dict[str, Any]] = None,
         runtime: Optional[wf.WorkflowRuntime] = None,
         workflow_client: Optional[wf.DaprWorkflowClient] = None,
@@ -49,9 +49,9 @@ class OrchestratorBase(AgentComponents):
 
         Args:
             name: Orchestrator name.
-            pubsub_config: Pub/Sub settings used to address agents via topics.
-            state_config: Durable state settings (if the orchestrator persists anything).
-            registry_config: Agent registry configuration for discovery.
+            pubsub: Pub/Sub settings used to address agents via topics.
+            state: Durable state settings (if the orchestrator persists anything).
+            registry: Agent registry configuration for discovery.
             agent_metadata: Extra metadata to store in the registry; ``orchestrator=True``
                 is enforced automatically.
             runtime: Optional pre-existing workflow runtime to attach to.
@@ -60,9 +60,9 @@ class OrchestratorBase(AgentComponents):
         """
         super().__init__(
             name=name,
-            pubsub_config=pubsub_config,
-            state_config=state_config,
-            registry_config=registry_config,
+            pubsub=pubsub,
+            state=state,
+            registry=registry,
             default_bundle=default_bundle,
         )
 

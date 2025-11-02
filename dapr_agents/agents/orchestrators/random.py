@@ -44,23 +44,23 @@ class RandomOrchestrator(OrchestratorBase):
         self,
         *,
         name: str = "RandomOrchestrator",
-        pubsub_config: Optional[AgentPubSubConfig] = None,
-        state_config: Optional[AgentStateConfig] = None,
-        registry_config: Optional[AgentRegistryConfig] = None,
+        pubsub: Optional[AgentPubSubConfig] = None,
+        state: Optional[AgentStateConfig] = None,
+        registry: Optional[AgentRegistryConfig] = None,
         agent_metadata: Optional[Dict[str, Any]] = None,
-        execution_config: Optional[AgentExecutionConfig] = None,
+        execution: Optional[AgentExecutionConfig] = None,
         timeout_seconds: int = 60,
         runtime: Optional[wf.WorkflowRuntime] = None,
     ) -> None:
         super().__init__(
             name=name,
-            pubsub_config=pubsub_config,
-            state_config=state_config,
-            registry_config=registry_config,
+            pubsub=pubsub,
+            state=state,
+            registry=registry,
             agent_metadata=agent_metadata,
             runtime=runtime,
         )
-        self.execution_config = execution_config or AgentExecutionConfig()
+        self.execution = execution or AgentExecutionConfig()
         self.timeout = max(1, timeout_seconds)
         self.current_speaker: Optional[str] = None
 
@@ -98,12 +98,12 @@ class RandomOrchestrator(OrchestratorBase):
         instance_id = ctx.instance_id
         final_output: Optional[str] = None
 
-        for turn in range(1, self.execution_config.max_iterations + 1):
+        for turn in range(1, self.execution.max_iterations + 1):
             if not ctx.is_replaying:
                 logger.info(
                     "Random workflow turn %d/%d (instance=%s)",
                     turn,
-                    self.execution_config.max_iterations,
+                    self.execution.max_iterations,
                     instance_id,
                 )
 
@@ -176,7 +176,7 @@ class RandomOrchestrator(OrchestratorBase):
                         message=result.get("content", ""),
                     )
 
-            if turn == self.execution_config.max_iterations:
+            if turn == self.execution.max_iterations:
                 final_output = result.get("content", "")
                 break
 

@@ -42,12 +42,12 @@ class LLMOrchestratorBase(OrchestratorBase):
         self,
         *,
         name: str = "LLMOrchestrator",
-        pubsub_config: Optional[AgentPubSubConfig] = None,
-        state_config: Optional[AgentStateConfig] = None,
-        registry_config: Optional[AgentRegistryConfig] = None,
-        execution_config: Optional[AgentExecutionConfig] = None,
+        pubsub: Optional[AgentPubSubConfig] = None,
+        state: Optional[AgentStateConfig] = None,
+        registry: Optional[AgentRegistryConfig] = None,
+        execution: Optional[AgentExecutionConfig] = None,
         agent_metadata: Optional[Dict[str, Any]] = None,
-        memory_config: Optional[AgentMemoryConfig] = None,
+        memory: Optional[AgentMemoryConfig] = None,
         llm: Optional[ChatClientBase] = None,
         runtime: Optional[wf.WorkflowRuntime] = None,
         workflow_client: Optional[wf.DaprWorkflowClient] = None,
@@ -57,22 +57,22 @@ class LLMOrchestratorBase(OrchestratorBase):
 
         Args:
             name (str): Logical orchestrator name.
-            pubsub_config (Optional[AgentPubSubConfig]): Dapr Pub/Sub configuration.
-            state_config (Optional[AgentStateConfig]): State configuration for the orchestrator.
+            pubsub (Optional[AgentPubSubConfig]): Dapr Pub/Sub configuration.
+            state (Optional[AgentStateConfig]): State configuration for the orchestrator.
                 Schema is automatically set to LLMWorkflowState/LLMWorkflowMessage.
-            registry_config (Optional[AgentRegistryConfig]): Configuration for agent/team registry.
+            registry (Optional[AgentRegistryConfig]): Configuration for agent/team registry.
             agent_metadata (Optional[Dict[str, Any]]): Metadata to store alongside the registry entry.
-            memory_config (Optional[AgentMemoryConfig]): Memory configuration for the orchestrator.
+            memory (Optional[AgentMemoryConfig]): Memory configuration for the orchestrator.
             llm (Optional[ChatClientBase]): LLM client instance.
             runtime (Optional[wf.WorkflowRuntime]): Workflow runtime configuration.
             workflow_client (Optional[wf.DaprWorkflowClient]): Dapr workflow client.
         """
         super().__init__(
             name=name,
-            pubsub_config=pubsub_config,
-            state_config=state_config,
-            registry_config=registry_config,
-            execution_config=execution_config,
+            pubsub=pubsub,
+            state=state,
+            registry=registry,
+            execution=execution,
             agent_metadata=agent_metadata,
             runtime=runtime,
             workflow_client=workflow_client,
@@ -80,13 +80,13 @@ class LLMOrchestratorBase(OrchestratorBase):
         )
 
         # Memory wiring setup
-        self._memory_config = memory_config or AgentMemoryConfig()
-        if self._memory_config.store is None and state_config is not None:
-            self._memory_config.store = ConversationDaprStateMemory(
-                store_name=state_config.store.store_name,
+        self._memory = memory or AgentMemoryConfig()
+        if self._memory.store is None and state is not None:
+            self._memory.store = ConversationDaprStateMemory(
+                store_name=state.store.store_name,
                 session_id=f"{self.name}-session",
             )
-        self.memory = self._memory_config.store or ConversationListMemory()
+        self.memory = self._memory.store or ConversationListMemory()
 
         # Console formatting
         self._text_formatter = ColorTextFormatter()

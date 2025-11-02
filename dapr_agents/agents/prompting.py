@@ -175,16 +175,16 @@ class PromptingAgentBase:
     template_format: str = "jinja2"
     include_chat_history: bool = True
     prompt_template: Optional[PromptTemplateBase] = None
-    profile_config: Optional[AgentProfileConfig] = None
+    profile: Optional[AgentProfileConfig] = None
 
     def __post_init__(self) -> None:
         self._text_formatter = ColorTextFormatter()
 
         spec: PromptSpec
         extra_sections: List[PromptSection] = []
-        if self.profile_config is not None:
+        if self.profile is not None:
             spec, extra_sections = prompt_spec_from_profile(
-                self.profile_config,
+                self.profile,
                 default_name=self.name,
             )
             # adopt values from spec so other consumers see resolved persona
@@ -227,9 +227,9 @@ class PromptingAgentBase:
     ) -> None:
         extra_sections: List[PromptSection] = []
         if spec is None:
-            if self.profile_config is not None:
+            if self.profile is not None:
                 spec, extra_sections = prompt_spec_from_profile(
-                    self.profile_config,
+                    self.profile,
                     default_name=self.name,
                 )
             else:

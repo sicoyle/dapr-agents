@@ -38,7 +38,7 @@ async def main() -> None:
         AgentWorkflowState / AgentWorkflowMessage internally.
     """
     # Shared infra (registry)
-    registry_config = AgentRegistryConfig(
+    registry = AgentRegistryConfig(
         store=StateStoreService(store_name="agentregistrystore"),
         team_name="fellowship",
     )
@@ -89,11 +89,11 @@ async def main() -> None:
     )
 
     gandalf = DurableAgent(
-        profile_config=gandalf_profile,
-        pubsub_config=gandalf_pubsub,
-        state_config=gandalf_state,
-        registry_config=registry_config,
-        memory_config=gandalf_memory,
+        profile=gandalf_profile,
+        pubsub=gandalf_pubsub,
+        state=gandalf_state,
+        registry=registry,
+        memory=gandalf_memory,
         llm=llm,
     )
     gandalf.start()

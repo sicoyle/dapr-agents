@@ -79,7 +79,7 @@ class TestAgentBaseClass:
             "Test instruction 1",
             "Test instruction 2",
         ]
-        assert basic_agent.execution_config.max_iterations == 10
+        assert basic_agent.execution.max_iterations == 10
         assert basic_agent.prompting_helper.template_format == "jinja2"
         assert isinstance(basic_agent.memory, ConversationListMemory)
         assert basic_agent.llm is not None
@@ -236,7 +236,7 @@ class TestAgentBaseClass:
         memory = DummyVectorMemory(mock_vector_store)
         agent = ConcreteAgentBase(
             name="TestAgent",
-            memory_config=AgentMemoryConfig(store=memory),
+            memory=AgentMemoryConfig(store=memory),
             llm=mock_llm,
         )
 
@@ -250,7 +250,7 @@ class TestAgentBaseClass:
         memory = ConversationListMemory()
         agent = ConcreteAgentBase(
             name="TestAgent",
-            memory_config=AgentMemoryConfig(store=memory),
+            memory=AgentMemoryConfig(store=memory),
             llm=mock_llm_client,
         )
 
@@ -376,7 +376,7 @@ class TestAgentBaseClass:
         from dapr_agents.agents.configs import AgentProfileConfig
 
         profile = AgentProfileConfig(name="TestAgent", template_format="f-string")
-        agent = ConcreteAgentBase(profile_config=profile, llm=mock_llm_client)
+        agent = ConcreteAgentBase(profile=profile, llm=mock_llm_client)
         assert agent.prompting_helper.template_format == "f-string"
 
         agent = ConcreteAgentBase(name="TestAgent", llm=mock_llm_client)
@@ -384,7 +384,7 @@ class TestAgentBaseClass:
 
     def test_max_iterations_default(self, minimal_agent):
         """Test default max iterations."""
-        assert minimal_agent.execution_config.max_iterations == 10
+        assert minimal_agent.execution.max_iterations == 10
 
     def test_max_iterations_custom(self, mock_llm_client):
         """Test custom max iterations."""
@@ -392,7 +392,7 @@ class TestAgentBaseClass:
 
         agent = ConcreteAgentBase(
             name="TestAgent",
-            execution_config=AgentExecutionConfig(max_iterations=5),
+            execution=AgentExecutionConfig(max_iterations=5),
             llm=mock_llm_client,
         )
-        assert agent.execution_config.max_iterations == 5
+        assert agent.execution.max_iterations == 5

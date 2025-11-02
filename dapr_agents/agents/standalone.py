@@ -45,7 +45,7 @@ class Agent(AgentBase):
         self,
         *,
         # Profile / prompt
-        profile_config: Optional[AgentProfileConfig] = None,
+        profile: Optional[AgentProfileConfig] = None,
         name: Optional[str] = None,
         role: Optional[str] = None,
         goal: Optional[str] = None,
@@ -56,12 +56,12 @@ class Agent(AgentBase):
         # Runtime
         llm: Optional[ChatClientBase] = None,
         tools: Optional[Iterable[Any]] = None,
-        memory_config: Optional[AgentMemoryConfig] = None,
+        memory: Optional[AgentMemoryConfig] = None,
         # Persistence/registry
-        state_config: Optional[AgentStateConfig] = None,
-        registry_config: Optional[AgentRegistryConfig] = None,
+        state: Optional[AgentStateConfig] = None,
+        registry: Optional[AgentRegistryConfig] = None,
         # Behavior / execution
-        execution_config: Optional[AgentExecutionConfig] = None,
+        execution: Optional[AgentExecutionConfig] = None,
         # Misc
         agent_metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -69,29 +69,29 @@ class Agent(AgentBase):
         Initialize behavior + infrastructure for a non-workflow agent.
 
         Args:
-            profile_config: High-level profile (can be overridden by explicit fields).
+            profile: High-level profile (can be overridden by explicit fields).
             name, role, goal, instructions, style_guidelines, system_prompt: Prompt/profile fields.
             prompt_template: Optional explicit prompt template instance.
             llm: Chat client; defaults to `get_default_llm()`.
             tools: Optional tool callables or `AgentTool` instances.
-            memory_config: Conversation memory config.
-            state_config: Durable state configuration (store/key + optional hooks).
-            registry_config: Team registry configuration.
-            execution_config: Execution dials for the agent run.
+            memory: Conversation memory config.
+            state: Durable state configuration (store/key + optional hooks).
+            registry: Team registry configuration.
+            execution: Execution dials for the agent run.
             agent_metadata: Extra metadata to store in the registry.
         """
         super().__init__(
-            profile_config=profile_config,
+            profile=profile,
             name=name,
             role=role,
             goal=goal,
             instructions=instructions,
             style_guidelines=style_guidelines,
             system_prompt=system_prompt,
-            state_config=state_config,
-            memory_config=memory_config,
-            registry_config=registry_config,
-            execution_config=execution_config,
+            state=state,
+            memory=memory,
+            registry=registry,
+            execution=execution,
             agent_metadata=agent_metadata,
             llm=llm,
             tools=tools,
@@ -264,17 +264,17 @@ class Agent(AgentBase):
         pending_messages = list(messages)
         final_reply: Optional[AssistantMessage] = None
 
-        for turn in range(1, self.execution_config.max_iterations + 1):
+        for turn in range(1, self.execution.max_iterations + 1):
             logger.info(
-                "Iteration %d/%d started.", turn, self.execution_config.max_iterations
+                "Iteration %d/%d started.", turn, self.execution.max_iterations
             )
             try:
                 response: LLMChatResponse = self.llm.generate(
                     messages=pending_messages,
                     tools=self.get_llm_tools(),
                     **(
-                        {"tool_choice": self.execution_config.tool_choice}
-                        if self.execution_config.tool_choice is not None
+                        {"tool_choice": self.execution.tool_choice}
+                        if self.execution.tool_choice is not None
                         else {}
                     ),
                 )
@@ -294,7 +294,7 @@ class Agent(AgentBase):
                             instance_id, tool_calls
                         )
                         pending_messages.extend(tool_msgs)
-                        if turn == self.execution_config.max_iterations:
+                        if turn == self.execution.max_iterations:
                             final_reply = assistant_message
                             logger.info(
                                 "Reached max iterations after tool calls; stopping."
