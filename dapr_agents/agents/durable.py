@@ -42,7 +42,8 @@ class DurableAgent(AgentBase):
 
     Overview:
         Wires your AgentBase behavior into Dapr Workflows for durable, pub/sub-driven runs.
-        Leverages flexible state models, message coercers, and registry/metadata from Components.
+        Persists state using the built-in AgentWorkflowState schema while still honoring
+        safe hook overrides (entry_factory, message_coercer, etc.).
 
     """
 
@@ -86,7 +87,7 @@ class DurableAgent(AgentBase):
             prompt_template: Optional explicit prompt template instance.
 
             pubsub_config: Dapr Pub/Sub configuration for triggers/broadcasts.
-            state_config: Durable state configuration and model customization.
+            state_config: Durable state configuration (store/key + optional hooks).
             registry_config: Team registry configuration.
             execution_config: Execution dials for the agent run.
 

@@ -58,7 +58,6 @@ async def main() -> None:
     )
     gandalf_state = AgentStateConfig(
         store=StateStoreService(store_name="workflowstatestore", key_prefix="gandalf:")
-        # Default state/message models will be used.
     )
     gandalf_memory = AgentMemoryConfig(
         store=ConversationDaprStateMemory(

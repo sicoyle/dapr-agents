@@ -10,8 +10,8 @@ import dapr.ext.workflow as wf
 from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
+    AgentStateConfig,
 )
-from dapr_agents.agents.orchestrators.llm.configs import LLMOrchestratorStateConfig
 from dapr_agents.agents.orchestrators.llm import LLMOrchestrator
 from dapr_agents.storage.daprstores.stateservice import StateStoreService
 from dapr_agents.workflow.runners import AgentRunner
@@ -68,9 +68,10 @@ async def main() -> None:
         broadcast_topic=broadcast_topic,
     )
 
-    # Orchestrators often don’t persist workflow-local state; still allow it
+    # Orchestrators often don't persist workflow-local state; still allow it
     # so you can extend later (metrics, audit, etc).
-    state_config = LLMOrchestratorStateConfig(
+    # Schema automatically set to LLMWorkflowState by LLMOrchestrator
+    state_config = AgentStateConfig(
         store=StateStoreService(
             store_name=workflow_state_store_name, key_prefix="llm.orchestrator:"
         ),

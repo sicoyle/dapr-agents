@@ -37,8 +37,8 @@ class Agent(AgentBase):
 
     Overview:
         Reuses AgentBase for profile/prompting, LLM wiring, memory, and durable state.
-        Runs an in-process conversation loop (no Dapr Workflows), but persists
-        per-instance timeline using the flexible state model (custom `instances` layout allowed).
+        Runs an in-process conversation loop (no Dapr Workflows) while persisting each
+        run using the standard AgentWorkflowState schema that AgentBase wires in.
     """
 
     def __init__(
@@ -75,7 +75,7 @@ class Agent(AgentBase):
             llm: Chat client; defaults to `get_default_llm()`.
             tools: Optional tool callables or `AgentTool` instances.
             memory_config: Conversation memory config.
-            state_config: Durable state configuration/model customization.
+            state_config: Durable state configuration (store/key + optional hooks).
             registry_config: Team registry configuration.
             execution_config: Execution dials for the agent run.
             agent_metadata: Extra metadata to store in the registry.

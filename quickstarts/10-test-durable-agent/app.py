@@ -46,9 +46,9 @@ async def main() -> None:
         broadcast_topic="agents.broadcast",
     )
 
+    # State configuration - schema automatically set by DurableAgent
     state_config = AgentStateConfig(
         store=StateStoreService(store_name="workflowstatestore", key_prefix="blog:")
-        # No default_state/state_model_cls/message_model_cls → uses defaults.
     )
 
     registry_config = AgentRegistryConfig(

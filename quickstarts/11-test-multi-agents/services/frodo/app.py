@@ -59,7 +59,6 @@ async def main() -> None:
     )
     frodo_state = AgentStateConfig(
         store=StateStoreService(store_name="workflowstatestore", key_prefix="frodo:")
-        # Default state/message models will be used.
     )
     frodo_memory = AgentMemoryConfig(
         store=ConversationDaprStateMemory(

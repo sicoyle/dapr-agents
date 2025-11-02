@@ -10,10 +10,11 @@ from dapr_agents.agents.configs import (
     AgentMemoryConfig,
     AgentPubSubConfig,
     AgentRegistryConfig,
+    AgentStateConfig,
     AgentExecutionConfig,
 )
 from dapr_agents.agents.orchestrators.base import OrchestratorBase
-from dapr_agents.agents.orchestrators.llm.configs import LLMOrchestratorStateConfig
+from dapr_agents.agents.orchestrators.llm.configs import build_llm_state_bundle
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
 from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.llm.utils.defaults import get_default_llm
@@ -42,7 +43,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         *,
         name: str = "LLMOrchestrator",
         pubsub_config: Optional[AgentPubSubConfig] = None,
-        state_config: Optional[LLMOrchestratorStateConfig] = None,
+        state_config: Optional[AgentStateConfig] = None,
         registry_config: Optional[AgentRegistryConfig] = None,
         execution_config: Optional[AgentExecutionConfig] = None,
         agent_metadata: Optional[Dict[str, Any]] = None,
@@ -57,7 +58,8 @@ class LLMOrchestratorBase(OrchestratorBase):
         Args:
             name (str): Logical orchestrator name.
             pubsub_config (Optional[AgentPubSubConfig]): Dapr Pub/Sub configuration.
-            state_config (Optional[LLMOrchestratorStateConfig]): State configuration for the orchestrator.
+            state_config (Optional[AgentStateConfig]): State configuration for the orchestrator.
+                Schema is automatically set to LLMWorkflowState/LLMWorkflowMessage.
             registry_config (Optional[AgentRegistryConfig]): Configuration for agent/team registry.
             agent_metadata (Optional[Dict[str, Any]]): Metadata to store alongside the registry entry.
             memory_config (Optional[AgentMemoryConfig]): Memory configuration for the orchestrator.
@@ -74,6 +76,7 @@ class LLMOrchestratorBase(OrchestratorBase):
             agent_metadata=agent_metadata,
             runtime=runtime,
             workflow_client=workflow_client,
+            default_bundle=build_llm_state_bundle(),
         )
 
         # Memory wiring setup
@@ -161,7 +164,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         Ensures an entry exists for the workflow instance in the state.
 
         This delegates to ensure_instance_exists() which uses the entry_factory
-        configured in LLMOrchestratorStateConfig to create proper model instances.
+        from the state schema bundle to create proper model instances.
 
         Args:
             instance_id (str): The workflow instance ID.
