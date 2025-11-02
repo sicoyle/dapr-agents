@@ -12,6 +12,7 @@ from dapr_agents.agents.configs import (
     AgentRegistryConfig,
     AgentStateConfig,
     AgentExecutionConfig,
+    DEFAULT_AGENT_WORKFLOW_BUNDLE,
 )
 from dapr_agents.agents.prompting import AgentProfileConfig, PromptingAgentBase
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
@@ -116,6 +117,7 @@ class AgentBase(AgentComponents):
             registry_config=registry_config,
             base_metadata=base_metadata,
             max_etag_attempts=max_etag_attempts,
+            default_bundle=DEFAULT_AGENT_WORKFLOW_BUNDLE,
         )
 
         # -----------------------------

@@ -4,7 +4,7 @@ import logging
 import random
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional, Sequence, Type
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence
 
 from dapr.clients.grpc._state import Concurrency, Consistency, StateOptions
 from pydantic import BaseModel, ValidationError
@@ -13,14 +13,14 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    DEFAULT_AGENT_WORKFLOW_BUNDLE,
 )
-from dapr_agents.agents.schemas import (
-    AgentWorkflowEntry,
-    AgentWorkflowMessage,
-    AgentWorkflowState,
-)
+from dapr_agents.agents.schemas import AgentWorkflowEntry
 from dapr_agents.storage.daprstores.stateservice import StateStoreError
 from dapr_agents.types.workflow import DaprWorkflowStatus
+
+if TYPE_CHECKING:
+    from dapr_agents.agents.configs import StateModelBundle
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,7 @@ class AgentComponents:
         registry_config: Optional[AgentRegistryConfig] = None,
         base_metadata: Optional[Dict[str, Any]] = None,
         max_etag_attempts: int = 10,
+        default_bundle: Optional["StateModelBundle"] = None,
     ) -> None:
         """
         Initialize component wiring.
@@ -53,10 +54,11 @@ class AgentComponents:
         Args:
             name: Logical agent name; used for keys/topics when not overridden.
             pubsub_config: Dapr pub/sub configuration for this agent.
-            state_config: Durable state (Dapr state store, key overrides, defaults, model customization).
+            state_config: Durable state (Dapr state store, key overrides, defaults, hooks).
             registry_config: Agent registry backing store and team settings.
             base_metadata: Base metadata for Dapr state operations.
             max_etag_attempts: Max optimistic-concurrency retries on registry mutations.
+            default_bundle: Default state schema bundle (injected by agent/orchestrator class).
         """
         self.name = name
 
@@ -76,30 +78,35 @@ class AgentComponents:
         # State configuration and model (flexible)
         # -----------------------------
         self._state_config = state_config
-        self.state_store = state_config.store if state_config else None
+        self.state_store = (
+            state_config.store if state_config and state_config.store else None
+        )
         override_state_key = state_config.state_key if state_config else None
         self.state_key = override_state_key or f"{self.name}:workflow_state"
 
-        # Customization points (classes + hooks)
-        self._state_model_cls: Type[BaseModel] = (
-            state_config.state_model_cls if state_config else AgentWorkflowState
-        )
-        self._message_model_cls: Type[BaseModel] = (
-            state_config.message_model_cls if state_config else AgentWorkflowMessage
-        )
-        self._entry_factory: Optional[Callable[..., Any]] = (
-            state_config.entry_factory if state_config else None
-        )
-        self._message_coercer: Optional[Callable[[Dict[str, Any]], Any]] = (
-            state_config.message_coercer if state_config else None
-        )
-        self._entry_container_getter: Optional[
-            Callable[[BaseModel], Optional[dict]]
-        ] = (
-            getattr(state_config, "entry_container_getter", None)
-            if state_config
-            else None
-        )
+        bundle = None
+        if state_config is not None:
+            if default_bundle is not None:
+                state_config.ensure_bundle(default_bundle)
+            try:
+                bundle = state_config.get_state_model_bundle()
+            except RuntimeError:
+                bundle = None
+        elif default_bundle is not None:
+            bundle = default_bundle
+
+        if bundle is None:
+            logger.debug(
+                "No state bundle for %s; using default AgentWorkflowState schema",
+                self.name,
+            )
+            bundle = DEFAULT_AGENT_WORKFLOW_BUNDLE
+
+        self._state_model_cls = bundle.state_model_cls
+        self._message_model_cls = bundle.message_model_cls
+        self._entry_factory = bundle.entry_factory
+        self._message_coercer = bundle.message_coercer
+        self._entry_container_getter = bundle.entry_container_getter
 
         # Seed the default model from config or empty instance
         if state_config and state_config.default_state is not None:
