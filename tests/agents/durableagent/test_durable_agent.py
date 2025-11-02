@@ -389,7 +389,9 @@ class TestDurableAgent:
         mock_ctx = Mock()
 
         with patch.object(
-            basic_durable_agent, "_run_asyncio_task", side_effect=lambda coro: coro.close()
+            basic_durable_agent,
+            "_run_asyncio_task",
+            side_effect=lambda coro: coro.close(),
         ) as mock_run_task:
             basic_durable_agent.send_response_back(
                 mock_ctx,

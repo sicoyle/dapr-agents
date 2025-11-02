@@ -61,6 +61,7 @@ def mock_llm_client_structured():
 @pytest.fixture
 def mock_agent():
     """Mock agent that returns test responses."""
+
     class DummyAgent:
         def __init__(self) -> None:
             self.calls: list[str] = []
