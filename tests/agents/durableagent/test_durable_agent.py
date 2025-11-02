@@ -114,8 +114,8 @@ class TestDurableAgent:
         context = DaprWorkflowContext()
         context.instance_id = "test-instance-123"
         context.is_replaying = False
-        context.call_activity = AsyncMock()
-        context.wait_for_external_event = AsyncMock()
+        context.call_activity = Mock()
+        context.wait_for_external_event = Mock()
         context.current_utc_datetime = Mock()
         context.current_utc_datetime.isoformat = Mock(
             return_value="2024-01-01T00:00:00.000000"
@@ -388,7 +388,9 @@ class TestDurableAgent:
         # Mock the activity context and _run_asyncio_task
         mock_ctx = Mock()
 
-        with patch.object(basic_durable_agent, "_run_asyncio_task") as mock_run_task:
+        with patch.object(
+            basic_durable_agent, "_run_asyncio_task", side_effect=lambda coro: coro.close()
+        ) as mock_run_task:
             basic_durable_agent.send_response_back(
                 mock_ctx,
                 {
