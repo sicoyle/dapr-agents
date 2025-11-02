@@ -320,7 +320,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         self, instance_id: str, step_id: int, substep_id: Optional[float]
     ) -> None:
         """Reverts a step from `in_progress` back to `not_started`."""
-        from dapr_agents.workflow.orchestrators.llm.utils import find_step_in_plan
+        from dapr_agents.agents.orchestrators.llm.utils import find_step_in_plan
 
         try:
             container = self._get_entry_container()
@@ -348,7 +348,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         self, instance_id: str, agent: str, step_id: int, substep_id: Optional[float]
     ) -> None:
         """Undo the last task history entry and revert `completed` -> `in_progress` if needed."""
-        from dapr_agents.workflow.orchestrators.llm.utils import find_step_in_plan
+        from dapr_agents.agents.orchestrators.llm.utils import find_step_in_plan
 
         try:
             container = self._get_entry_container()
@@ -588,7 +588,7 @@ class LLMOrchestratorBase(OrchestratorBase):
             RuntimeError: If sending the trigger fails due to pub/sub issues.
         """
         from dapr_agents.agents.schemas import TriggerAction
-        from dapr_agents.workflow.orchestrators.llm.utils import (
+        from dapr_agents.agents.orchestrators.llm.utils import (
             find_step_in_plan,
             update_step_statuses,
         )
@@ -672,7 +672,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         Raises:
             ValueError: If a referenced step/substep is not found in the plan.
         """
-        from dapr_agents.workflow.orchestrators.llm.utils import (
+        from dapr_agents.agents.orchestrators.llm.utils import (
             find_step_in_plan,
             restructure_plan,
             update_step_statuses,
