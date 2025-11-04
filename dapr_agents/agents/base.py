@@ -122,7 +122,7 @@ class AgentBase(AgentComponents):
         # Memory wiring
         # -----------------------------
         self._memory_config = memory_config or AgentMemoryConfig()
-        if self._memory_config.store is None and state_config is not None:
+        if self._memory_config is None and state_config is not None:
             # Auto-provision a Dapr-backed memory if we have a state store.
             self._memory_config.store = ConversationDaprStateMemory(  # type: ignore[union-attr]
                 store_name=state_config.store.store_name,
