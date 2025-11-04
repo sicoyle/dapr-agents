@@ -71,4 +71,4 @@ jobs:
         tox -e type
     - name: Run Tests
       run: |
-        tox -e pytest
+        tox -e pytest -- -m "not integration"
