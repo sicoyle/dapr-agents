@@ -6,6 +6,17 @@ on:
   workflow_dispatch:
     # Allow manual trigger for testing
 
+  # TODO(@Sicoyle): uncomment before merging!!! This is to let me test within my PR.
+  pull_request:
+    branches:
+      - main
+      - release-*
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
@@ -15,6 +26,7 @@ jobs:
         python_ver: ["3.10", "3.11", "3.12", "3.13"]
     # Only run if comment contains "/ok-to-test" and is on a PR
     # Also check that commenter is a maintainer/owner
+    # Or if it's a manual workflow_dispatch
     if: |
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
@@ -22,6 +34,7 @@ jobs:
        (github.event.comment.author_association == 'OWNER' ||
         github.event.comment.author_association == 'MEMBER' ||
         github.event.comment.author_association == 'COLLABORATOR')) ||
+      github.event_name == 'pull_request' ||
       github.event_name == 'workflow_dispatch'
     steps:
     - name: Get PR details
@@ -52,7 +65,7 @@ jobs:
         repository: ${{ steps.pr.outputs.head_repo }}
     
     - name: Checkout
-      if: github.event_name == 'workflow_dispatch'
+      if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
       uses: actions/checkout@v4
     
     - name: Set up Python ${{ matrix.python_ver }}
