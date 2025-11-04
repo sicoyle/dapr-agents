@@ -1,11 +1,6 @@
 """Integration tests for 02_llm_call_hugging_face quickstart."""
 import pytest
-from pathlib import Path
-from tests.integration.conftest import (
-    run_quickstart_script,
-    quickstarts_dir,
-    huggingface_api_key,
-)
+from tests.integration.conftest import run_quickstart_script
 
 
 @pytest.mark.integration

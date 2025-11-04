@@ -1,11 +1,6 @@
 """Integration tests for 07-agent-mcp-client-stdio quickstart."""
 import pytest
-from pathlib import Path
-from tests.integration.conftest import (
-    run_quickstart_script,
-    quickstarts_dir,
-    openai_api_key,
-)
+from tests.integration.conftest import run_quickstart_script
 
 
 @pytest.mark.integration

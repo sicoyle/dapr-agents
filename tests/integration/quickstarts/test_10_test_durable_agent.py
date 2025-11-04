@@ -1,12 +1,6 @@
 """Integration tests for 10-test-durable-agent quickstart."""
 import pytest
-from pathlib import Path
-from tests.integration.conftest import (
-    run_quickstart_script,
-    quickstarts_dir,
-    openai_api_key,
-    dapr_runtime,
-)
+from tests.integration.conftest import run_quickstart_script
 
 
 @pytest.mark.integration

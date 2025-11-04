@@ -1,11 +1,6 @@
 """Integration tests for 02_llm_call_dapr quickstart."""
 import pytest
-from tests.integration.conftest import (
-    run_quickstart_script,
-    quickstarts_dir,
-    openai_api_key,
-    dapr_runtime,
-)
+from tests.integration.conftest import run_quickstart_script
 
 
 @pytest.mark.integration
