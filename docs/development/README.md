@@ -97,6 +97,33 @@ tox -e pytest tests/test_random_orchestrator.py
 tox -e pytest --cov=dapr_agents
 ```
 
+### Integration Tests
+
+> Note: we do not use `pytest-docker-compose` intentionally here because it is not compatible with Python2, 
+and requires an old version of pyyaml < version6, but the rest of our project requires >6 for this pkg.
+
+Requires Dapr CLI to be installed.
+
+```
+# Install test dependencies
+pip install -e .[test]
+
+# Set API key (required)
+export OPENAI_API_KEY=your_key_here
+
+# Run all integration tests
+pytest tests/integration/quickstarts/ -v -m integration
+
+# Run specific test file
+pytest tests/integration/quickstarts/test_01_hello_world.py -v
+
+# Run specific test func
+pytest -m integration -v integration/quickstarts/test_01_hello_world.py::TestHelloWorldQuickstart::test_chain_tasks
+
+# Run with coverage
+pytest tests/integration/quickstarts/ -v -m integration --cov=dapr_agents
+```
+
 ## Code Quality
 
 The project uses several tools to maintain code quality:

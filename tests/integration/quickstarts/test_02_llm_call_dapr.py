@@ -1,21 +1,26 @@
 """Integration tests for 02_llm_call_dapr quickstart."""
 import pytest
-from tests.integration.conftest import run_quickstart_script, quickstarts_dir, openai_api_key, dapr_runtime
+from tests.integration.conftest import (
+    run_quickstart_script,
+    quickstarts_dir,
+    openai_api_key,
+    dapr_runtime,
+)
 
 
 @pytest.mark.integration
 class TestLLMCallDaprQuickstart:
     """Integration tests for 02_llm_call_dapr quickstart."""
-    
+
     @pytest.fixture(autouse=True)
     def setup(self, quickstarts_dir, openai_api_key):
         """Setup test environment."""
         self.quickstart_dir = quickstarts_dir / "02_llm_call_dapr"
         self.env = {"OPENAI_API_KEY": openai_api_key}
-    
-    def test_text_completion(self, dapr_runtime): # noqa: ARG002
+
+    def test_text_completion(self, dapr_runtime):  # noqa: ARG002
         """Test text completion using DaprChatClient (text_completion.py).
-        
+
         Note: dapr_runtime parameter ensures Dapr is initialized before this test runs.
         The fixture is needed for setup, even though we don't use the value directly.
         """
@@ -28,7 +33,7 @@ class TestLLMCallDaprQuickstart:
             use_dapr=True,
             app_id="dapr-llm-test",
         )
-        
+
         # Quickstart should run successfully without errors
         assert result.returncode == 0, (
             f"Quickstart failed with return code {result.returncode}.\n"

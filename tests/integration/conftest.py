@@ -86,23 +86,25 @@ def _ensure_dapr_initialized():
     )
     if result.returncode != 0:
         logger.error("Dapr CLI not found!")
-        pytest.skip("Dapr CLI not found. Please install Dapr CLI: https://docs.dapr.io/getting-started/install-dapr-cli/")
-    
+        pytest.skip(
+            "Dapr CLI not found. Please install Dapr CLI: https://docs.dapr.io/getting-started/install-dapr-cli/"
+        )
+
     # Show Dapr version
     version_output = result.stdout.strip() or result.stderr.strip()
     logger.info(f"Dapr CLI found: {version_output}")
-    
+
     # Check if Dapr is initialized by checking for dapr components directory
     # This is a lightweight check - if dapr init hasn't been run, components won't exist
     dapr_components_path = Path.home() / ".dapr" / "components"
     dapr_bin_path = Path.home() / ".dapr" / "bin"
-    
+
     logger.info("Checking Dapr initialization status...")
     logger.info(f"  Dapr components path: {dapr_components_path}")
     logger.info(f"  Components exist: {dapr_components_path.exists()}")
     logger.info(f"  Dapr bin path: {dapr_bin_path}")
     logger.info(f"  Bin exists: {dapr_bin_path.exists()}")
-    
+
     if not dapr_components_path.exists() or not dapr_bin_path.exists():
         logger.warning("Dapr not initialized. Running 'dapr init'...")
         logger.info("  This may take a few minutes (downloads Docker images)...")
@@ -137,9 +139,10 @@ def dapr_runtime(project_root):
 def _check_port_available(port: int) -> bool:
     """Check if a port is available (not in use)."""
     import socket
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(1)
-    result = sock.connect_ex(('localhost', port))
+    result = sock.connect_ex(("localhost", port))
     sock.close()
     return result != 0  # Port is available if connection fails
 
@@ -165,7 +168,7 @@ def _get_or_create_container(
     """
     Get existing container if it's running and healthy, otherwise create a new one.
     Returns None if port is already in use by a healthy service (we'll use that instead).
-    
+
     Args:
         client: Docker client
         container_name: Name of the container
@@ -174,16 +177,16 @@ def _get_or_create_container(
         health_check_url: URL to check for service health
         health_check_timeout: Maximum time to wait for service to be healthy
         environment: Optional environment variables
-        
+
     Returns:
         Container object, or None if using existing service on port
     """
     # Check if container already exists
     try:
         existing_container = client.containers.get(container_name)
-        
+
         # Check if container is running
-        if existing_container.status == 'running':
+        if existing_container.status == "running":
             # Check if service is healthy
             if _check_service_healthy(health_check_url, timeout=2):
                 # Container exists, is running, and service is healthy - reuse it
@@ -206,7 +209,7 @@ def _get_or_create_container(
     except docker.errors.NotFound:
         # Container doesn't exist - that's fine, we'll create it
         pass
-    
+
     # Check if port is already in use by something else
     # (not our container, but maybe another service)
     for host_port in ports.values():
@@ -220,7 +223,7 @@ def _get_or_create_container(
                 # Port is in use but service isn't healthy - try to create container anyway
                 # (might fail, but that's okay - test will show the error)
                 pass
-    
+
     # Create new container
     container = client.containers.run(
         image,
@@ -230,20 +233,20 @@ def _get_or_create_container(
         remove=True,
         environment=environment,
     )
-    
+
     # Wait for service to be ready
     for i in range(health_check_timeout):
         if _check_service_healthy(health_check_url, timeout=2):
             return container
         time.sleep(1)
-    
+
     # Service didn't become healthy - clean up and return None
     # Test will still run, but will likely fail
     try:
         container.remove(force=True)
     except docker.errors.NotFound:
         pass
-    
+
     return None
 
 
@@ -259,17 +262,17 @@ def zipkin_service(docker_client):
         health_check_timeout=30,
         environment=None,
     )
-    
+
     # Verify service is healthy (whether from our container or existing service)
     if not _check_service_healthy("http://localhost:9411/health", timeout=2):
         pytest.skip("Zipkin service at http://localhost:9411 is not healthy")
-    
+
     yield {
         "endpoint": "http://localhost:9411",
         "api_endpoint": "http://localhost:9411/api/v2/spans",
         "container": container,  # May be None if using existing service
     }
-    
+
     # Only remove container if we created it (not if it was None/existing service)
     if container is not None:
         try:
@@ -290,17 +293,17 @@ def jaeger_service(docker_client):
         health_check_timeout=30,
         environment={"COLLECTOR_OTLP_ENABLED": "true"},
     )
-    
+
     # Verify service is healthy (whether from our container or existing service)
     if not _check_service_healthy("http://localhost:16686/", timeout=2):
         pytest.skip("Jaeger service at http://localhost:16686 is not healthy")
-    
+
     yield {
         "endpoint": "http://localhost:16686",
         "otlp_endpoint": "http://localhost:4318/v1/traces",
         "container": container,  # May be None if using existing service
     }
-    
+
     # Only remove container if we created it (not if it was None/existing service)
     if container is not None:
         try:
@@ -321,7 +324,7 @@ def run_quickstart_script(
 ) -> subprocess.CompletedProcess:
     """
     Run a quickstart script and return the result.
-    
+
     Args:
         script_path: Path to the Python script to run
         cwd: Working directory (defaults to script's parent directory)
@@ -336,19 +339,23 @@ def run_quickstart_script(
     full_env = os.environ.copy()
     if env:
         full_env.update(env)
-    
+
     cwd_path = cwd or script_path.parent
-    
+
     if use_dapr:
         if not app_id:
             raise ValueError("app_id is required when use_dapr=True")
         if not resources_path:
             # Default to components directory in quickstart directory
             resources_path = cwd_path / "components"
-        
+
         # Check if components directory exists and resolve env vars if needed
         # Get project root from the quickstarts_dir parent
-        project_root_path = cwd_path.parent.parent if "quickstarts" in str(cwd_path) else cwd_path.parent
+        project_root_path = (
+            cwd_path.parent.parent
+            if "quickstarts" in str(cwd_path)
+            else cwd_path.parent
+        )
         resolve_script = project_root_path / "quickstarts" / "resolve_env_templates.py"
         if resolve_script.exists() and resources_path.exists():
             # Resolve environment variables in components
@@ -364,19 +371,24 @@ def run_quickstart_script(
                 resolved_path = resolve_result.stdout.strip()
                 if resolved_path and Path(resolved_path).exists():
                     resources_path = Path(resolved_path)
-        
+
         # Build dapr run command
         cmd = [
-            "dapr", "run",
-            "--app-id", app_id,
-            "--dapr-http-port", str(dapr_http_port),
-            "--resources-path", str(resources_path),
+            "dapr",
+            "run",
+            "--app-id",
+            app_id,
+            "--dapr-http-port",
+            str(dapr_http_port),
+            "--resources-path",
+            str(resources_path),
             "--",
-            "python", str(script_path),
+            "python",
+            str(script_path),
         ]
     else:
         cmd = ["python", str(script_path)]
-    
+
     result = subprocess.run(
         cmd,
         cwd=cwd_path,
@@ -391,5 +403,5 @@ def run_quickstart_script(
             f"Script {script_path} failed with return code {result.returncode}.\n"
             f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
         )
-    
+
     return result
