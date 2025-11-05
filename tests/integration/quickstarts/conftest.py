@@ -13,14 +13,14 @@ logger = logging.getLogger(__name__)
 def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
     """
     Setup a virtual environment for a quickstart so as to better match end user setup.
-    
+
     Creates a venv in the quickstart directory and installs from requirements.txt.
     So, if we are testing locally then we can update the requirements.txt to use the editable install from the project root.
-    
+
     Args:
         quickstart_dir: Path to the quickstart directory
         project_root: Path to the project root (for editable install if needed)
-    
+
     Returns:
         Path to the venv Python executable
     """
@@ -42,13 +42,13 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
             raise RuntimeError(
                 f"Failed to create venv: {result.stderr}\n{result.stdout}"
             )
-    
+
     venv_python = venv_path / "bin" / "python"
     if not venv_python.exists():
         venv_python = venv_path / "Scripts" / "python.exe"
     if not venv_python.exists():
         raise RuntimeError(f"Venv Python not found at {venv_python}")
-    
+
     requirements_file = quickstart_dir / "requirements.txt"
     # Skip installation if already done (for parallel execution)
     installed_marker = venv_path / ".installed"
@@ -58,7 +58,15 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
         if requirements_file.exists():
             logger.info(f"Installing dependencies from {requirements_file} using uv")
             result = subprocess.run(
-                ["uv", "pip", "install", "-r", str(requirements_file), "--python", str(venv_python)],
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "-r",
+                    str(requirements_file),
+                    "--python",
+                    str(venv_python),
+                ],
                 cwd=quickstart_dir,
                 capture_output=True,
                 text=True,
@@ -70,9 +78,19 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
                 )
         else:
             # No requirements.txt - install editable dapr-agents for testing using uv
-            logger.info(f"No requirements.txt found, installing editable dapr-agents using uv")
+            logger.info(
+                f"No requirements.txt found, installing editable dapr-agents using uv"
+            )
             result = subprocess.run(
-                ["uv", "pip", "install", "-e", str(project_root), "--python", str(venv_python)],
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "-e",
+                    str(project_root),
+                    "--python",
+                    str(venv_python),
+                ],
                 cwd=quickstart_dir,
                 capture_output=True,
                 text=True,
@@ -82,10 +100,10 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
                 raise RuntimeError(
                     f"Failed to install dapr-agents: {result.stderr}\n{result.stdout}"
                 )
-        
+
         # Mark as installed so if we're running in parallel, we don't reinstall the dependencies.
         installed_marker.touch()
-    
+
     return venv_python
 
 
@@ -102,7 +120,7 @@ def run_quickstart_script(
 ) -> subprocess.CompletedProcess:
     """
     Run a quickstart script and return the result.
-    
+
     This function mimics the user's setup process:
     1. Creates a venv in the quickstart directory (like users do)
     2. Installs from requirements.txt (but uses local editable install for testing)
@@ -133,12 +151,14 @@ def run_quickstart_script(
         if "quickstarts" in str(quickstart_dir)
         else quickstart_dir.parent
     )
-    
+
     # Setup venv if requested
     # For local dev, set USE_EXISTING_VENV=true to skip venv creation and use system Python
     # Or pass create_venv=False to use system Python
-    should_create_venv = create_venv and os.getenv("USE_EXISTING_VENV", "").lower() not in ("true", "1")
-    
+    should_create_venv = create_venv and os.getenv(
+        "USE_EXISTING_VENV", ""
+    ).lower() not in ("true", "1")
+
     venv_python = None
     python_cmd = "python"  # Default fallback
     if should_create_venv:
@@ -146,7 +166,9 @@ def run_quickstart_script(
         if venv_python.exists():
             python_cmd = str(venv_python)
     else:
-        logger.info(f"Using existing venv/system Python for {quickstart_dir} (create_venv=False or USE_EXISTING_VENV=true)")
+        logger.info(
+            f"Using existing venv/system Python for {quickstart_dir} (create_venv=False or USE_EXISTING_VENV=true)"
+        )
         python_cmd = "python"
 
     if use_dapr:
@@ -163,7 +185,9 @@ def run_quickstart_script(
         )
         resolve_script = project_root_path / "quickstarts" / "resolve_env_templates.py"
         if resolve_script.exists() and resources_path.exists():
-            resolve_python = str(venv_python) if venv_python and venv_python.exists() else "python"
+            resolve_python = (
+                str(venv_python) if venv_python and venv_python.exists() else "python"
+            )
             resolve_result = subprocess.run(
                 [resolve_python, str(resolve_script), str(resources_path)],
                 cwd=cwd_path,
@@ -217,23 +241,23 @@ def run_quickstart_script(
 def cleanup_quickstart_venvs(request):
     """
     Cleanup ephemeral test venvs after all tests complete.
-    
+
     Note: Venvs are created in each quickstart directory as `ephemeral_test_venv`.
     Example: `quickstarts/01-hello-world/ephemeral_test_venv`
     These are cleaned up after tests complete, unless USE_EXISTING_VENV is set.
     """
     yield
-    
+
     # Skip cleanup if using existing venv (for local dev)
     if os.getenv("USE_EXISTING_VENV", "").lower() in ("true", "1"):
         logger.info("Skipping ephemeral test venv cleanup (USE_EXISTING_VENV=true)")
         return
-    
+
     # Cleanup ephemeral test venvs
     # Get quickstarts directory from project root (parent conftest fixture path)
     project_root = Path(__file__).parent.parent.parent.parent
     quickstarts_dir = project_root / "quickstarts"
-    
+
     if quickstarts_dir.exists():
         logger.info("Cleaning up ephemeral test venvs...")
         for quickstart_dir in quickstarts_dir.iterdir():
@@ -245,4 +269,3 @@ def cleanup_quickstart_venvs(request):
                         shutil.rmtree(venv_path)
                     except OSError as e:
                         logger.warning(f"Failed to remove {venv_path}: {e}")
-
