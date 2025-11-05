@@ -116,10 +116,6 @@ jobs:
     - name: Run Integration Tests
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-        # Note: hugging face api not available in repo, so we can add later
-        # HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-        NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
       run: |
         source .venv/bin/activate
         pytest -m integration -v tests/integration/quickstarts/test_01_hello_world.py::TestHelloWorldQuickstart::test_basic_llm
