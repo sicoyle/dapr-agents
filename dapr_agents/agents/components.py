@@ -101,6 +101,11 @@ class AgentComponents:
             )
             bundle = DEFAULT_AGENT_WORKFLOW_BUNDLE
 
+        # I considered splitting into separate classes, but that would duplicate several lines
+        # of infrastructure code (pub/sub, state operations, registry mutations). The current design
+        # uses the Strategy Pattern to share infrastructure while maintaining type-safe schemas per
+        # agent/orchestrator type. The "complexity" is just 5 lines of bundle extraction vs maintaining
+        # duplicate codebases.
         self._state_model_cls = bundle.state_model_cls
         self._message_model_cls = bundle.message_model_cls
         self._entry_factory = bundle.entry_factory
