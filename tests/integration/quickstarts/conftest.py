@@ -79,7 +79,7 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
         else:
             # No requirements.txt - install editable dapr-agents for testing using uv
             logger.info(
-                f"No requirements.txt found, installing editable dapr-agents using uv"
+                "No requirements.txt found, installing editable dapr-agents using uv"
             )
             result = subprocess.run(
                 [
