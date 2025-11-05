@@ -39,7 +39,7 @@ pip install -r requirements.txt
 uv sync --all-extras
 
 # Generate lock file with all dependencies
-uv lock --all-extras
+uv lock
 ```
 
 ### Installing Dependencies
