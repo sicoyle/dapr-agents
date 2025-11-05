@@ -6,11 +6,6 @@ on:
   workflow_dispatch:
     # Allow manual trigger for testing
 
-  # TODO(@Sicoyle): uncomment before merging!!! This is to let me test within my PR.
-  pull_request:
-    branches:
-      - main
-      - release-*
 
 permissions:
   contents: read
