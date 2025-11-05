@@ -91,34 +91,12 @@ jobs:
         uv pip install -e .
         uv pip install -e ".[test]"
     
-    - name: Verify secrets are available
-      run: |
-        if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
-          echo "OPENAI_API_KEY secret is not available"
-          echo "This is expected for PRs from forks (GitHub doesn't expose secrets to forks for security)"
-          echo "For PRs from the same repository, check that secrets are configured in repository settings"
-        else
-          echo "OPENAI_API_KEY is available"
-        fi
-        
-        if [ -z "${{ secrets.ELEVENLABS_API_KEY }}" ]; then
-          echo "ELEVENLABS_API_KEY secret is not available"
-        else
-          echo "ELEVENLABS_API_KEY is available"
-        fi
-        
-        if [ -z "${{ secrets.NVIDIA_API_KEY }}" ]; then
-          echo "NVIDIA_API_KEY secret is not available"
-        else
-          echo "NVIDIA_API_KEY is available"
-        fi
-    
     - name: Run Integration Tests
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
         source .venv/bin/activate
-        pytest -m integration -v tests/integration/quickstarts/test_01_hello_world.py::TestHelloWorldQuickstart::test_basic_llm
+        pytest -m integration -v tests/integration/quickstarts/test_01_*.py tests/integration/quickstarts/test_02_*.py
         # Run all integration tests in parallel (one file per quickstart directory)
         # -n auto uses all available CPUs, or specify -n 4 for fixed number
         # pytest -m integration -v -n auto tests/integration/quickstarts/
