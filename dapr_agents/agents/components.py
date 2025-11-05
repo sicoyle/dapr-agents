@@ -4,7 +4,7 @@ import logging
 import random
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional, Sequence, Type
+from typing import Any, Callable, Dict, Optional, Sequence
 
 from dapr.clients.grpc._state import Concurrency, Consistency, StateOptions
 from pydantic import BaseModel, ValidationError
@@ -13,12 +13,10 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    DEFAULT_AGENT_WORKFLOW_BUNDLE,
+    StateModelBundle,
 )
-from dapr_agents.agents.schemas import (
-    AgentWorkflowEntry,
-    AgentWorkflowMessage,
-    AgentWorkflowState,
-)
+from dapr_agents.agents.schemas import AgentWorkflowEntry
 from dapr_agents.storage.daprstores.stateservice import StateStoreError
 from dapr_agents.types.workflow import DaprWorkflowStatus
 
@@ -41,70 +39,83 @@ class AgentComponents:
         self,
         *,
         name: str,
-        pubsub_config: Optional[AgentPubSubConfig] = None,
-        state_config: Optional[AgentStateConfig] = None,
-        registry_config: Optional[AgentRegistryConfig] = None,
+        pubsub: Optional[AgentPubSubConfig] = None,
+        state: Optional[AgentStateConfig] = None,
+        registry: Optional[AgentRegistryConfig] = None,
         base_metadata: Optional[Dict[str, Any]] = None,
         max_etag_attempts: int = 10,
+        default_bundle: Optional[StateModelBundle] = None,
     ) -> None:
         """
         Initialize component wiring.
 
         Args:
             name: Logical agent name; used for keys/topics when not overridden.
-            pubsub_config: Dapr pub/sub configuration for this agent.
-            state_config: Durable state (Dapr state store, key overrides, defaults, model customization).
-            registry_config: Agent registry backing store and team settings.
+            pubsub: Dapr pub/sub configuration for this agent.
+            state: Durable state (Dapr state store, key overrides, defaults, hooks).
+            registry: Agent registry backing store and team settings.
             base_metadata: Base metadata for Dapr state operations.
             max_etag_attempts: Max optimistic-concurrency retries on registry mutations.
+            default_bundle: Default state schema bundle (injected by agent/orchestrator class).
         """
         self.name = name
 
         # -----------------------------
         # Pub/Sub configuration (copy)
         # -----------------------------
-        self._pubsub_config: Optional[AgentPubSubConfig] = None
-        if pubsub_config is not None:
+        self._pubsub: Optional[AgentPubSubConfig] = None
+        if pubsub is not None:
             # Copy only what we need to avoid accidental external mutation.
-            self._pubsub_config = AgentPubSubConfig(
-                pubsub_name=pubsub_config.pubsub_name,
-                agent_topic=pubsub_config.agent_topic or name,
-                broadcast_topic=pubsub_config.broadcast_topic,
+            self._pubsub = AgentPubSubConfig(
+                pubsub_name=pubsub.pubsub_name,
+                agent_topic=pubsub.agent_topic or name,
+                broadcast_topic=pubsub.broadcast_topic,
             )
 
         # -----------------------------
         # State configuration and model (flexible)
         # -----------------------------
-        self._state_config = state_config
-        self.state_store = state_config.store if state_config else None
-        override_state_key = state_config.state_key if state_config else None
+        self._state = state
+        self.state_store = state.store if state and state.store else None
+        override_state_key = state.state_key if state else None
         self.state_key = override_state_key or f"{self.name}:workflow_state"
 
-        # Customization points (classes + hooks)
-        self._state_model_cls: Type[BaseModel] = (
-            state_config.state_model_cls if state_config else AgentWorkflowState
-        )
-        self._message_model_cls: Type[BaseModel] = (
-            state_config.message_model_cls if state_config else AgentWorkflowMessage
-        )
-        self._entry_factory: Optional[Callable[..., Any]] = (
-            state_config.entry_factory if state_config else None
-        )
-        self._message_coercer: Optional[Callable[[Dict[str, Any]], Any]] = (
-            state_config.message_coercer if state_config else None
-        )
-        self._entry_container_getter: Optional[
-            Callable[[BaseModel], Optional[dict]]
-        ] = (
-            getattr(state_config, "entry_container_getter", None)
-            if state_config
-            else None
-        )
+        bundle = None
+        if state is not None:
+            # Allow default_bundle to override the state's bundle. This enables
+            # orchestrators and agents to share the same AgentStateConfig instance
+            # while each using their own specialized state model schemas.
+            if default_bundle is not None:
+                state.ensure_bundle(default_bundle)
+            try:
+                bundle = state.get_state_model_bundle()
+            except RuntimeError:
+                bundle = None
+        elif default_bundle is not None:
+            bundle = default_bundle
+
+        if bundle is None:
+            logger.debug(
+                "No state bundle for %s; using default AgentWorkflowState schema",
+                self.name,
+            )
+            bundle = DEFAULT_AGENT_WORKFLOW_BUNDLE
+
+        # I considered splitting into separate classes, but that would duplicate several lines
+        # of infrastructure code (pub/sub, state operations, registry mutations). The current design
+        # uses the Strategy Pattern to share infrastructure while maintaining type-safe schemas per
+        # agent/orchestrator type. The "complexity" is just 5 lines of bundle extraction vs maintaining
+        # duplicate codebases.
+        self._state_model_cls = bundle.state_model_cls
+        self._message_model_cls = bundle.message_model_cls
+        self._entry_factory = bundle.entry_factory
+        self._message_coercer = bundle.message_coercer
+        self._entry_container_getter = bundle.entry_container_getter
 
         # Seed the default model from config or empty instance
-        if state_config and state_config.default_state is not None:
+        if state and state.default_state is not None:
             default_state_model = self._state_model_cls.model_validate(
-                state_config.default_state
+                state.default_state
             )
         else:
             default_state_model = self._state_model_cls()
@@ -114,13 +125,11 @@ class AgentComponents:
         # -----------------------------
         # Registry configuration
         # -----------------------------
-        self._registry_config = registry_config
-        self.registry_state = registry_config.store if registry_config else None
+        self._registry = registry
+        self.registry_state = registry.store if registry else None
         self._registry_prefix = "agents:"
         self._registry_team_override = (
-            registry_config.team_name
-            if registry_config and registry_config.team_name
-            else "default"
+            registry.team_name if registry and registry.team_name else "default"
         )
 
         # -----------------------------
@@ -137,30 +146,30 @@ class AgentComponents:
     # Pub/Sub helpers
     # ------------------------------------------------------------------
     @property
-    def pubsub_config(self) -> Optional[AgentPubSubConfig]:
+    def pubsub(self) -> Optional[AgentPubSubConfig]:
         """Return the configured pub/sub settings, if any."""
-        return self._pubsub_config
+        return self._pubsub
 
     @property
     def message_bus_name(self) -> str:
         """Return the Dapr pub/sub component name (bus)."""
-        if not self._pubsub_config:
+        if not self._pubsub:
             raise RuntimeError("No pubsub configuration available for this agent.")
-        return self._pubsub_config.pubsub_name
+        return self._pubsub.pubsub_name
 
     @property
     def agent_topic_name(self) -> str:
         """Return the per-agent topic name."""
-        if not self._pubsub_config:
+        if not self._pubsub:
             raise RuntimeError("No pubsub configuration available for this agent.")
-        return self._pubsub_config.agent_topic or self.name
+        return self._pubsub.agent_topic or self.name
 
     @property
     def broadcast_topic_name(self) -> Optional[str]:
         """Return the broadcast topic name, if one was configured."""
-        if not self._pubsub_config:
+        if not self._pubsub:
             return None
-        return self._pubsub_config.broadcast_topic
+        return self._pubsub.broadcast_topic
 
     # ------------------------------------------------------------------
     # State helpers
@@ -458,7 +467,7 @@ class AgentComponents:
         payload.setdefault("name", self.name)
         payload.setdefault("team", self._effective_team(team))
 
-        if self._pubsub_config is not None:
+        if self._pubsub is not None:
             payload.setdefault("topic_name", self.agent_topic_name)
             payload.setdefault("pubsub_name", self.message_bus_name)
             if self.broadcast_topic_name:

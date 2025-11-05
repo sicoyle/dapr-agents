@@ -132,12 +132,10 @@ def durable_agent_with_mcp_tool(mock_mcp_tool, mock_mcp_session):
         goal="Help humans do math",
         instructions=["Test math instructions"],
         tools=[agent_tool],
-        pubsub_config=AgentPubSubConfig(
+        pubsub=AgentPubSubConfig(
             pubsub_name="testpubsub",
         ),
-        state_config=AgentStateConfig(
-            store=StateStoreService(store_name="teststatestore")
-        ),
+        state=AgentStateConfig(store=StateStoreService(store_name="teststatestore")),
     )
     return agent
 
@@ -254,12 +252,10 @@ async def test_durable_agent_with_real_server_http(start_math_server_http):
         goal="Help humans do math",
         instructions=["Test math instructions"],
         tools=agent_tools,
-        pubsub_config=AgentPubSubConfig(
+        pubsub=AgentPubSubConfig(
             pubsub_name="testpubsub",
         ),
-        state_config=AgentStateConfig(
-            store=StateStoreService(store_name="teststatestore")
-        ),
+        state=AgentStateConfig(store=StateStoreService(store_name="teststatestore")),
     )
 
     instance_id = "test-instance-456"

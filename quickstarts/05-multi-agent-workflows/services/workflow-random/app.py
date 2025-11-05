@@ -1,4 +1,5 @@
 from dapr_agents import RandomOrchestrator
+from dapr_agents.agents.configs import AgentExecutionConfig
 from dotenv import load_dotenv
 import asyncio
 import logging
@@ -14,7 +15,7 @@ async def main():
             agents_registry_store_name="agentstatestore",
             agents_registry_key="agents_registry",
             broadcast_topic_name="beacon_channel",
-            max_iterations=3,
+            execution=AgentExecutionConfig(max_iterations=3),
         ).as_service(port=8004)
 
         await workflow_service.start()

@@ -42,7 +42,8 @@ class DurableAgent(AgentBase):
 
     Overview:
         Wires your AgentBase behavior into Dapr Workflows for durable, pub/sub-driven runs.
-        Leverages flexible state models, message coercers, and registry/metadata from Components.
+        Persists state using the built-in AgentWorkflowState schema while still honoring
+        safe hook overrides (entry_factory, message_coercer, etc.).
 
     """
 
@@ -50,7 +51,7 @@ class DurableAgent(AgentBase):
         self,
         *,
         # Profile / prompt
-        profile_config: Optional[AgentProfileConfig] = None,
+        profile: Optional[AgentProfileConfig] = None,
         name: Optional[str] = None,
         role: Optional[str] = None,
         goal: Optional[str] = None,
@@ -59,15 +60,15 @@ class DurableAgent(AgentBase):
         system_prompt: Optional[str] = None,
         prompt_template: Optional[PromptTemplateBase] = None,
         # Infrastructure
-        pubsub_config: AgentPubSubConfig,
-        state_config: Optional[AgentStateConfig] = None,
-        registry_config: Optional[AgentRegistryConfig] = None,
+        pubsub: AgentPubSubConfig,
+        state: Optional[AgentStateConfig] = None,
+        registry: Optional[AgentRegistryConfig] = None,
         # Memory / runtime
-        memory_config: Optional[AgentMemoryConfig] = None,
+        memory: Optional[AgentMemoryConfig] = None,
         llm: Optional[ChatClientBase] = None,
         tools: Optional[Iterable[Any]] = None,
         # Behavior / execution
-        execution_config: Optional[AgentExecutionConfig] = None,
+        execution: Optional[AgentExecutionConfig] = None,
         # Misc
         agent_metadata: Optional[Dict[str, Any]] = None,
         runtime: Optional[wf.WorkflowRuntime] = None,
@@ -76,8 +77,8 @@ class DurableAgent(AgentBase):
         Initialize behavior, infrastructure, and workflow runtime.
 
         Args:
-            profile_config: High-level profile (can be overridden by explicit fields).
-            name: Agent name (required if not in `profile_config`).
+            profile: High-level profile (can be overridden by explicit fields).
+            name: Agent name (required if not in `profile`).
             role: Agent role/persona label.
             goal: High-level objective for prompting context.
             instructions: Extra instruction lines for the system prompt.
@@ -85,12 +86,12 @@ class DurableAgent(AgentBase):
             system_prompt: System prompt override.
             prompt_template: Optional explicit prompt template instance.
 
-            pubsub_config: Dapr Pub/Sub configuration for triggers/broadcasts.
-            state_config: Durable state configuration and model customization.
-            registry_config: Team registry configuration.
-            execution_config: Execution dials for the agent run.
+            pubsub: Dapr Pub/Sub configuration for triggers/broadcasts.
+            state: Durable state configuration (store/key + optional hooks).
+            registry: Team registry configuration.
+            execution: Execution dials for the agent run.
 
-            memory_config: Conversation memory config; defaults to in-memory, or Dapr state-backed if available.
+            memory: Conversation memory config; defaults to in-memory, or Dapr state-backed if available.
             llm: Chat client; defaults to `get_default_llm()`.
             tools: Optional tool callables or `AgentTool` instances.
 
@@ -98,18 +99,18 @@ class DurableAgent(AgentBase):
             runtime: Optional pre-existing workflow runtime to attach to.
         """
         super().__init__(
-            pubsub_config=pubsub_config,
-            profile_config=profile_config,
+            pubsub=pubsub,
+            profile=profile,
             name=name,
             role=role,
             goal=goal,
             instructions=instructions,
             style_guidelines=style_guidelines,
             system_prompt=system_prompt,
-            state_config=state_config,
-            memory_config=memory_config,
-            registry_config=registry_config,
-            execution_config=execution_config,
+            state=state,
+            memory=memory,
+            registry=registry,
+            execution=execution,
             agent_metadata=agent_metadata,
             llm=llm,
             tools=tools,
@@ -196,13 +197,13 @@ class DurableAgent(AgentBase):
         turn = 0
 
         try:
-            for turn in range(1, self.execution_config.max_iterations + 1):
+            for turn in range(1, self.execution.max_iterations + 1):
                 if not ctx.is_replaying:
                     logger.debug(
                         "Agent %s turn %d/%d (instance=%s)",
                         self.name,
                         turn,
-                        self.execution_config.max_iterations,
+                        self.execution.max_iterations,
                         ctx.instance_id,
                     )
 
@@ -288,7 +289,7 @@ class DurableAgent(AgentBase):
         if not ctx.is_replaying:
             verdict = (
                 "max_iterations_reached"
-                if turn == self.execution_config.max_iterations
+                if turn == self.execution.max_iterations
                 else "completed"
             )
             logger.info(
@@ -410,12 +411,16 @@ class DurableAgent(AgentBase):
         if user_copy is not None:
             self.text_formatter.print_message({str(k): v for k, v in user_copy.items()})
 
+        tools = self.get_llm_tools()
+        generate_kwargs = {
+            "messages": messages,
+            "tools": tools,
+        }
+        if tools and self.execution.tool_choice is not None:
+            generate_kwargs["tool_choice"] = self.execution.tool_choice
+
         try:
-            response: LLMChatResponse = self.llm.generate(
-                messages=messages,
-                tools=self.get_llm_tools(),
-                tool_choice=self.execution_config.tool_choice,
-            )
+            response: LLMChatResponse = self.llm.generate(**generate_kwargs)
         except Exception as exc:  # noqa: BLE001
             logger.exception("LLM generate failed: %s", exc)
             raise AgentError(str(exc)) from exc

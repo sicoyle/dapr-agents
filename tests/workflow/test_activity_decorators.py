@@ -61,9 +61,16 @@ def mock_llm_client_structured():
 @pytest.fixture
 def mock_agent():
     """Mock agent that returns test responses."""
-    mock_agent = MagicMock(spec=AgentBase)
-    mock_agent.run = AsyncMock(return_value="Agent response")
-    return mock_agent
+
+    class DummyAgent:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def run(self, prompt: str) -> str:
+            self.calls.append(prompt)
+            return "Agent response"
+
+    return DummyAgent()
 
 
 @pytest.fixture
@@ -233,7 +240,7 @@ def test_agent_activity_decorator_basic(mock_agent, mock_workflow_context):
 
     # Verify the result
     assert result == "Agent response"
-    mock_agent.run.assert_called_once()
+    assert mock_agent.calls == ["analyze data"]
 
 
 def test_agent_activity_with_prompt(mock_agent, mock_workflow_context):
@@ -247,8 +254,7 @@ def test_agent_activity_with_prompt(mock_agent, mock_workflow_context):
     assert result == "Agent response"
 
     # Verify the agent was called with formatted prompt
-    call_args = mock_agent.run.call_args[0][0]
-    assert "sales numbers" in call_args
+    assert mock_agent.calls == ["Analyze sales numbers and provide insights"]
 
 
 def test_agent_activity_without_prompt(mock_agent, mock_workflow_context):
@@ -260,7 +266,7 @@ def test_agent_activity_without_prompt(mock_agent, mock_workflow_context):
 
     result = process(mock_workflow_context, payload={"input_data": "test data"})
     assert result == "Agent response"
-    mock_agent.run.assert_called_once()
+    assert mock_agent.calls == ["test data"]
 
 
 def test_agent_activity_multiple_params(mock_agent, mock_workflow_context):
@@ -274,6 +280,7 @@ def test_agent_activity_multiple_params(mock_agent, mock_workflow_context):
         mock_workflow_context, payload={"item1": "apple", "item2": "orange"}
     )
     assert result == "Agent response"
+    assert mock_agent.calls == ["Compare apple and orange"]
 
 
 def test_agent_activity_preserves_function_metadata(mock_agent):
@@ -300,14 +307,13 @@ def test_llm_activity_with_pydantic_return_type(mock_llm_client, mock_workflow_c
     def get_person(ctx, person_id: str) -> Person:
         pass
 
+    async def _return_person(*args, **kwargs):
+        return Person(name="John Doe", age=30)
+
     with patch(
         "dapr_agents.workflow.decorators.activities.validate_result"
     ) as mock_validate:
-        # Mock validate_result to return a Person instance
-        mock_validate.return_value = AsyncMock(
-            return_value=Person(name="John Doe", age=30)
-        )()
-
+        mock_validate.side_effect = _return_person
         _ = get_person(mock_workflow_context, payload={"person_id": "123"})
 
         # Verify the decorator called the LLM correctly
@@ -339,6 +345,7 @@ def test_agent_activity_ctx_parameter_stripped(mock_agent, mock_workflow_context
 
     result = process(mock_workflow_context, payload={"input_val": "data"})
     assert result == "Agent response"
+    assert mock_agent.calls == ["Process data"]
 
 
 def test_llm_activity_scalar_input(mock_llm_client, mock_workflow_context):
@@ -362,6 +369,7 @@ def test_agent_activity_scalar_input(mock_agent, mock_workflow_context):
 
     result = process(mock_workflow_context, "scalar input")
     assert result == "Agent response"
+    assert mock_agent.calls == ["scalar input"]
 
 
 def test_llm_activity_with_task_kwargs(mock_llm_client, mock_workflow_context):
@@ -391,6 +399,9 @@ def test_agent_activity_with_task_kwargs(mock_agent, mock_workflow_context):
 
     assert test_func._agent_activity_config["task_kwargs"]["custom_setting"] == "value"
     assert test_func._agent_activity_config["task_kwargs"]["timeout"] == 300
+    result = test_func(mock_workflow_context)
+    assert result == "Agent response"
+    assert len(mock_agent.calls) == 1
 
 
 # Error handling tests
