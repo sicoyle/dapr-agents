@@ -106,12 +106,19 @@ jobs:
     needs: integration-tests
     runs-on: ubuntu-latest
     if: always() && github.event_name == 'issue_comment'
+    permissions:
+      pull-requests: write
+      actions: read
     steps:
     - name: Comment PR with test results summary
       uses: actions/github-script@v7
       with:
         script: |
           const prNumber = context.payload.issue.number;
+          if (!context.payload.issue.pull_request) {
+            core.setFailed('This is not a pull request');
+            return;
+          }
           const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
             owner: context.repo.owner,
             repo: context.repo.repo,
