@@ -11,6 +11,7 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    WorkflowGrpcOptions,
 )
 from dapr_agents.agents.durable import DurableAgent
 from dapr_agents.agents.prompting import AgentProfileConfig
@@ -80,6 +81,18 @@ async def main() -> None:
     # --- LLM Client ------------------------------------------------------------
     llm = OpenAIChatClient()
 
+
+    # --- gRPC overrides (lift default ~4MB limit to 32MB) -----------------------
+    grpc_options = WorkflowGrpcOptions(
+        max_send_message_length=32 * 1024 * 1024,
+        max_receive_message_length=32 * 1024 * 1024,
+    )
+    logger.info(
+        "Configuring workflow gRPC channel with %d MB send / %d MB receive limits",
+        grpc_options.max_send_message_length // (1024 * 1024),
+        grpc_options.max_receive_message_length // (1024 * 1024),
+    )
+
     # --- Assemble durable agent ------------------------------------------------
     agent = DurableAgent(
         profile=profile,
@@ -89,6 +102,7 @@ async def main() -> None:
         memory=memory,
         llm=llm,
         tools=tools,
+        workflow_grpc=grpc_options,
     )
     agent.start()
 
