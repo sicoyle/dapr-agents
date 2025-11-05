@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Coroutine
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 
 import dapr.ext.workflow as wf
 
@@ -13,11 +13,9 @@ from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
+    StateModelBundle,
 )
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
-
-if TYPE_CHECKING:
-    from dapr_agents.agents.configs import StateModelBundle
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +42,7 @@ class OrchestratorBase(AgentComponents):
         agent_metadata: Optional[Dict[str, Any]] = None,
         runtime: Optional[wf.WorkflowRuntime] = None,
         workflow_client: Optional[wf.DaprWorkflowClient] = None,
-        default_bundle: Optional["StateModelBundle"] = None,
+        default_bundle: Optional[StateModelBundle] = None,
     ) -> None:
         """
         Initialize the orchestrator base.

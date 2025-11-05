@@ -4,7 +4,7 @@ import logging
 import random
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence
+from typing import Any, Callable, Dict, Optional, Sequence
 
 from dapr.clients.grpc._state import Concurrency, Consistency, StateOptions
 from pydantic import BaseModel, ValidationError
@@ -14,13 +14,11 @@ from dapr_agents.agents.configs import (
     AgentRegistryConfig,
     AgentStateConfig,
     DEFAULT_AGENT_WORKFLOW_BUNDLE,
+    StateModelBundle,
 )
 from dapr_agents.agents.schemas import AgentWorkflowEntry
 from dapr_agents.storage.daprstores.stateservice import StateStoreError
 from dapr_agents.types.workflow import DaprWorkflowStatus
-
-if TYPE_CHECKING:
-    from dapr_agents.agents.configs import StateModelBundle
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +44,7 @@ class AgentComponents:
         registry: Optional[AgentRegistryConfig] = None,
         base_metadata: Optional[Dict[str, Any]] = None,
         max_etag_attempts: int = 10,
-        default_bundle: Optional["StateModelBundle"] = None,
+        default_bundle: Optional[StateModelBundle] = None,
     ) -> None:
         """
         Initialize component wiring.
@@ -84,6 +82,9 @@ class AgentComponents:
 
         bundle = None
         if state is not None:
+            # Allow default_bundle to override the state's bundle. This enables
+            # orchestrators and agents to share the same AgentStateConfig instance
+            # while each using their own specialized state model schemas.
             if default_bundle is not None:
                 state.ensure_bundle(default_bundle)
             try:
