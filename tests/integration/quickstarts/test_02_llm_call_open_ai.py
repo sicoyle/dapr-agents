@@ -1,6 +1,6 @@
 """Integration tests for 02_llm_call_open_ai quickstart."""
 import pytest
-from tests.integration.conftest import run_quickstart_script
+from tests.integration.quickstarts.conftest import run_quickstart_script
 
 
 @pytest.mark.integration

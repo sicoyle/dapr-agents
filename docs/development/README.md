@@ -124,6 +124,10 @@ pytest -m integration -v integration/quickstarts/test_01_hello_world.py::TestHel
 pytest tests/integration/quickstarts/ -v -m integration --cov=dapr_agents
 ```
 
+> Note: Parallel execution can be enabled with pytest-xdist using -n auto or -n <num>. Example: `pytest -n auto -m integration`.
+
+To use an existing venv to speed up local development time, then you can update the quickstarts to set `create_venv` to `True` as a parameter in `run_quickstart_script`. Alternatively, you can set the env var setting: `USE_EXISTING_VENV=true`.
+
 ## Code Quality
 
 The project uses several tools to maintain code quality:

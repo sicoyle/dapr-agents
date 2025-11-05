@@ -93,9 +93,8 @@ jobs:
       run: |
         uv venv
         source .venv/bin/activate
-        uv pip install --upgrade pip setuptools wheel
         uv pip install -e .
-        uv pip install -e .[test]
+        uv pip install -e ".[test]"
     
     - name: Verify secrets are available
       run: |
@@ -129,20 +128,9 @@ jobs:
       run: |
         source .venv/bin/activate
         pytest -m integration -v tests/integration/quickstarts/test_01_hello_world.py::TestHelloWorldQuickstart::test_basic_llm
-    
-    - name: Cleanup Dapr
-      if: always()
-      run: |
-        dapr stop --all || true
-        pkill -f daprd || true
-        dapr uninstall --all || true
-
-    - name: Cleanup Docker
-      if: always()
-      run: |
-        docker images -q --filter "dangling=true" | xargs -r docker rmi -f || true
-        docker volume prune -f || true
-        docker network prune -f || true
+        # Run all integration tests in parallel (one file per quickstart directory)
+        # -n auto uses all available CPUs, or specify -n 4 for fixed number
+        # pytest -m integration -v -n auto tests/integration/quickstarts/
 
   # Summary job that runs after all matrix jobs complete and comments on PR
   comment-summary:
