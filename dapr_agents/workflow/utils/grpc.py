@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from dapr_agents.agents.configs import WorkflowGrpcOptions
 
@@ -54,6 +54,7 @@ def apply_grpc_options(options: Optional[WorkflowGrpcOptions]) -> None:
         host_address: Optional[str],
         secure_channel: bool = False,
         interceptors: Optional[Sequence["grpc.ClientInterceptor"]] = None,
+        options: Optional[Sequence[tuple[str, Any]]] = None,
     ):
         if host_address is None:
             host_address = shared.get_default_host_address()
@@ -70,13 +71,16 @@ def apply_grpc_options(options: Optional[WorkflowGrpcOptions]) -> None:
                 host_address = host_address[len(protocol) :]
                 break
 
+        add_grpc_options = list(options) if options else []
+        add_grpc_options.extend(grpc_options)
+
         if secure_channel:
             credentials = grpc.ssl_channel_credentials()
             channel = grpc.secure_channel(
-                host_address, credentials, options=grpc_options
+                host_address, credentials, options=add_grpc_options
             )
         else:
-            channel = grpc.insecure_channel(host_address, options=grpc_options)
+            channel = grpc.insecure_channel(host_address, options=add_grpc_options)
 
         if interceptors:
             channel = grpc.intercept_channel(channel, *interceptors)
