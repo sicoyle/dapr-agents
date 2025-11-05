@@ -62,24 +62,24 @@ async def main() -> None:
     # -------------------------------------------------------------------------
     # Pub/Sub, State, Registry wiring
     # -------------------------------------------------------------------------
-    pubsub_config = AgentPubSubConfig(
+    pubsub = AgentPubSubConfig(
         pubsub_name=pubsub_name,
         agent_topic=orchestrator_topic,  # RoundRobinOrchestrator subscribes here
         broadcast_topic=broadcast_topic,  # optional fan-out to agents
     )
 
-    state_config = AgentStateConfig(
+    state = AgentStateConfig(
         store=StateStoreService(
             store_name=workflow_state_store_name, key_prefix="fellowship.roundrobin:"
         ),
     )
 
-    registry_config = AgentRegistryConfig(
+    registry = AgentRegistryConfig(
         store=StateStoreService(store_name=registry_store_name),
         team_name=team_name,
     )
 
-    execution_config = AgentExecutionConfig(max_iterations=3)
+    execution = AgentExecutionConfig(max_iterations=3)
 
     # -------------------------------------------------------------------------
     # Orchestrator instance
@@ -87,11 +87,11 @@ async def main() -> None:
     # Recommended: let the orchestrator OWN the runtime (don’t pass runtime=...).
     orchestrator = RoundRobinOrchestrator(
         name=orchestrator_name,
-        pubsub_config=pubsub_config,
-        state_config=state_config,
-        registry_config=registry_config,
+        pubsub=pubsub,
+        state=state,
+        registry=registry,
         agent_metadata={"pattern": "Round-robin selection of agents."},
-        execution_config=execution_config,
+        execution=execution,
         timeout_seconds=timeout_seconds,
     )
 

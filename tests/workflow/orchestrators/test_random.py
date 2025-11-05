@@ -15,11 +15,11 @@ def orchestrator_config():
     """Fixture to provide common orchestrator configuration."""
     return {
         "name": "test_orchestrator",
-        "pubsub_config": AgentPubSubConfig(pubsub_name="test-message-bus"),
-        "state_config": AgentStateConfig(
+        "pubsub": AgentPubSubConfig(pubsub_name="test-message-bus"),
+        "state": AgentStateConfig(
             store=StateStoreService(store_name="test-state-store")
         ),
-        "registry_config": AgentRegistryConfig(
+        "registry": AgentRegistryConfig(
             store=StateStoreService(store_name="test-registry-store")
         ),
     }

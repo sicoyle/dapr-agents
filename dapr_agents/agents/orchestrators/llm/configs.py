@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, MutableMapping, Optional, Type
+from typing import Any, Dict, MutableMapping, Optional
 
 from pydantic import BaseModel
 
-from dapr_agents.agents.configs import (
-    AgentStateConfig,
-    EntryContainerGetter,
-    EntryFactory,
-    MessageCoercer,
-)
-from dapr_agents.storage.daprstores.stateservice import StateStoreService
-
+from dapr_agents.agents.configs import StateModelBundle
 from dapr_agents.agents.orchestrators.llm.state import (
     LLMWorkflowEntry,
     LLMWorkflowMessage,
@@ -109,41 +101,21 @@ def _default_entry_container_getter(
     return getattr(model, "instances", None)
 
 
-# ---------- public config ----------
+def build_llm_state_bundle() -> StateModelBundle:
+    """Return the default state bundle for LLM orchestrators."""
+    return StateModelBundle(
+        state_model_cls=LLMWorkflowState,
+        message_model_cls=LLMWorkflowMessage,
+        entry_factory=_default_entry_factory,
+        message_coercer=_default_message_coercer,
+        entry_container_getter=_default_entry_container_getter,
+    )
 
 
-@dataclass
-class LLMOrchestratorStateConfig(AgentStateConfig):
-    """
-    Drop-in state config for LLM orchestrators.
-
-    Defaults:
-      • state_model_cls = LLMWorkflowState
-      • message_model_cls = LLMWorkflowMessage
-      • entry_factory = _default_entry_factory (non-null plan/history; optional ids)
-      • message_coercer = _default_message_coercer (defensive + UTC)
-      • entry_container_getter = instances
-
-    Only `store` is required:
-        LLMOrchestratorStateConfig(store=StateStoreService(...))
-    """
-
-    # required
-    store: StateStoreService = None  # type: ignore[assignment]
-
-    # baked-in LLM defaults
-    state_model_cls: Type[BaseModel] = LLMWorkflowState
-    message_model_cls: Type[BaseModel] = LLMWorkflowMessage
-    entry_factory: Optional[EntryFactory] = _default_entry_factory
-    message_coercer: Optional[MessageCoercer] = _default_message_coercer
-    entry_container_getter: Optional[
-        EntryContainerGetter
-    ] = _default_entry_container_getter
-
-    def __post_init__(self) -> None:
-        """
-        Ensure the base normalization runs with our defaults.
-        - Validates model classes
-        - Normalizes/validates `default_state` against LLMWorkflowState
-        """
-        super().__post_init__()
+# Helper defaults used by LLM orchestrator state bundles.
+__all__ = [
+    "_default_entry_factory",
+    "_default_message_coercer",
+    "_default_entry_container_getter",
+    "build_llm_state_bundle",
+]

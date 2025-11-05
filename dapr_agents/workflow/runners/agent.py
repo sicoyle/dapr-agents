@@ -251,10 +251,10 @@ class AgentRunner(WorkflowRunner):
             fetch_payloads: Whether to fetch input/output payloads for awaited workflows.
             log_outcome: Whether to log the final outcome of awaited workflows.
         """
-        config = getattr(agent, "pubsub_config", None)
+        config = getattr(agent, "pubsub", None)
         if config is None:
             logger.debug(
-                "[%s] Agent %s has no pubsub_config; skipping pub/sub route registration.",
+                "[%s] Agent %s has no pubsub; skipping pub/sub route registration.",
                 self._name,
                 getattr(agent, "name", agent),
             )

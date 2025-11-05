@@ -39,7 +39,7 @@ async def main() -> None:
       - We run TWO durable agents: Frodo and Sam, in the same process.
     """
     # Shared infra (registry)
-    registry_config = AgentRegistryConfig(
+    registry = AgentRegistryConfig(
         store=StateStoreService(store_name="agentregistrystore"),
         team_name="fellowship",
     )
@@ -59,7 +59,6 @@ async def main() -> None:
     )
     frodo_state = AgentStateConfig(
         store=StateStoreService(store_name="workflowstatestore", key_prefix="frodo:")
-        # Default state/message models will be used.
     )
     frodo_memory = AgentMemoryConfig(
         store=ConversationDaprStateMemory(
@@ -91,11 +90,11 @@ async def main() -> None:
     )
 
     frodo = DurableAgent(
-        profile_config=frodo_profile,
-        pubsub_config=frodo_pubsub,
-        state_config=frodo_state,
-        registry_config=registry_config,
-        memory_config=frodo_memory,
+        profile=frodo_profile,
+        pubsub=frodo_pubsub,
+        state=frodo_state,
+        registry=registry,
+        memory=frodo_memory,
         llm=llm,
     )
     frodo.start()

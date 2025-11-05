@@ -47,8 +47,8 @@ class TestAgent:
             goal="Help with testing",
             instructions=["Be helpful", "Test things"],
             llm=mock_llm,
-            memory_config=AgentMemoryConfig(store=ConversationListMemory()),
-            execution_config=AgentExecutionConfig(max_iterations=5),
+            memory=AgentMemoryConfig(store=ConversationListMemory()),
+            execution=AgentExecutionConfig(max_iterations=5),
         )
 
     @pytest.fixture
@@ -60,9 +60,9 @@ class TestAgent:
             goal="Execute tools",
             instructions=["Use tools when needed"],
             llm=mock_llm,
-            memory_config=AgentMemoryConfig(store=ConversationListMemory()),
+            memory=AgentMemoryConfig(store=ConversationListMemory()),
             tools=[echo_tool],
-            execution_config=AgentExecutionConfig(max_iterations=5),
+            execution=AgentExecutionConfig(max_iterations=5),
         )
 
     def test_agent_initialization(self, mock_llm):
@@ -80,11 +80,9 @@ class TestAgent:
         assert agent.prompting_helper.role == "Test Assistant"
         assert agent.prompting_helper.goal == "Help with testing"
         assert agent.prompting_helper.instructions == ["Be helpful"]
-        assert agent.execution_config.max_iterations == 10  # default value
+        assert agent.execution.max_iterations == 10  # default value
         assert agent.tool_history == []
-        assert (
-            agent.execution_config.tool_choice == "auto"
-        )  # auto when tools are provided
+        assert agent.execution.tool_choice == "auto"  # auto when tools are provided
 
     def test_agent_initialization_without_tools(self, mock_llm):
         """Test agent initialization without tools."""
@@ -95,7 +93,7 @@ class TestAgent:
             llm=mock_llm,
         )
 
-        assert agent.execution_config.tool_choice == "auto"  # still defaults to auto
+        assert agent.execution.tool_choice is None  # no tools → no tool_choice
 
     def test_agent_initialization_with_custom_tool_choice(self, mock_llm):
         """Test agent initialization with custom tool choice."""
@@ -104,10 +102,11 @@ class TestAgent:
             role="Test Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            execution_config=AgentExecutionConfig(tool_choice="required"),
+            tools=[echo_tool],
+            execution=AgentExecutionConfig(tool_choice="required"),
         )
 
-        assert agent.execution_config.tool_choice == "required"
+        assert agent.execution.tool_choice == "required"
 
     @pytest.mark.asyncio
     async def test_run_with_shutdown_event(self, basic_agent):

@@ -10,10 +10,11 @@ from dapr_agents.agents.configs import (
     AgentMemoryConfig,
     AgentPubSubConfig,
     AgentRegistryConfig,
+    AgentStateConfig,
     AgentExecutionConfig,
 )
 from dapr_agents.agents.orchestrators.base import OrchestratorBase
-from dapr_agents.agents.orchestrators.llm.configs import LLMOrchestratorStateConfig
+from dapr_agents.agents.orchestrators.llm.configs import build_llm_state_bundle
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
 from dapr_agents.llm.chat import ChatClientBase
 from dapr_agents.llm.utils.defaults import get_default_llm
@@ -41,12 +42,12 @@ class LLMOrchestratorBase(OrchestratorBase):
         self,
         *,
         name: str = "LLMOrchestrator",
-        pubsub_config: Optional[AgentPubSubConfig] = None,
-        state_config: Optional[LLMOrchestratorStateConfig] = None,
-        registry_config: Optional[AgentRegistryConfig] = None,
-        execution_config: Optional[AgentExecutionConfig] = None,
+        pubsub: Optional[AgentPubSubConfig] = None,
+        state: Optional[AgentStateConfig] = None,
+        registry: Optional[AgentRegistryConfig] = None,
+        execution: Optional[AgentExecutionConfig] = None,
         agent_metadata: Optional[Dict[str, Any]] = None,
-        memory_config: Optional[AgentMemoryConfig] = None,
+        memory: Optional[AgentMemoryConfig] = None,
         llm: Optional[ChatClientBase] = None,
         runtime: Optional[wf.WorkflowRuntime] = None,
         workflow_client: Optional[wf.DaprWorkflowClient] = None,
@@ -56,34 +57,36 @@ class LLMOrchestratorBase(OrchestratorBase):
 
         Args:
             name (str): Logical orchestrator name.
-            pubsub_config (Optional[AgentPubSubConfig]): Dapr Pub/Sub configuration.
-            state_config (Optional[LLMOrchestratorStateConfig]): State configuration for the orchestrator.
-            registry_config (Optional[AgentRegistryConfig]): Configuration for agent/team registry.
+            pubsub (Optional[AgentPubSubConfig]): Dapr Pub/Sub configuration.
+            state (Optional[AgentStateConfig]): State configuration for the orchestrator.
+                Schema is automatically set to LLMWorkflowState/LLMWorkflowMessage.
+            registry (Optional[AgentRegistryConfig]): Configuration for agent/team registry.
             agent_metadata (Optional[Dict[str, Any]]): Metadata to store alongside the registry entry.
-            memory_config (Optional[AgentMemoryConfig]): Memory configuration for the orchestrator.
+            memory (Optional[AgentMemoryConfig]): Memory configuration for the orchestrator.
             llm (Optional[ChatClientBase]): LLM client instance.
             runtime (Optional[wf.WorkflowRuntime]): Workflow runtime configuration.
             workflow_client (Optional[wf.DaprWorkflowClient]): Dapr workflow client.
         """
         super().__init__(
             name=name,
-            pubsub_config=pubsub_config,
-            state_config=state_config,
-            registry_config=registry_config,
-            execution_config=execution_config,
+            pubsub=pubsub,
+            state=state,
+            registry=registry,
+            execution=execution,
             agent_metadata=agent_metadata,
             runtime=runtime,
             workflow_client=workflow_client,
+            default_bundle=build_llm_state_bundle(),
         )
 
         # Memory wiring setup
-        self._memory_config = memory_config or AgentMemoryConfig()
-        if self._memory_config.store is None and state_config is not None:
-            self._memory_config.store = ConversationDaprStateMemory(
-                store_name=state_config.store.store_name,
+        self._memory = memory or AgentMemoryConfig()
+        if self._memory.store is None and state is not None:
+            self._memory.store = ConversationDaprStateMemory(
+                store_name=state.store.store_name,
                 session_id=f"{self.name}-session",
             )
-        self.memory = self._memory_config.store or ConversationListMemory()
+        self.memory = self._memory.store or ConversationListMemory()
 
         # Console formatting
         self._text_formatter = ColorTextFormatter()
@@ -161,7 +164,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         Ensures an entry exists for the workflow instance in the state.
 
         This delegates to ensure_instance_exists() which uses the entry_factory
-        configured in LLMOrchestratorStateConfig to create proper model instances.
+        from the state schema bundle to create proper model instances.
 
         Args:
             instance_id (str): The workflow instance ID.
@@ -317,7 +320,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         self, instance_id: str, step_id: int, substep_id: Optional[float]
     ) -> None:
         """Reverts a step from `in_progress` back to `not_started`."""
-        from dapr_agents.workflow.orchestrators.llm.utils import find_step_in_plan
+        from dapr_agents.agents.orchestrators.llm.utils import find_step_in_plan
 
         try:
             container = self._get_entry_container()
@@ -345,7 +348,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         self, instance_id: str, agent: str, step_id: int, substep_id: Optional[float]
     ) -> None:
         """Undo the last task history entry and revert `completed` -> `in_progress` if needed."""
-        from dapr_agents.workflow.orchestrators.llm.utils import find_step_in_plan
+        from dapr_agents.agents.orchestrators.llm.utils import find_step_in_plan
 
         try:
             container = self._get_entry_container()
@@ -585,7 +588,7 @@ class LLMOrchestratorBase(OrchestratorBase):
             RuntimeError: If sending the trigger fails due to pub/sub issues.
         """
         from dapr_agents.agents.schemas import TriggerAction
-        from dapr_agents.workflow.orchestrators.llm.utils import (
+        from dapr_agents.agents.orchestrators.llm.utils import (
             find_step_in_plan,
             update_step_statuses,
         )
@@ -669,7 +672,7 @@ class LLMOrchestratorBase(OrchestratorBase):
         Raises:
             ValueError: If a referenced step/substep is not found in the plan.
         """
-        from dapr_agents.workflow.orchestrators.llm.utils import (
+        from dapr_agents.agents.orchestrators.llm.utils import (
             find_step_in_plan,
             restructure_plan,
             update_step_statuses,

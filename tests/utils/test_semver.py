@@ -1,3 +1,5 @@
+import importlib.util
+import sys
 import pytest
 from pathlib import Path
 from importlib.machinery import SourceFileLoader
@@ -5,7 +7,12 @@ from importlib.machinery import SourceFileLoader
 _SEMVER_PATH = (
     Path(__file__).resolve().parents[2] / "dapr_agents" / "utils" / "semver.py"
 )
-semver = SourceFileLoader("_semver_test_module", str(_SEMVER_PATH)).load_module()
+_loader = SourceFileLoader("_semver_test_module", str(_SEMVER_PATH))
+_spec = importlib.util.spec_from_loader(_loader.name, _loader)
+semver = importlib.util.module_from_spec(_spec)
+sys.modules[_loader.name] = semver
+_loader.exec_module(semver)  # type: ignore[arg-type]
+
 is_version_supported = semver.is_version_supported
 Version = semver.Version
 

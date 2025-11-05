@@ -10,8 +10,9 @@ import dapr.ext.workflow as wf
 from dapr_agents.agents.configs import (
     AgentPubSubConfig,
     AgentRegistryConfig,
+    AgentStateConfig,
+    AgentExecutionConfig,
 )
-from dapr_agents.agents.orchestrators.llm.configs import LLMOrchestratorStateConfig
 from dapr_agents.agents.orchestrators.llm import LLMOrchestrator
 from dapr_agents.storage.daprstores.stateservice import StateStoreService
 from dapr_agents.workflow.runners import AgentRunner
@@ -62,24 +63,27 @@ async def main() -> None:
     # -------------------------------------------------------------------------
     # Pub/Sub, State, Registry wiring
     # -------------------------------------------------------------------------
-    pubsub_config = AgentPubSubConfig(
+    pubsub = AgentPubSubConfig(
         pubsub_name=pubsub_name,
         agent_topic=orchestrator_topic,
         broadcast_topic=broadcast_topic,
     )
 
-    # Orchestrators often don’t persist workflow-local state; still allow it
+    # Orchestrators often don't persist workflow-local state; still allow it
     # so you can extend later (metrics, audit, etc).
-    state_config = LLMOrchestratorStateConfig(
+    # Schema automatically set to LLMWorkflowState by LLMOrchestrator
+    state = AgentStateConfig(
         store=StateStoreService(
             store_name=workflow_state_store_name, key_prefix="llm.orchestrator:"
         ),
     )
 
-    registry_config = AgentRegistryConfig(
+    registry = AgentRegistryConfig(
         store=StateStoreService(store_name=registry_store_name),
         team_name=team_name,
     )
+
+    execution = AgentExecutionConfig(max_iterations=max_iterations)
 
     # -------------------------------------------------------------------------
     # LLM Orchestrator instance
@@ -87,14 +91,14 @@ async def main() -> None:
     orchestrator = LLMOrchestrator(
         name=orchestrator_name,
         llm=llm,
-        pubsub_config=pubsub_config,
-        state_config=state_config,
-        registry_config=registry_config,
+        pubsub=pubsub,
+        state=state,
+        registry=registry,
+        execution=execution,
         agent_metadata={
             "type": "LLMOrchestrator",
             "description": "LLM-driven Orchestrator",
         },
-        max_iterations=max_iterations,
         timeout_seconds=timeout_seconds,
         runtime=wf.WorkflowRuntime(),  # you can inject your own if needed
     )

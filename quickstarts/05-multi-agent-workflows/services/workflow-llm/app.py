@@ -1,4 +1,5 @@
 from dapr_agents import LLMOrchestrator
+from dapr_agents.agents.configs import AgentExecutionConfig
 from dapr_agents.llm import DaprChatClient
 from dapr_agents.memory import ConversationDaprStateMemory
 from dotenv import load_dotenv
@@ -38,7 +39,7 @@ async def main():
             memory=ConversationDaprStateMemory(
                 store_name="conversationstore", session_id="myuniqueid"
             ),
-            max_iterations=3,
+            execution=AgentExecutionConfig(max_iterations=3),
         ).as_service(port=8004)
 
         await workflow_service.start()

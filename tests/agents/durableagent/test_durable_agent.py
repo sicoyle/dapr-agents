@@ -114,8 +114,8 @@ class TestDurableAgent:
         context = DaprWorkflowContext()
         context.instance_id = "test-instance-123"
         context.is_replaying = False
-        context.call_activity = AsyncMock()
-        context.wait_for_external_event = AsyncMock()
+        context.call_activity = Mock()
+        context.wait_for_external_event = Mock()
         context.current_utc_datetime = Mock()
         context.current_utc_datetime.isoformat = Mock(
             return_value="2024-01-01T00:00:00.000000"
@@ -131,22 +131,22 @@ class TestDurableAgent:
             goal="Help with testing",
             instructions=["Be helpful", "Test things"],
             llm=mock_llm,
-            pubsub_config=AgentPubSubConfig(
+            pubsub=AgentPubSubConfig(
                 pubsub_name="testpubsub",
                 agent_topic="TestDurableAgent",
             ),
-            state_config=AgentStateConfig(
+            state=AgentStateConfig(
                 store=StateStoreService(store_name="teststatestore")
             ),
-            registry_config=AgentRegistryConfig(
+            registry=AgentRegistryConfig(
                 store=StateStoreService(store_name="testregistry")
             ),
-            memory_config=AgentMemoryConfig(
+            memory=AgentMemoryConfig(
                 store=ConversationDaprStateMemory(
                     store_name="teststatestore", session_id="test_session"
                 )
             ),
-            execution_config=AgentExecutionConfig(max_iterations=5),
+            execution=AgentExecutionConfig(max_iterations=5),
         )
 
     @pytest.fixture
@@ -158,23 +158,23 @@ class TestDurableAgent:
             goal="Execute tools",
             instructions=["Use tools when needed"],
             llm=mock_llm,
-            pubsub_config=AgentPubSubConfig(
+            pubsub=AgentPubSubConfig(
                 pubsub_name="testpubsub",
                 agent_topic="ToolDurableAgent",
             ),
-            state_config=AgentStateConfig(
+            state=AgentStateConfig(
                 store=StateStoreService(store_name="teststatestore")
             ),
-            registry_config=AgentRegistryConfig(
+            registry=AgentRegistryConfig(
                 store=StateStoreService(store_name="testregistry")
             ),
-            memory_config=AgentMemoryConfig(
+            memory=AgentMemoryConfig(
                 store=ConversationDaprStateMemory(
                     store_name="teststatestore", session_id="test_session"
                 )
             ),
             tools=[mock_tool],
-            execution_config=AgentExecutionConfig(max_iterations=5),
+            execution=AgentExecutionConfig(max_iterations=5),
         )
 
     def test_durable_agent_initialization(self, mock_llm):
@@ -185,14 +185,14 @@ class TestDurableAgent:
             goal="Help with testing",
             instructions=["Be helpful"],
             llm=mock_llm,
-            pubsub_config=AgentPubSubConfig(
+            pubsub=AgentPubSubConfig(
                 pubsub_name="testpubsub",
                 agent_topic="TestDurableAgent",
             ),
-            state_config=AgentStateConfig(
+            state=AgentStateConfig(
                 store=StateStoreService(store_name="teststatestore")
             ),
-            registry_config=AgentRegistryConfig(
+            registry=AgentRegistryConfig(
                 store=StateStoreService(store_name="testregistry")
             ),
         )
@@ -201,10 +201,10 @@ class TestDurableAgent:
         assert agent.prompting_helper.role == "Test Durable Assistant"
         assert agent.prompting_helper.goal == "Help with testing"
         assert agent.prompting_helper.instructions == ["Be helpful"]
-        assert agent.execution_config.max_iterations == 10  # default value
+        assert agent.execution.max_iterations == 10  # default value
         assert agent.tool_history == []
-        assert agent.pubsub_config.pubsub_name == "testpubsub"
-        assert agent.pubsub_config.agent_topic == "TestDurableAgent"
+        assert agent.pubsub.pubsub_name == "testpubsub"
+        assert agent.pubsub.agent_topic == "TestDurableAgent"
 
     def test_durable_agent_initialization_with_custom_topic(self, mock_llm):
         """Test durable agent initialization with custom topic name."""
@@ -213,19 +213,19 @@ class TestDurableAgent:
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            pubsub_config=AgentPubSubConfig(
+            pubsub=AgentPubSubConfig(
                 pubsub_name="testpubsub",
                 agent_topic="custom-topic",
             ),
-            state_config=AgentStateConfig(
+            state=AgentStateConfig(
                 store=StateStoreService(store_name="teststatestore")
             ),
-            registry_config=AgentRegistryConfig(
+            registry=AgentRegistryConfig(
                 store=StateStoreService(store_name="testregistry")
             ),
         )
 
-        assert agent.pubsub_config.agent_topic == "custom-topic"
+        assert agent.pubsub.agent_topic == "custom-topic"
 
     def test_durable_agent_initialization_name_from_role(self, mock_llm):
         """Test durable agent initialization with name derived from role."""
@@ -234,20 +234,20 @@ class TestDurableAgent:
             role="Test Durable Assistant",
             goal="Help with testing",
             llm=mock_llm,
-            pubsub_config=AgentPubSubConfig(
+            pubsub=AgentPubSubConfig(
                 pubsub_name="testpubsub",
                 agent_topic="Test Durable Assistant",
             ),
-            state_config=AgentStateConfig(
+            state=AgentStateConfig(
                 store=StateStoreService(store_name="teststatestore")
             ),
-            registry_config=AgentRegistryConfig(
+            registry=AgentRegistryConfig(
                 store=StateStoreService(store_name="testregistry")
             ),
         )
 
         assert agent.name == "Test Durable Assistant"
-        assert agent.pubsub_config.agent_topic == "Test Durable Assistant"
+        assert agent.pubsub.agent_topic == "Test Durable Assistant"
 
     def test_durable_agent_metadata(self, basic_durable_agent):
         """Test durable agent metadata creation."""
@@ -388,7 +388,11 @@ class TestDurableAgent:
         # Mock the activity context and _run_asyncio_task
         mock_ctx = Mock()
 
-        with patch.object(basic_durable_agent, "_run_asyncio_task") as mock_run_task:
+        with patch.object(
+            basic_durable_agent,
+            "_run_asyncio_task",
+            side_effect=lambda coro: coro.close(),
+        ) as mock_run_task:
             basic_durable_agent.send_response_back(
                 mock_ctx,
                 {

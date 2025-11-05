@@ -39,7 +39,7 @@ async def main() -> None:
       - We run TWO durable agents: Frodo and Sam, in the same process.
     """
     # Shared infra (registry)
-    registry_config = AgentRegistryConfig(
+    registry = AgentRegistryConfig(
         store=StateStoreService(store_name="agentregistrystore"),
         team_name="fellowship",
     )
@@ -89,11 +89,11 @@ async def main() -> None:
     )
 
     sam = DurableAgent(
-        profile_config=sam_profile,
-        pubsub_config=sam_pubsub,
-        state_config=sam_state,
-        registry_config=registry_config,
-        memory_config=sam_memory,
+        profile=sam_profile,
+        pubsub=sam_pubsub,
+        state=sam_state,
+        registry=registry,
+        memory=sam_memory,
         llm=llm,
     )
     sam.start()
