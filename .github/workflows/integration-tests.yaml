@@ -32,11 +32,11 @@ jobs:
       if: github.event_name == 'issue_comment'
       run: |
         username="${{ github.event.comment.user.login }}"
-        allowed_users=("samcoyle" "yaron2" "Cyb3rWard0g")
+        allowed_users=("sicoyle" "yaron2" "Cyb3rWard0g")
         
         if [[ ! " ${allowed_users[@]} " =~ " ${username} " ]]; then
           echo "User ${username} is not authorized to run this workflow."
-          echo "Must be one of: samcoyle, yaron2, Cyb3rWard0g"
+          echo "Must be one of: sicoyle, yaron2, Cyb3rWard0g"
           exit 1
         fi
         
