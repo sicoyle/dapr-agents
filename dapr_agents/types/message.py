@@ -1,3 +1,4 @@
+from typing import Any
 from pydantic import (
     BaseModel,
     field_validator,
@@ -5,7 +6,7 @@ from pydantic import (
     model_validator,
     ConfigDict,
 )
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 import json
 
 
@@ -239,6 +240,7 @@ class AssistantMessage(BaseMessage):
             return self.tool_calls
         if isinstance(self.tool_calls, ToolCall):
             return [self.tool_calls]
+        return None
 
     def has_tool_calls(self) -> bool:
         """
@@ -250,6 +252,7 @@ class AssistantMessage(BaseMessage):
             return True
         if isinstance(self.tool_calls, ToolCall):
             return True
+        return False
 
 
 class ToolMessage(BaseMessage):
