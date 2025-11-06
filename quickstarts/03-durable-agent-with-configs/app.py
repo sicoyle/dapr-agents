@@ -81,7 +81,6 @@ async def main() -> None:
     # --- LLM Client ------------------------------------------------------------
     llm = OpenAIChatClient()
 
-
     # --- gRPC overrides (lift default ~4MB limit to 32MB) -----------------------
     grpc_options = WorkflowGrpcOptions(
         max_send_message_length=32 * 1024 * 1024,
