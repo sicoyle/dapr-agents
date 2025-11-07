@@ -170,7 +170,7 @@ async def test_execute_tool_activity_with_mcp_tool(durable_agent_with_mcp_tool):
     mock_ctx = Mock()
 
     # Call run_tool activity with new signature (ctx, payload)
-    await durable_agent_with_mcp_tool.run_tool(
+    durable_agent_with_mcp_tool.run_tool(
         mock_ctx,
         {
             "instance_id": instance_id,
@@ -284,7 +284,7 @@ async def test_durable_agent_with_real_server_http(start_math_server_http):
     mock_ctx = Mock()
 
     # Call run_tool activity with new signature (ctx, payload)
-    await agent.run_tool(
+    agent.run_tool(
         mock_ctx,
         {
             "instance_id": instance_id,
