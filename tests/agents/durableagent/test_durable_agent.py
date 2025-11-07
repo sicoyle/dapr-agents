@@ -827,10 +827,13 @@ class TestDurableAgent:
         # Verify entry was updated with message and tool_history
         assert len(entry.messages) == 1
         assert entry.messages[0].role == "tool"
-        assert entry.messages[0].tool_call_id == "call_123"  # Check tool_call_id, not the message UUID id
+        assert (
+            entry.messages[0].tool_call_id == "call_123"
+        )  # Check tool_call_id, not the message UUID id
         assert len(entry.tool_history) == 1
         assert entry.tool_history[0].tool_call_id == "call_123"
         assert entry.tool_history[0].tool_name == "TestToolFunc"
+
     def test_update_agent_memory_and_history(self, basic_durable_agent):
         """Test that memory and history are updated via run_tool activity."""
         instance_id = "test-instance-123"
