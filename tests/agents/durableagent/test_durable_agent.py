@@ -489,7 +489,7 @@ class TestDurableAgent:
             mock_ctx = Mock()
 
             with patch.object(basic_durable_agent, "save_state"):
-                result = await basic_durable_agent.run_tool(
+                result = basic_durable_agent.run_tool(
                     mock_ctx,
                     {
                         "tool_call": tool_call,
