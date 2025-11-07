@@ -442,7 +442,7 @@ class DurableAgent(AgentBase):
         self.save_state()
         return as_dict
 
-    async def run_tool(
+    def run_tool(
         self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
@@ -467,7 +467,10 @@ class DurableAgent(AgentBase):
         except json.JSONDecodeError as exc:
             raise AgentError(f"Invalid JSON in tool args: {exc}") from exc
 
-        result = await self.tool_executor.run_tool(fn_name, **args)
+        async def _execute_tool() -> Any:
+            return await self.tool_executor.run_tool(fn_name, **args)
+
+        result = self._run_asyncio_task(_execute_tool())
 
         # Safe serialization: JSON if possible, else string fallback.
         if isinstance(result, str):
@@ -494,7 +497,7 @@ class DurableAgent(AgentBase):
             role="tool",
         )
         agent_message = {
-            "id": tool_message.tool_call_id,
+            "tool_call_id": tool_message.tool_call_id,
             "role": "tool",
             "name": tool_message.name,
             "content": tool_message.content,
@@ -512,7 +515,7 @@ class DurableAgent(AgentBase):
                 }
             except Exception:
                 existing_ids = set()
-            if agent_message["id"] not in existing_ids:
+            if agent_message["tool_call_id"] not in existing_ids:
                 tool_message_model = (
                     self._message_coercer(agent_message)
                     if getattr(self, "_message_coercer", None)
