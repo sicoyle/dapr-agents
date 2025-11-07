@@ -461,7 +461,7 @@ class AgentBase(AgentComponents):
 
         Args:
             coro: The coroutine to execute.
-            
+
         Returns:
             Any: The result of the coroutine execution.
         """

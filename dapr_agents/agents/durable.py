@@ -419,7 +419,9 @@ class DurableAgent(AgentBase):
             self._process_user_message(instance_id, task, user_copy)
 
             if user_copy is not None:
-                self.text_formatter.print_message({str(k): v for k, v in user_copy.items()})
+                self.text_formatter.print_message(
+                    {str(k): v for k, v in user_copy.items()}
+                )
 
         tools = self.get_llm_tools()
         generate_kwargs = {
@@ -474,7 +476,7 @@ class DurableAgent(AgentBase):
             return await self.tool_executor.run_tool(fn_name, **args)
 
         result = self._run_asyncio_task(_execute_tool())
-        
+
         # Debug: Log the actual result before serialization
         logger.debug(f"Tool {fn_name} returned: {result} (type: {type(result)})")
 
@@ -530,10 +532,10 @@ class DurableAgent(AgentBase):
         # Always persist to memory + in-process tool history
         self.memory.add_message(tool_message)
         self.tool_history.append(history_entry)
-        
+
         # Print the tool result for visibility
         self.text_formatter.print_message(agent_message)
-        
+
         self.save_state()
         return tool_result
 
