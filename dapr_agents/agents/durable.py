@@ -31,6 +31,7 @@ from dapr_agents.types import (
     UserMessage,
 )
 from dapr_agents.types.workflow import DaprWorkflowStatus
+from dapr_agents.tool.utils.serialization import serialize_tool_result
 from dapr_agents.workflow.decorators.routers import message_router
 from dapr_agents.workflow.utils.grpc import apply_grpc_options
 from dapr_agents.workflow.utils.pubsub import broadcast_message, send_message_to_agent
@@ -473,22 +474,12 @@ class DurableAgent(AgentBase):
             return await self.tool_executor.run_tool(fn_name, **args)
 
         result = self._run_asyncio_task(_execute_tool())
+        
+        # Debug: Log the actual result before serialization
+        logger.debug(f"Tool {fn_name} returned: {result} (type: {type(result)})")
 
-        # Safe serialization: JSON if possible, else string fallback.
-        if isinstance(result, str):
-            serialized_result = result
-        else:
-            try:
-                # Handle Pydantic models and other objects with model_dump
-                if hasattr(result, "model_dump"):
-                    serialized_result = json.dumps(result.model_dump())
-                elif hasattr(result, "__dict__"):
-                    serialized_result = json.dumps(result.__dict__)
-                else:
-                    serialized_result = json.dumps(result)
-            except (TypeError, ValueError):  # noqa: BLE001
-                # Fallback for non-serializable objects
-                serialized_result = str(result)
+        # Serialize the tool result using centralized utility
+        serialized_result = serialize_tool_result(result)
 
         tool_result = {
             "tool_call_id": tool_call["id"],
