@@ -411,12 +411,14 @@ class DurableAgent(AgentBase):
         self._sync_system_messages_with_state(instance_id, messages)
 
         # Persist the user's turn (if any) into the instance timeline + memory
-        user_message = self._get_last_user_message(messages)
-        user_copy = dict(user_message) if user_message else None
-        self._process_user_message(instance_id, task, user_copy)
+        # Only process and print user message if task is provided (initial turn)
+        if task:
+            user_message = self._get_last_user_message(messages)
+            user_copy = dict(user_message) if user_message else None
+            self._process_user_message(instance_id, task, user_copy)
 
-        if user_copy is not None:
-            self.text_formatter.print_message({str(k): v for k, v in user_copy.items()})
+            if user_copy is not None:
+                self.text_formatter.print_message({str(k): v for k, v in user_copy.items()})
 
         tools = self.get_llm_tools()
         generate_kwargs = {
@@ -477,8 +479,15 @@ class DurableAgent(AgentBase):
             serialized_result = result
         else:
             try:
-                serialized_result = json.dumps(result)
-            except Exception:  # noqa: BLE001
+                # Handle Pydantic models and other objects with model_dump
+                if hasattr(result, "model_dump"):
+                    serialized_result = json.dumps(result.model_dump())
+                elif hasattr(result, "__dict__"):
+                    serialized_result = json.dumps(result.__dict__)
+                else:
+                    serialized_result = json.dumps(result)
+            except (TypeError, ValueError):  # noqa: BLE001
+                # Fallback for non-serializable objects
                 serialized_result = str(result)
 
         tool_result = {
@@ -530,6 +539,10 @@ class DurableAgent(AgentBase):
         # Always persist to memory + in-process tool history
         self.memory.add_message(tool_message)
         self.tool_history.append(history_entry)
+        
+        # Print the tool result for visibility
+        self.text_formatter.print_message(agent_message)
+        
         self.save_state()
         return tool_result
 
