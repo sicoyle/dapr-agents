@@ -186,7 +186,7 @@ class DaprStateStore(DaprStoreBase):
                 store_name=self.store_name,
                 key=key,
                 etag=etag,
-                state_options=options,
+                options=options,
                 state_metadata=state_metadata,
             )
 
