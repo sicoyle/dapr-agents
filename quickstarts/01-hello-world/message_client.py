@@ -82,7 +82,9 @@ def publish(args: argparse.Namespace) -> None:
         payload,
     )
 
-    metadata = {"cloudevent.type": args.cloudevent_type} if args.cloudevent_type else None
+    metadata = (
+        {"cloudevent.type": args.cloudevent_type} if args.cloudevent_type else None
+    )
 
     with DaprClient() as client:
         client.publish_event(
