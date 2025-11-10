@@ -337,8 +337,10 @@ class Agent(AgentBase):
             message_dict = final_reply.model_dump()
             self._save_assistant_message(instance_id, message_dict)
             self.text_formatter.print_message(message_dict)
+            raise AgentError(f"Failed during chat generation: {exc}") from exc
+        finally:
+            self._update_instance_completion(instance_id, final_reply)
 
-        self._update_instance_completion(instance_id, final_reply)
         return final_reply
 
     async def _execute_tool_calls(
