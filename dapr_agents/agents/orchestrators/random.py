@@ -271,10 +271,7 @@ class RandomOrchestrator(OrchestratorBase):
         except Exception:  # noqa: BLE001
             logger.exception("Failed to publish broadcast message.")
 
-    def _select_random_speaker_activity(
-        self,
-        ctx: wf.WorkflowActivityContext
-    ) -> str:
+    def _select_random_speaker_activity(self, ctx: wf.WorkflowActivityContext) -> str:
         """Pick a random agent from the registry, avoiding the most recent speaker when possible."""
         try:
             agents_metadata = self.list_team_agents(
