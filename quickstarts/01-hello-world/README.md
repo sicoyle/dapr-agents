@@ -237,17 +237,11 @@ pip install -e ".[vectorstore]"
 uv add sentence-transformers chromadb 'posthog<6.0.0'
 ```
 
-**Or install with extras:**
-From the root directory,
-```bash
-uv pip install -e ".[vectorstore]"
-```
-
 Run the vector store agent example to see how to create an agent that can search and store documents:
 ```bash
 source .venv/bin/activate
 
-dapr run --app-id vectorstore --resources-path $temp_resources_folder -- python 05_agent_with_vectorstore.py
+python 05_agent_with_vectorstore.py
 ```
 
 This example demonstrates how to create an agent with vector store capabilities, including logging, structured Document usage, and a tool to add a machine learning basics document.
@@ -260,7 +254,6 @@ This example demonstrates how to create an agent with vector store capabilities,
 - **@tool decorator**: A way to create tools that agents can use
 - **DurableAgent**: An agent that follows the Reasoning + Action pattern and achieves durability through Dapr Workflows
 - **VectorStore**: Persistent storage for document embeddings that enables semantic search capabilities
-- **WorkflowApp**: A Dapr-powered way to create stateful, multi-step processes
 
 ## Dapr Integration
 
