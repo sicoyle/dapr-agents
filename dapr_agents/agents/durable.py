@@ -179,7 +179,8 @@ class DurableAgent(AgentBase):
         source = metadata.get("source") or "direct"
 
         # Ensure we have the latest durable state for this turn.
-        self.load_state()
+        if self.state_store:
+            self.load_state()
 
         # Bootstrap instance entry (flexible to non-`instances` models).
         self.ensure_instance_exists(
@@ -370,7 +371,8 @@ class DurableAgent(AgentBase):
                 - trace_context: Optional tracing context.
         """
         # Load latest state to ensure we have current data before modifying
-        self.load_state()
+        if self.state_store:
+            self.load_state()
 
         instance_id = payload.get("instance_id")
         trace_context = payload.get("trace_context")
@@ -422,7 +424,8 @@ class DurableAgent(AgentBase):
             AgentError: If the LLM call fails or yields no message.
         """
         # Load latest state to ensure we have current data
-        self.load_state()
+        if self.state_store:
+            self.load_state()
 
         instance_id = payload.get("instance_id")
         task = payload.get("task")
@@ -488,7 +491,8 @@ class DurableAgent(AgentBase):
             AgentError: If tool arguments contain invalid JSON.
         """
         # Load latest state to ensure we have current data before modifying
-        self.load_state()
+        if self.state_store:
+            self.load_state()
 
         tool_call = payload.get("tool_call", {})
         instance_id = payload.get("instance_id")
@@ -676,7 +680,8 @@ class DurableAgent(AgentBase):
                      and optional 'triggering_workflow_instance_id'.
         """
         # Load latest state to ensure we have current data before modifying
-        self.load_state()
+        if self.state_store:
+            self.load_state()
 
         instance_id = payload.get("instance_id")
         final_output = payload.get("final_output", "")
