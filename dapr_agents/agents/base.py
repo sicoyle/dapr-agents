@@ -549,6 +549,8 @@ class AgentBase(AgentComponents):
         # Persistent conversation history in the memory config is the single source of truth for conversation history
         if persistent_memory:
             return persistent_memory
+        # Note: adding this back just for tests, but in reality for durable agent we use persistent memory only for app history reconstructions for durability
+        return instance_messages
 
     def _sync_system_messages_with_state(
         self,
