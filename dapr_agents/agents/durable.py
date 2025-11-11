@@ -556,10 +556,6 @@ class DurableAgent(AgentBase):
             msg_dict = mem_msg.model_dump() if hasattr(mem_msg, "model_dump") else (mem_msg if isinstance(mem_msg, dict) else {})
             if msg_dict.get("role") == "tool" and msg_dict.get("tool_call_id") == tool_call_id:
                 tool_exists_in_memory = True
-                logger.debug(
-                    "[DEBUG run_tool] Tool message with tool_call_id=%s already exists in memory, skipping",
-                    tool_call_id,
-                )
                 break
         
         # Only add to persistent memory if not already present
