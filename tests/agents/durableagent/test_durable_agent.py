@@ -431,7 +431,8 @@ class TestDurableAgent:
         # Mock the activity context and save_state
         mock_ctx = Mock()
 
-        with patch.object(basic_durable_agent, "save_state"):
+        with patch.object(basic_durable_agent, "save_state"), \
+             patch.object(basic_durable_agent, "load_state"):
             basic_durable_agent.finalize_workflow(
                 mock_ctx,
                 {
@@ -487,7 +488,8 @@ class TestDurableAgent:
             # Mock the activity context and save_state
             mock_ctx = Mock()
 
-            with patch.object(basic_durable_agent, "save_state"):
+            with patch.object(basic_durable_agent, "save_state"), \
+                 patch.object(basic_durable_agent, "load_state"):
                 result = basic_durable_agent.run_tool(
                     mock_ctx,
                     {
@@ -741,7 +743,8 @@ class TestDurableAgent:
 
             mock_ctx = Mock()
 
-            with patch.object(basic_durable_agent, "save_state"):
+            with patch.object(basic_durable_agent, "save_state"), \
+                 patch.object(basic_durable_agent, "load_state"):
                 result = basic_durable_agent.run_tool(
                     mock_ctx,
                     {
@@ -805,7 +808,8 @@ class TestDurableAgent:
         )
 
         # Mock save_state to prevent actual persistence
-        with patch.object(basic_durable_agent, "save_state"):
+        with patch.object(basic_durable_agent, "save_state"), \
+             patch.object(basic_durable_agent, "load_state"):
             mock_ctx = Mock()
 
             # Call run_tool activity which appends messages and tool_history
