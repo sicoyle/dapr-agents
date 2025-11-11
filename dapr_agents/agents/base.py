@@ -512,7 +512,7 @@ class AgentBase(AgentComponents):
     # ------------------------------------------------------------------
     # State-aware message helpers (use AgentComponents' state model)
     # ------------------------------------------------------------------
-    def _construct_messages_with_instance_history(
+    def _reconstruct_conversation_history(
         self, instance_id: str
     ) -> List[Dict[str, Any]]:
         """
@@ -546,13 +546,9 @@ class AgentBase(AgentComponents):
         except Exception:  # noqa: BLE001
             logger.debug("Unable to load persistent memory.", exc_info=True)
 
-        # When both memory and workflow state (instance messages) are configured:
-        # - Persistent memory is the single source of truth for conversation history
-        # - Instance messages only used as fallback when no persistent memory exists
+        # Persistent conversation history in the memory config is the single source of truth for conversation history
         if persistent_memory:
             return persistent_memory
-        else:
-            return instance_messages
 
     def _sync_system_messages_with_state(
         self,
@@ -588,23 +584,22 @@ class AgentBase(AgentComponents):
 
         container = self._get_entry_container()
         entry = container.get(instance_id) if container else None
-        if entry is None or not hasattr(entry, "messages"):
-            return
+        if entry is not None and hasattr(entry, "messages"):
+            # Use configured coercer / message model
+            message_model = (
+                self._message_coercer(user_message_copy)  # type: ignore[attr-defined]
+                if getattr(self, "_message_coercer", None)
+                else self._message_dict_to_message_model(user_message_copy)
+            )
+            entry.messages.append(message_model)  # type: ignore[attr-defined]
+            if hasattr(entry, "last_message"):
+                entry.last_message = message_model  # type: ignore[attr-defined]
 
-        # Use configured coercer / message model
-        message_model = (
-            self._message_coercer(user_message_copy)  # type: ignore[attr-defined]
-            if getattr(self, "_message_coercer", None)
-            else self._message_dict_to_message_model(user_message_copy)
-        )
-        entry.messages.append(message_model)  # type: ignore[attr-defined]
-        if hasattr(entry, "last_message"):
-            entry.last_message = message_model  # type: ignore[attr-defined]
+            session_id = getattr(getattr(self, "memory", None), "session_id", None)
+            if session_id is not None and hasattr(entry, "session_id"):
+                entry.session_id = str(session_id)  # type: ignore[attr-defined]
 
-        session_id = getattr(getattr(self, "memory", None), "session_id", None)
-        if session_id is not None and hasattr(entry, "session_id"):
-            entry.session_id = str(session_id)  # type: ignore[attr-defined]
-
+        # Always add to memory (required for chat history for agent durability upon restarts)
         self.memory.add_message(
             UserMessage(content=user_message_copy.get("content", ""))
         )
@@ -624,24 +619,24 @@ class AgentBase(AgentComponents):
 
         container = self._get_entry_container()
         entry = container.get(instance_id) if container else None
-        if entry is None or not hasattr(entry, "messages"):
-            return
+        if entry is not None and hasattr(entry, "messages"):
+            message_id = assistant_message.get("id")
+            if message_id and any(
+                getattr(msg, "id", None) == message_id for msg in getattr(entry, "messages")
+            ):
+                # Duplicate in state - skip state update but still add to memory
+                pass
+            else:
+                message_model = (
+                    self._message_coercer(assistant_message)  # type: ignore[attr-defined]
+                    if getattr(self, "_message_coercer", None)
+                    else self._message_dict_to_message_model(assistant_message)
+                )
+                entry.messages.append(message_model)  # type: ignore[attr-defined]
+                if hasattr(entry, "last_message"):
+                    entry.last_message = message_model  # type: ignore[attr-defined]
 
-        message_id = assistant_message.get("id")
-        if message_id and any(
-            getattr(msg, "id", None) == message_id for msg in getattr(entry, "messages")
-        ):
-            return
-
-        message_model = (
-            self._message_coercer(assistant_message)  # type: ignore[attr-defined]
-            if getattr(self, "_message_coercer", None)
-            else self._message_dict_to_message_model(assistant_message)
-        )
-        entry.messages.append(message_model)  # type: ignore[attr-defined]
-        if hasattr(entry, "last_message"):
-            entry.last_message = message_model  # type: ignore[attr-defined]
-
+        # Always add to memory (required for chat history)
         self.memory.add_message(AssistantMessage(**assistant_message))
         self.save_state()
 

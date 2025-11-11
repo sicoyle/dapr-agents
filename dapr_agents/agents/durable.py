@@ -369,6 +369,9 @@ class DurableAgent(AgentBase):
                 - start_time: ISO8601 datetime string.
                 - trace_context: Optional tracing context.
         """
+        # Load latest state to ensure we have current data before modifying
+        self.load_state()
+
         instance_id = payload.get("instance_id")
         trace_context = payload.get("trace_context")
         input_value = payload.get("input_value", "Triggered without input.")
@@ -418,10 +421,13 @@ class DurableAgent(AgentBase):
         Raises:
             AgentError: If the LLM call fails or yields no message.
         """
+        # Load latest state to ensure we have current data
+        self.load_state()
+
         instance_id = payload.get("instance_id")
         task = payload.get("task")
 
-        chat_history = self._construct_messages_with_instance_history(instance_id)
+        chat_history = self._reconstruct_conversation_history(instance_id)
         messages = self.prompting_helper.build_initial_messages(
             user_input=task,
             chat_history=chat_history,
@@ -481,6 +487,9 @@ class DurableAgent(AgentBase):
         Raises:
             AgentError: If tool arguments contain invalid JSON.
         """
+        # Load latest state to ensure we have current data before modifying
+        self.load_state()
+
         tool_call = payload.get("tool_call", {})
         instance_id = payload.get("instance_id")
         fn_name = tool_call["function"]["name"]
@@ -548,31 +557,22 @@ class DurableAgent(AgentBase):
                 if hasattr(entry, "last_message"):
                     entry.last_message = tool_message_model
 
-        # Atomically add tool message to persistent memory with deduplication
-        # Use a lock to prevent race conditions when multiple tool activities
-        # execute concurrently or when activities re-execute on workflow resume
-        import threading
-
-        if not hasattr(self.__class__, "_memory_lock"):
-            self.__class__._memory_lock = threading.Lock()
-
         tool_call_id = agent_message["tool_call_id"]
-
-        with self.__class__._memory_lock:
-            existing_memory_messages = self.memory.get_messages()
-            tool_exists_in_memory = False
-            for mem_msg in existing_memory_messages:
-                msg_dict = (
-                    mem_msg.model_dump()
-                    if hasattr(mem_msg, "model_dump")
-                    else (mem_msg if isinstance(mem_msg, dict) else {})
-                )
-                if (
-                    msg_dict.get("role") == "tool"
-                    and msg_dict.get("tool_call_id") == tool_call_id
-                ):
-                    tool_exists_in_memory = True
-                    break
+        # Check if tool message already exists in memory
+        existing_memory_messages = self.memory.get_messages()
+        tool_exists_in_memory = False
+        for mem_msg in existing_memory_messages:
+            msg_dict = (
+                mem_msg.model_dump()
+                if hasattr(mem_msg, "model_dump")
+                else (mem_msg if isinstance(mem_msg, dict) else {})
+            )
+            if (
+                msg_dict.get("role") == "tool"
+                and msg_dict.get("tool_call_id") == tool_call_id
+            ):
+                tool_exists_in_memory = True
+                break
 
         # Only add to persistent memory if not already present
         if not tool_exists_in_memory:
@@ -675,6 +675,9 @@ class DurableAgent(AgentBase):
             payload: Dict with 'instance_id', 'final_output', 'end_time',
                      and optional 'triggering_workflow_instance_id'.
         """
+        # Load latest state to ensure we have current data before modifying
+        self.load_state()
+        
         instance_id = payload.get("instance_id")
         final_output = payload.get("final_output", "")
         end_time = payload.get("end_time", "")
