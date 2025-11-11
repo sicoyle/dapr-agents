@@ -86,7 +86,6 @@ class ConversationDaprStateMemory(MemoryBase):
         """
         message = self._convert_to_dict(message)
         message_id = str(uuid.uuid4())
-        message_key = self._get_message_key(message_id)
         message.update(
             {
                 "createdAt": datetime.now().isoformat() + "Z",
