@@ -85,6 +85,7 @@ class ConversationDaprStateMemory(MemoryBase):
             message (Union[Dict[str, Any], BaseMessage]): The message to add to the memory.
         """
         message = self._convert_to_dict(message)
+        message_id = str(uuid.uuid4())
         message.update(
             {
                 "createdAt": datetime.now().isoformat() + "Z",
