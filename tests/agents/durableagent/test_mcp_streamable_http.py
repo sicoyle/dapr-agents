@@ -169,8 +169,9 @@ def test_execute_tool_activity_with_mcp_tool(durable_agent_with_mcp_tool):
     mock_ctx = Mock()
 
     # Call run_tool activity with new signature (ctx, payload)
-    with patch.object(durable_agent_with_mcp_tool, "load_state"), \
-         patch.object(durable_agent_with_mcp_tool, "save_state"):
+    with patch.object(durable_agent_with_mcp_tool, "load_state"), patch.object(
+        durable_agent_with_mcp_tool, "save_state"
+    ):
         result = durable_agent_with_mcp_tool.run_tool(
             mock_ctx,
             {
@@ -287,8 +288,7 @@ async def test_durable_agent_with_real_server_http(start_math_server_http):
     # so when called from an async test context, we need to run it in a thread
     import asyncio
 
-    with patch.object(agent, "load_state"), \
-         patch.object(agent, "save_state"):
+    with patch.object(agent, "load_state"), patch.object(agent, "save_state"):
         result = await asyncio.to_thread(
             agent.run_tool,
             mock_ctx,
