@@ -553,15 +553,22 @@ class DurableAgent(AgentBase):
         existing_memory_messages = self.memory.get_messages()
         tool_exists_in_memory = False
         for mem_msg in existing_memory_messages:
-            msg_dict = mem_msg.model_dump() if hasattr(mem_msg, "model_dump") else (mem_msg if isinstance(mem_msg, dict) else {})
-            if msg_dict.get("role") == "tool" and msg_dict.get("tool_call_id") == tool_call_id:
+            msg_dict = (
+                mem_msg.model_dump()
+                if hasattr(mem_msg, "model_dump")
+                else (mem_msg if isinstance(mem_msg, dict) else {})
+            )
+            if (
+                msg_dict.get("role") == "tool"
+                and msg_dict.get("tool_call_id") == tool_call_id
+            ):
                 tool_exists_in_memory = True
                 break
-        
+
         # Only add to persistent memory if not already present
         if not tool_exists_in_memory:
             self.memory.add_message(tool_message)
-        
+
         self.tool_history.append(history_entry)
 
         # Print the tool result for visibility
