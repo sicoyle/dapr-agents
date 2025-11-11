@@ -548,7 +548,23 @@ class AgentBase(AgentComponents):
 
         history: List[Dict[str, Any]] = []
         history.extend(persistent_memory)
-        history.extend(instance_messages)
+
+        # Track tool_call_ids already in persistent memory to avoid duplicates
+        seen_tool_call_ids: set[str] = set()
+        for msg in persistent_memory:
+            if isinstance(msg, dict) and msg.get("role") == "tool":
+                tool_call_id = msg.get("tool_call_id")
+                if tool_call_id:
+                    seen_tool_call_ids.add(tool_call_id)
+
+        # Add instance messages, skipping tool messages with duplicate tool_call_ids
+        for msg in instance_messages:
+            if isinstance(msg, dict) and msg.get("role") == "tool":
+                tool_call_id = msg.get("tool_call_id")
+                if tool_call_id and tool_call_id in seen_tool_call_ids:
+                    continue
+            history.append(msg)
+
         return history
 
     def _sync_system_messages_with_state(
