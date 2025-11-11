@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 from dapr_agents import tool
 
+import os
+
 
 class GetWeatherSchema(BaseModel):
     location: str = Field(description="location to get weather for")
@@ -25,6 +27,7 @@ class JumpSchema(BaseModel):
 @tool(args_model=JumpSchema)
 def jump(distance: str) -> str:
     """Jump a specific distance."""
+    # os._exit(1)
     return f"I jumped the following distance {distance}"
 
 

@@ -3,16 +3,30 @@ import logging
 
 from agent_tools import tools
 from dotenv import load_dotenv
+import time
 
+from dapr_agents.memory import ConversationDaprStateMemory
+from dapr_agents.storage.daprstores.stateservice import StateStoreService
 from dapr_agents import DurableAgent
 from dapr_agents.workflow.runners import AgentRunner
+from dapr_agents.agents.configs import AgentMemoryConfig, AgentStateConfig
 
 
 async def main():
     load_dotenv()
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     logger = logging.getLogger(__name__)
+
+    memory = AgentMemoryConfig(
+        store=ConversationDaprStateMemory(
+            store_name="agentstatestore",
+            session_id=f"sam-session",
+        )
+    )
+    state = AgentStateConfig(
+        store=StateStoreService(store_name="agentstatestore", key_prefix="sam")
+    )
 
     # Instantiate your agent
     weather_agent = DurableAgent(
@@ -23,6 +37,8 @@ async def main():
             "Respond clearly and helpfully to weather-related questions.",
             "Use tools when appropriate to fetch weather data.",
         ],
+        memory=memory,
+        state=state,
         tools=tools,
     )
     # Start the agent (registers workflows with the runtime)
@@ -32,15 +48,16 @@ async def main():
     runner = AgentRunner()
 
     try:
-        prompt = "What's the weather in Boston?"
+        # prompt = "Send me the weather in Austin, Texas, then call the tool to jump 5 feet, then calculate 2+3"
 
-        # Run the workflow and wait for completion
-        result = await runner.run(
-            weather_agent,
-            payload={"task": prompt},
-        )
+        # # Run the workflow and wait for completion
+        # result = await runner.run(
+        #     weather_agent,
+        #     payload={"task": prompt},
+        # )
 
-        print(f"\n✅ Final Result:\n{result}\n", flush=True)
+        # print(f"\n✅ Final Result:\n{result}\n", flush=True)
+        time.sleep(30)
 
     except Exception as e:
         logger.error(f"Error running workflow: {e}", exc_info=True)
