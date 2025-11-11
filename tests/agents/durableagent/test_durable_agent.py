@@ -893,7 +893,7 @@ class TestDurableAgent:
         assert basic_durable_agent.tool_history[0].tool_name == "TestToolFunc"
 
     def test_reconstruct_conversation_history(self, basic_durable_agent):
-        """Test _reconstruct_conversation_history helper method."""
+        """Test test_reconstruct_conversation_history helper method."""
         from datetime import datetime, timezone
 
         instance_id = "test-instance-123"
@@ -918,9 +918,13 @@ class TestDurableAgent:
             start_time=datetime.now(timezone.utc),
         )
 
+<<<<<<< HEAD
         messages = basic_durable_agent._reconstruct_conversation_history(
             instance_id
         )
+=======
+        messages = basic_durable_agent._reconstruct_conversation_history(instance_id)
+>>>>>>> fix/state-resumption-tool-call-order
 
         # Should include messages from instance history (system messages excluded from instance timeline)
         # Plus any messages from memory

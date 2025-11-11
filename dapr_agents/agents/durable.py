@@ -179,7 +179,8 @@ class DurableAgent(AgentBase):
         source = metadata.get("source") or "direct"
 
         # Ensure we have the latest durable state for this turn.
-        self.load_state()
+        if self.state_store:
+            self.load_state()
 
         # Bootstrap instance entry (flexible to non-`instances` models).
         self.ensure_instance_exists(
