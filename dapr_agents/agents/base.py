@@ -546,26 +546,13 @@ class AgentBase(AgentComponents):
         except Exception:  # noqa: BLE001
             logger.debug("Unable to load persistent memory.", exc_info=True)
 
-        history: List[Dict[str, Any]] = []
-        history.extend(persistent_memory)
-
-        # Track tool_call_ids already in persistent memory to avoid duplicates
-        seen_tool_call_ids: set[str] = set()
-        for msg in persistent_memory:
-            if isinstance(msg, dict) and msg.get("role") == "tool":
-                tool_call_id = msg.get("tool_call_id")
-                if tool_call_id:
-                    seen_tool_call_ids.add(tool_call_id)
-
-        # Add instance messages, skipping tool messages with duplicate tool_call_ids
-        for msg in instance_messages:
-            if isinstance(msg, dict) and msg.get("role") == "tool":
-                tool_call_id = msg.get("tool_call_id")
-                if tool_call_id and tool_call_id in seen_tool_call_ids:
-                    continue
-            history.append(msg)
-
-        return history
+        # When both memory and workflow state (instance messages) are configured:
+        # - Persistent memory is the single source of truth for conversation history
+        # - Instance messages only used as fallback when no persistent memory exists
+        if persistent_memory:
+            return persistent_memory
+        else:
+            return instance_messages
 
     def _sync_system_messages_with_state(
         self,

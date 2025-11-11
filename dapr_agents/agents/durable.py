@@ -548,22 +548,31 @@ class DurableAgent(AgentBase):
                 if hasattr(entry, "last_message"):
                     entry.last_message = tool_message_model
 
-        # Check if tool message already exists in persistent memory before adding
+        # Atomically add tool message to persistent memory with deduplication
+        # Use a lock to prevent race conditions when multiple tool activities
+        # execute concurrently or when activities re-execute on workflow resume
+        import threading
+
+        if not hasattr(self.__class__, "_memory_lock"):
+            self.__class__._memory_lock = threading.Lock()
+
         tool_call_id = agent_message["tool_call_id"]
-        existing_memory_messages = self.memory.get_messages()
-        tool_exists_in_memory = False
-        for mem_msg in existing_memory_messages:
-            msg_dict = (
-                mem_msg.model_dump()
-                if hasattr(mem_msg, "model_dump")
-                else (mem_msg if isinstance(mem_msg, dict) else {})
-            )
-            if (
-                msg_dict.get("role") == "tool"
-                and msg_dict.get("tool_call_id") == tool_call_id
-            ):
-                tool_exists_in_memory = True
-                break
+
+        with self.__class__._memory_lock:
+            existing_memory_messages = self.memory.get_messages()
+            tool_exists_in_memory = False
+            for mem_msg in existing_memory_messages:
+                msg_dict = (
+                    mem_msg.model_dump()
+                    if hasattr(mem_msg, "model_dump")
+                    else (mem_msg if isinstance(mem_msg, dict) else {})
+                )
+                if (
+                    msg_dict.get("role") == "tool"
+                    and msg_dict.get("tool_call_id") == tool_call_id
+                ):
+                    tool_exists_in_memory = True
+                    break
 
         # Only add to persistent memory if not already present
         if not tool_exists_in_memory:
