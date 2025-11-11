@@ -622,7 +622,8 @@ class AgentBase(AgentComponents):
         if entry is not None and hasattr(entry, "messages"):
             message_id = assistant_message.get("id")
             if message_id and any(
-                getattr(msg, "id", None) == message_id for msg in getattr(entry, "messages")
+                getattr(msg, "id", None) == message_id
+                for msg in getattr(entry, "messages")
             ):
                 # Duplicate in state - skip state update but still add to memory
                 pass

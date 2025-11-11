@@ -677,7 +677,7 @@ class DurableAgent(AgentBase):
         """
         # Load latest state to ensure we have current data before modifying
         self.load_state()
-        
+
         instance_id = payload.get("instance_id")
         final_output = payload.get("final_output", "")
         end_time = payload.get("end_time", "")

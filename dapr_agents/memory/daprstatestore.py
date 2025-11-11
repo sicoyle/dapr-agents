@@ -92,7 +92,7 @@ class ConversationDaprStateMemory(MemoryBase):
                 "createdAt": datetime.now().isoformat() + "Z",
             }
         )
-        
+
         # Retry loop for optimistic concurrency control
         # TODO: make this nicer in future, but for durability this must all be atomic
         max_attempts = 10
@@ -102,14 +102,14 @@ class ConversationDaprStateMemory(MemoryBase):
                     self.session_id,
                     state_metadata={"contentType": "application/json"},
                 )
-                
+
                 if response and response.data:
                     existing = json.loads(response.data)
                     etag = response.etag
                 else:
                     existing = []
                     etag = None
-                
+
                 existing.append(message)
                 # Save with etag - will fail if someone else modified it
                 self.dapr_store.save_state(
@@ -118,10 +118,10 @@ class ConversationDaprStateMemory(MemoryBase):
                     state_metadata={"contentType": "application/json"},
                     etag=etag,
                 )
-                
+
                 # Success - exit retry loop
                 return
-                
+
             except Exception as exc:
                 if attempt == max_attempts:
                     logger.exception(
@@ -135,6 +135,7 @@ class ConversationDaprStateMemory(MemoryBase):
                     # Brief exponential backoff with jitter
                     import time
                     import random
+
                     time.sleep(min(0.1 * attempt, 0.5) * (1 + random.uniform(0, 0.25)))
 
     def add_messages(self, messages: List[Union[Dict[str, Any], BaseMessage]]) -> None:
