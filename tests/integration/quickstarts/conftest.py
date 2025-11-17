@@ -59,7 +59,7 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
     # NOTE: resolving symlinks would point to system Python, but we want venv's Python executable if available
     # The venv's Python is typically a symlink, but we want to use it directly, not resolve it
     venv_python = venv_python.absolute()
-    
+
     # Also find venv_pip for fallback when uv fails
     venv_pip = venv_path / "bin" / "pip"
     if not venv_pip.exists():
@@ -76,7 +76,7 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
         venv_bin = venv_path / "bin"
         if not venv_bin.exists():
             venv_bin = venv_path / "Scripts"
-        
+
         # Create environment with venv in PATH
         install_env = os.environ.copy()
         venv_bin_str = str(venv_bin.resolve())
@@ -85,10 +85,10 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
             install_env["PATH"] = f"{venv_bin_str}:{install_env['PATH']}"
         else:
             install_env["PATH"] = venv_bin_str
-        
+
         # Also set VIRTUAL_ENV to help uv detect the venv
         install_env["VIRTUAL_ENV"] = str(venv_path.resolve())
-        
+
         # Try using uv pip install, with fallback to venv pip if needed
         # Fall back to venv pip if all fail
         def try_uv_install(cmd_args, description):
@@ -102,11 +102,11 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
                 text=True,
                 timeout=120,
             )
-            
+
             # If that works, we're done
             if result.returncode == 0:
                 return result
-            
+
             # Next, try uv pip install with --python flag
             if "externally managed" in result.stderr:
                 logger.debug(
@@ -119,14 +119,15 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
                         "install",
                         "--python",
                         str(venv_python),
-                    ] + cmd_args,
+                    ]
+                    + cmd_args,
                     cwd=quickstart_dir,
                     env=install_env,
                     capture_output=True,
                     text=True,
                     timeout=120,
                 )
-            
+
             # If uv still fails with externally managed error, fall back to venv pip
             if result.returncode != 0 and "externally managed" in result.stderr:
                 logger.warning(
@@ -135,7 +136,7 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
                 venv_pip = venv_bin / "pip"
                 if not venv_pip.exists():
                     venv_pip = venv_bin / "pip.exe"
-                
+
                 result = subprocess.run(
                     [str(venv_pip)] + ["install"] + cmd_args,
                     cwd=quickstart_dir,
@@ -144,13 +145,13 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
                     text=True,
                     timeout=120,
                 )
-            
+
             if result.returncode != 0:
                 raise RuntimeError(
                     f"Failed to install {description}: {result.stderr}\n{result.stdout}"
                 )
             return result
-        
+
         if requirements_file.exists():
             # Install dependencies from requirements.txt first using uv
             logger.info(f"Installing dependencies from {requirements_file} using uv")
@@ -351,15 +352,17 @@ def run_quickstart_script(
         if not script_path.exists():
             raise RuntimeError(f"Script path does not exist: {script_path}")
         script_path_abs = script_path.resolve()
-        
+
         # Ensure python_cmd is absolute and executable when using venv
         if venv_python and venv_python.exists():
             # Verify the Python executable exists and is executable
             if not os.access(str(venv_python), os.X_OK):
-                raise RuntimeError(f"Python executable is not executable: {venv_python}")
+                raise RuntimeError(
+                    f"Python executable is not executable: {venv_python}"
+                )
             # Use absolute path for Python command
             python_cmd = str(venv_python.absolute())
-        
+
         cmd = [
             "dapr",
             "run",
@@ -428,27 +431,27 @@ def _cleanup_quickstart_venv(quickstart_dir: Path):
 def cleanup_quickstart_venv_per_module(request):
     """
     Cleanup ephemeral test venv after all tests in a test module (per quickstart directory) complete.
-    
+
     This helps free up disk space during test runs, especially for running in CI.
-    Each test file typically corresponds to one quickstart or quickstart directory, 
+    Each test file typically corresponds to one quickstart or quickstart directory,
     so we clean up that venv after the module's tests complete.
     """
     yield
-    
+
     # Skip cleanup if using existing venv (for local dev)
     if os.getenv("USE_EXISTING_VENV", "").lower() in ("true", "1"):
         return
-    
+
     # Try to determine the quickstart directory from the test file path
     # Test files are named like test_01_hello_world.py and correspond to quickstarts/01-hello-world
     test_file_path = None
-    if hasattr(request, 'path'):
+    if hasattr(request, "path"):
         test_file_path = Path(request.path)
-    elif hasattr(request, 'fspath'):
+    elif hasattr(request, "fspath"):
         test_file_path = Path(request.fspath)
-    elif hasattr(request, 'node') and hasattr(request.node, 'fspath'):
+    elif hasattr(request, "node") and hasattr(request.node, "fspath"):
         test_file_path = Path(request.node.fspath)
-    
+
     if test_file_path:
         # Extract quickstart name from test file (e.g., test_01_hello_world.py -> 01-hello-world)
         test_file_name = test_file_path.stem  # e.g., "test_01_hello_world"
@@ -456,22 +459,28 @@ def cleanup_quickstart_venv_per_module(request):
             # Try to match quickstart directory patterns
             project_root = Path(__file__).parent.parent.parent.parent
             quickstarts_dir = project_root / "quickstarts"
-            
+
             if quickstarts_dir.exists():
                 # Look for matching quickstart directory
                 # Test files use underscores, quickstart dirs use hyphens
-                quickstart_pattern = test_file_name.replace("test_", "").replace("_", "-")
-                
+                quickstart_pattern = test_file_name.replace("test_", "").replace(
+                    "_", "-"
+                )
+
                 # Try exact match first
                 quickstart_dir = quickstarts_dir / quickstart_pattern
                 if quickstart_dir.exists():
                     _cleanup_quickstart_venv(quickstart_dir)
                 else:
                     # Try to find by number prefix (e.g., "01" -> "01-hello-world")
-                    test_num = test_file_name.split("_")[1] if "_" in test_file_name else None
+                    test_num = (
+                        test_file_name.split("_")[1] if "_" in test_file_name else None
+                    )
                     if test_num:
                         for qs_dir in quickstarts_dir.iterdir():
-                            if qs_dir.is_dir() and qs_dir.name.startswith(test_num + "-"):
+                            if qs_dir.is_dir() and qs_dir.name.startswith(
+                                test_num + "-"
+                            ):
                                 _cleanup_quickstart_venv(qs_dir)
                                 break
 
@@ -584,7 +593,7 @@ def cleanup_quickstart_venvs(request):
     Note: Venvs are created in each quickstart directory as `ephemeral_test_venv`.
     Example: `quickstarts/01-hello-world/ephemeral_test_venv`
     These are cleaned up after tests complete, unless USE_EXISTING_VENV is set.
-    
+
     This is a fallback cleanup in case the per-module cleanup didn't catch everything after all quickstart tests run.
     """
     yield
