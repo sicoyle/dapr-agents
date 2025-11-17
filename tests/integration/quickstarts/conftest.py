@@ -16,6 +16,7 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
 
     Creates a venv in the quickstart directory and installs from requirements.txt.
     So, if we are testing locally then we can update the requirements.txt to use the editable install from the project root.
+    We also use uv instead of just pip, as uv is much faster than vanilla pip.
 
     Args:
         quickstart_dir: Path to the quickstart directory
@@ -49,83 +50,114 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
     if not venv_python.exists():
         raise RuntimeError(f"Venv Python not found at {venv_python}")
 
+    # Get absolute path without resolving symlinks
+    # NOTE: resolving symlinks would point to system Python, but we want venv's Python executable if available
+    # The venv's Python is typically a symlink, but we want to use it directly, not resolve it
+    venv_python = venv_python.absolute()
+
     requirements_file = quickstart_dir / "requirements.txt"
     # Skip installation if already done (for parallel execution)
     installed_marker = venv_path / ".installed"
     if installed_marker.exists():
         logger.info(f"Dependencies already installed for {quickstart_dir}")
     else:
-        if requirements_file.exists():
-            # Install dependencies from requirements.txt first
-            logger.info(f"Installing dependencies from {requirements_file} using uv")
+        # Set up environment to ensure uv uses the venv Python
+        # Add venv's bin directory to PATH so uv can find the venv Python
+        venv_bin = venv_path / "bin"
+        if not venv_bin.exists():
+            venv_bin = venv_path / "Scripts"
+        
+        # Create environment with venv in PATH
+        install_env = os.environ.copy()
+        venv_bin_str = str(venv_bin.resolve())
+        if "PATH" in install_env:
+            # Prepend venv bin to PATH so venv Python is found first
+            install_env["PATH"] = f"{venv_bin_str}:{install_env['PATH']}"
+        else:
+            install_env["PATH"] = venv_bin_str
+        
+        # Also set VIRTUAL_ENV to help uv detect the venv
+        install_env["VIRTUAL_ENV"] = str(venv_path.resolve())
+        
+        # Try using uv pip install, with fallback to venv pip if needed
+        # Fall back to venv pip if all fail
+        def try_uv_install(cmd_args, description):
+            """Try uv pip install with different strategies, fall back to venv pip if needed."""
+            # First, try uv pip install without --python (relies on PATH/VIRTUAL_ENV)
             result = subprocess.run(
-                [
-                    "uv",
-                    "pip",
-                    "install",
-                    "-r",
-                    str(requirements_file),
-                    "--python",
-                    str(venv_python),
-                ],
+                ["uv", "pip", "install"] + cmd_args,
                 cwd=quickstart_dir,
+                env=install_env,
                 capture_output=True,
                 text=True,
                 timeout=120,
             )
+            
+            # If that works, we're done
+            if result.returncode == 0:
+                return result
+            
+            # Next, try uv pip install with --python flag
+            if "externally managed" in result.stderr:
+                logger.debug(
+                    f"uv pip install without --python failed, trying with --python flag for {description}"
+                )
+                result = subprocess.run(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        "--python",
+                        str(venv_python),
+                    ] + cmd_args,
+                    cwd=quickstart_dir,
+                    env=install_env,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+            
+            # If uv still fails with externally managed error, fall back to venv pip
+            if result.returncode != 0 and "externally managed" in result.stderr:
+                logger.warning(
+                    f"uv pip install failed with externally managed error, falling back to venv pip for {description}"
+                )
+                venv_pip = venv_bin / "pip"
+                if not venv_pip.exists():
+                    venv_pip = venv_bin / "pip.exe"
+                
+                result = subprocess.run(
+                    [str(venv_pip)] + ["install"] + cmd_args,
+                    cwd=quickstart_dir,
+                    env=install_env,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+            
             if result.returncode != 0:
                 raise RuntimeError(
-                    f"Failed to install requirements: {result.stderr}\n{result.stdout}"
+                    f"Failed to install {description}: {result.stderr}\n{result.stdout}"
                 )
+            return result
+        
+        if requirements_file.exists():
+            # Install dependencies from requirements.txt first using uv
+            logger.info(f"Installing dependencies from {requirements_file} using uv")
+            try_uv_install(["-r", str(requirements_file)], "requirements")
 
             # Override with editable dapr-agents from current repo changes (for PR testing)
             # This ensures we test against the current repo changes, so we test local changes before release
             logger.info(
                 f"Installing editable dapr-agents from {project_root} to override requirements.txt"
             )
-            result = subprocess.run(
-                [
-                    "uv",
-                    "pip",
-                    "install",
-                    "-e",
-                    str(project_root),
-                    "--python",
-                    str(venv_python),
-                ],
-                cwd=quickstart_dir,
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(
-                    f"Failed to install editable dapr-agents: {result.stderr}\n{result.stdout}"
-                )
+            try_uv_install(["-e", str(project_root)], "editable dapr-agents")
         else:
             # No requirements.txt - install editable dapr-agents for testing using uv
             logger.info(
                 "No requirements.txt found, installing editable dapr-agents using uv"
             )
-            result = subprocess.run(
-                [
-                    "uv",
-                    "pip",
-                    "install",
-                    "-e",
-                    str(project_root),
-                    "--python",
-                    str(venv_python),
-                ],
-                cwd=quickstart_dir,
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(
-                    f"Failed to install dapr-agents: {result.stderr}\n{result.stdout}"
-                )
+            try_uv_install(["-e", str(project_root)], "dapr-agents")
 
         # Mark as installed so if we're running in parallel, we don't reinstall the dependencies.
         installed_marker.touch()
@@ -190,6 +222,7 @@ def run_quickstart_script(
     if should_create_venv:
         venv_python = setup_quickstart_venv(quickstart_dir, project_root)
         if venv_python.exists():
+            # For Dapr, use the venv Python path directly (don't resolve symlinks)
             python_cmd = str(venv_python)
     else:
         logger.info(
@@ -228,6 +261,19 @@ def run_quickstart_script(
                     resources_path = Path(resolved_path)
 
         # Build dapr run command
+        # Ensure script_path is absolute and exists
+        if not script_path.exists():
+            raise RuntimeError(f"Script path does not exist: {script_path}")
+        script_path_abs = script_path.resolve()
+        
+        # Ensure python_cmd is absolute and executable when using venv
+        if venv_python and venv_python.exists():
+            # Verify the Python executable exists and is executable
+            if not os.access(str(venv_python), os.X_OK):
+                raise RuntimeError(f"Python executable is not executable: {venv_python}")
+            # Use absolute path for Python command
+            python_cmd = str(venv_python.absolute())
+        
         cmd = [
             "dapr",
             "run",
@@ -239,7 +285,7 @@ def run_quickstart_script(
             str(resources_path),
             "--",
             python_cmd,
-            str(script_path),
+            str(script_path_abs),
         ]
     else:
         # Use venv python if available, otherwise system python
@@ -263,6 +309,69 @@ def run_quickstart_script(
     return result
 
 
+def _cleanup_quickstart_venv(quickstart_dir: Path):
+    """Helper function to cleanup a single quickstart venv."""
+    venv_path = quickstart_dir / "ephemeral_test_venv"
+    if venv_path.exists():
+        logger.info(f"Removing ephemeral test venv: {venv_path}")
+        try:
+            shutil.rmtree(venv_path)
+        except OSError as e:
+            logger.warning(f"Failed to remove {venv_path}: {e}")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_quickstart_venv_per_module(request):
+    """
+    Cleanup ephemeral test venv after all tests in a test module (per quickstart directory) complete.
+    
+    This helps free up disk space during test runs, especially for running in CI.
+    Each test file typically corresponds to one quickstart or quickstart directory, 
+    so we clean up that venv after the module's tests complete.
+    """
+    yield
+    
+    # Skip cleanup if using existing venv (for local dev)
+    if os.getenv("USE_EXISTING_VENV", "").lower() in ("true", "1"):
+        return
+    
+    # Try to determine the quickstart directory from the test file path
+    # Test files are named like test_01_hello_world.py and correspond to quickstarts/01-hello-world
+    test_file_path = None
+    if hasattr(request, 'path'):
+        test_file_path = Path(request.path)
+    elif hasattr(request, 'fspath'):
+        test_file_path = Path(request.fspath)
+    elif hasattr(request, 'node') and hasattr(request.node, 'fspath'):
+        test_file_path = Path(request.node.fspath)
+    
+    if test_file_path:
+        # Extract quickstart name from test file (e.g., test_01_hello_world.py -> 01-hello-world)
+        test_file_name = test_file_path.stem  # e.g., "test_01_hello_world"
+        if test_file_name.startswith("test_"):
+            # Try to match quickstart directory patterns
+            project_root = Path(__file__).parent.parent.parent.parent
+            quickstarts_dir = project_root / "quickstarts"
+            
+            if quickstarts_dir.exists():
+                # Look for matching quickstart directory
+                # Test files use underscores, quickstart dirs use hyphens
+                quickstart_pattern = test_file_name.replace("test_", "").replace("_", "-")
+                
+                # Try exact match first
+                quickstart_dir = quickstarts_dir / quickstart_pattern
+                if quickstart_dir.exists():
+                    _cleanup_quickstart_venv(quickstart_dir)
+                else:
+                    # Try to find by number prefix (e.g., "01" -> "01-hello-world")
+                    test_num = test_file_name.split("_")[1] if "_" in test_file_name else None
+                    if test_num:
+                        for qs_dir in quickstarts_dir.iterdir():
+                            if qs_dir.is_dir() and qs_dir.name.startswith(test_num + "-"):
+                                _cleanup_quickstart_venv(qs_dir)
+                                break
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_quickstart_venvs(request):
     """
@@ -271,6 +380,8 @@ def cleanup_quickstart_venvs(request):
     Note: Venvs are created in each quickstart directory as `ephemeral_test_venv`.
     Example: `quickstarts/01-hello-world/ephemeral_test_venv`
     These are cleaned up after tests complete, unless USE_EXISTING_VENV is set.
+    
+    This is a fallback cleanup in case the per-module cleanup didn't catch everything after all quickstart tests run.
     """
     yield
 
@@ -288,10 +399,4 @@ def cleanup_quickstart_venvs(request):
         logger.info("Cleaning up ephemeral test venvs...")
         for quickstart_dir in quickstarts_dir.iterdir():
             if quickstart_dir.is_dir():
-                venv_path = quickstart_dir / "ephemeral_test_venv"
-                if venv_path.exists():
-                    logger.info(f"Removing ephemeral test venv: {venv_path}")
-                    try:
-                        shutil.rmtree(venv_path)
-                    except OSError as e:
-                        logger.warning(f"Failed to remove {venv_path}: {e}")
+                _cleanup_quickstart_venv(quickstart_dir)
