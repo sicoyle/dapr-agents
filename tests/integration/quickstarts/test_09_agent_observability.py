@@ -7,7 +7,7 @@ from tests.integration.quickstarts.conftest import run_quickstart_script
 
 
 @pytest.mark.integration
-class TestHelloWorldObservabilityQuickstart:
+class TestAgentObservabilityQuickstart:
     """Integration tests for 09-agent-observability quickstart."""
 
     @pytest.fixture(autouse=True)
