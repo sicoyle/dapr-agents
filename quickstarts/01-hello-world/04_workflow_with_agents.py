@@ -27,7 +27,10 @@ def get_customer_info(customer_name: str) -> str:
         "bob": "Customer: Bob, Standard Plan, 2 active services",
         "charlie": "Customer: Charlie, Basic Plan, 1 active service",
     }
-    return customers.get(customer_name.lower(), f"Customer: {customer_name}, Standard Plan, 1 active service")
+    return customers.get(
+        customer_name.lower(),
+        f"Customer: {customer_name}, Standard Plan, 1 active service",
+    )
 
 
 # ------------- AGENTS -------------
@@ -73,11 +76,13 @@ def support_workflow(ctx: DaprWorkflowContext, request: dict):
     triage_result = yield ctx.call_activity(triage_request, input=request)
     if triage_result:
         print("Triage result:", triage_result.get("content", ""), flush=True)
-    
-    recommendation = yield ctx.call_activity(get_recommendation, input=triage_result.get("content", ""))
+
+    recommendation = yield ctx.call_activity(
+        get_recommendation, input=triage_result.get("content", "")
+    )
     if recommendation:
         print("Recommendation:", recommendation.get("content", ""), flush=True)
-    
+
     return recommendation.get("content", "") if recommendation else ""
 
 
@@ -104,7 +109,10 @@ if __name__ == "__main__":
     time.sleep(5)  # give the runtime time to initialize
 
     client = wf.DaprWorkflowClient()
-    request = {"customer": "alice", "issue": "Unable to access dashboard after recent update"}
+    request = {
+        "customer": "alice",
+        "issue": "Unable to access dashboard after recent update",
+    }
     instance_id = client.schedule_new_workflow(
         workflow=support_workflow,
         input=request,

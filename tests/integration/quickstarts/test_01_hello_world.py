@@ -95,7 +95,11 @@ class TestHelloWorldQuickstart:
         )
         assert len(result.stdout) > 0 or len(result.stderr) > 0
         # Verify workflow completed successfully
-        assert "Workflow started:" in result.stdout or "Blog post" in result.stdout or "Final Blog Post" in result.stdout
+        assert (
+            "Workflow started:" in result.stdout
+            or "Blog post" in result.stdout
+            or "Final Blog Post" in result.stdout
+        )
 
     def test_workflow_with_agents(self, dapr_runtime):  # noqa: ARG002
         """Test workflow with agent activities example (04_workflow_with_agents.py).
@@ -121,4 +125,8 @@ class TestHelloWorldQuickstart:
         )
         assert len(result.stdout) > 0 or len(result.stderr) > 0
         # Verify workflow completed successfully
-        assert "Workflow started:" in result.stdout or "Recommendation" in result.stdout or "Final Recommendation" in result.stdout
+        assert (
+            "Workflow started:" in result.stdout
+            or "Recommendation" in result.stdout
+            or "Final Recommendation" in result.stdout
+        )
