@@ -199,8 +199,8 @@ def test_execute_tool_activity_with_mcp_tool(durable_agent_with_mcp_tool):
 
     # Verify the tool result structure
     assert result["tool_call_id"] == "call_123"
-    assert result["tool_name"] == tool_name
-    assert result["execution_result"] == "4"  # Serialized as string
+    assert result["name"] == tool_name
+    assert result["content"] == "4"  # Serialized as string
 
 
 # Shared fixture to start the math server with streamable HTTP
@@ -315,11 +315,8 @@ async def test_durable_agent_with_real_server_http(start_math_server_http):
             },
         )
 
-    execution_result: CallToolResult = CallToolResult.model_validate_json(
-        result["execution_result"]
-    )
+    content: CallToolResult = CallToolResult.model_validate_json(result["content"])
 
     # Verify the tool result structure
     assert result["tool_call_id"] == "call_456"
-    assert result["tool_name"] == tool_name
-    assert execution_result.structuredContent["result"] == 4
+    assert content.structuredContent["result"] == 4
