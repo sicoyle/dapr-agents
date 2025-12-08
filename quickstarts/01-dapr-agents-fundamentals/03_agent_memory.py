@@ -2,16 +2,10 @@ import asyncio
 
 from dapr_agents.llm import DaprChatClient
 
-from dapr_agents import tool, Agent
-
+from dapr_agents import Agent
 from dapr_agents.agents.configs import AgentMemoryConfig
 from dapr_agents.memory import ConversationDaprStateMemory
-
-
-@tool
-async def my_weather_func() -> str:
-    """Get current weather."""
-    return "It's 72°F and sunny"
+from function_tools import weather_func
 
 
 async def main() -> None:
@@ -20,25 +14,27 @@ async def main() -> None:
         name="WeatherAgent",
         role="Weather Assistant",
         instructions=["Help users with weather information"],
-        tools=[my_weather_func],
+        tools=[weather_func],
         # Configure this agent to use Dapr Conversation API.
         llm=DaprChatClient(component_name="openai"),
         # Configure the agent to use Dapr State Store for conversation history.
         memory=AgentMemoryConfig(
             store=ConversationDaprStateMemory(
                 store_name="conversation-statestore",
-                session_id="01-agent-with-memory",
+                session_id="03-agent-with-memory",
             )
         ),
     )
     try:
         response = await weather_agent.run(
-            "Hi, this is John, what's the weather in London?"
+            "I like warm and dry places. What is the weather in London now?"
         )
         print(f"Agent: {response}")
 
-        # Second interaction - agent remembers the name from the first interaction
-        response = await weather_agent.run("What's my name?")
+        # Second interaction - agent remembers the preference from the first interaction
+        response = await weather_agent.run(
+            "Given my preference, is London’s current weather a good match?"
+        )
         print(f"Agent: {response}")
 
     except Exception as e:
