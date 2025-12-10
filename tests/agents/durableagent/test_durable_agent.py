@@ -260,8 +260,8 @@ class TestDurableAgent:
         assert metadata["name"] == "TestDurableAgent"
         assert metadata["role"] == "Test Durable Assistant"
         assert metadata["goal"] == "Help with testing"
-        assert metadata["pubsub.agent_name"] == "TestDurableAgent"
-        assert metadata["pubsub.name"] == "testpubsub"
+        assert metadata["pubsub"]["agent_name"] == "TestDurableAgent"
+        assert metadata["pubsub"]["name"] == "testpubsub"
         assert metadata["orchestrator"] is False
 
     def test_tool_calling_workflow_initialization(
