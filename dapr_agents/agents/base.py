@@ -219,7 +219,6 @@ class AgentBase(AgentComponents):
             pubsub_meta["name"] = self.message_bus_name
             base_meta["pubsub"] = pubsub_meta
 
-
         if self.memory:
             memory_meta: Dict[str, Any] = {}
             memory_meta["type"] = type(self.memory).__name__
@@ -243,9 +242,7 @@ class AgentBase(AgentComponents):
             if hasattr(self.llm, "azure_deployment") and self.llm.azure_deployment:
                 llm_meta["azure_deployment"] = self.llm.azure_deployment
             if self.llm.prompt_template is not None:
-                llm_meta["prompt_template"] = type(
-                    self.llm.prompt_template
-                ).__name__
+                llm_meta["prompt_template"] = type(self.llm.prompt_template).__name__
             if hasattr(self.llm, "prompty") and self.llm.prompty is not None:
                 llm_meta["prompty"] = self.llm.prompty
             base_meta["llm"] = llm_meta

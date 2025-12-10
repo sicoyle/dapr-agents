@@ -475,14 +475,14 @@ class AgentComponents:
         payload.setdefault("name", self.name)
         if "agent" not in payload:
             payload["agent"] = {}
-        
+
         payload["agent"]["type"] = type(self).__name__
         payload.setdefault("registered_at", datetime.now(timezone.utc).isoformat())
 
         if self._pubsub is not None:
             if "pubsub" not in payload:
                 payload["pubsub"] = {}
-            
+
             payload["pubsub"]["agent_name"] = self.agent_topic_name
             payload["pubsub"]["name"] = self.message_bus_name
 
@@ -497,9 +497,9 @@ class AgentComponents:
         if self._registry is not None:
             if "registry" not in payload:
                 payload["registry"] = {}
-            
+
             payload["registry"]["statestore"] = self._registry.store.store_name
-                
+
             if self._registry.team_name is not None:
                 payload["registry"]["team"] = self._registry.team_name
 
