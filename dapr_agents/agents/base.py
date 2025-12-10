@@ -214,36 +214,40 @@ class AgentBase(AgentComponents):
             "instructions": list(self.prompting_helper.instructions),
         }
         if self.pubsub is not None:
-            base_meta["pubsub.agent_name"] = self.agent_topic_name
-            base_meta["pubsub.name"] = self.message_bus_name
+            pubsub_meta: Dict[str, Any] = {}
+            pubsub_meta["agent_name"] = self.agent_topic_name
+            pubsub_meta["name"] = self.message_bus_name
+            base_meta["pubsub"] = pubsub_meta
 
-        if self.memory is not None:
-            base_meta["memory.type"] = type(self.memory).__name__
+        if self.memory:
+            memory_meta: Dict[str, Any] = {}
+            memory_meta["type"] = type(self.memory).__name__
             if getattr(self.memory, "store_name", None) is not None:
-                base_meta["memory.statestore"] = self.memory.store_name
+                memory_meta["statestore"] = self.memory.store_name
             if getattr(self.memory, "session_id", None) is not None:
-                base_meta["memory.session_id"] = self.memory.session_id
+                memory_meta["session_id"] = self.memory.session_id
+            base_meta["memory"] = memory_meta
 
-        if self.llm is not None:
-            base_meta["llm.client"] = type(self.llm).__name__
-            base_meta["llm.provider"] = getattr(self.llm, "provider", "unknown")
-            base_meta["llm.api"] = getattr(self.llm, "api", "unknown")
-            base_meta["llm.model"] = getattr(self.llm, "model", "unknown")
+        if self.llm:
+            llm_meta: Dict[str, Any] = {}
+            llm_meta["client"] = type(self.llm).__name__
+            llm_meta["provider"] = getattr(self.llm, "provider", "unknown")
+            llm_meta["api"] = getattr(self.llm, "api", "unknown")
+            llm_meta["model"] = getattr(self.llm, "model", "unknown")
             # Include endpoint info (non-sensitive)
             if hasattr(self.llm, "base_url") and self.llm.base_url:
-                base_meta["llm.base_url"] = self.llm.base_url
+                llm_meta["base_url"] = self.llm.base_url
             if hasattr(self.llm, "azure_endpoint") and self.llm.azure_endpoint:
-                base_meta["llm.azure_endpoint"] = self.llm.azure_endpoint
+                llm_meta["azure_endpoint"] = self.llm.azure_endpoint
             if hasattr(self.llm, "azure_deployment") and self.llm.azure_deployment:
-                base_meta["llm.azure_deployment"] = self.llm.azure_deployment
+                llm_meta["azure_deployment"] = self.llm.azure_deployment
             if self.llm.prompt_template is not None:
-                base_meta["llm.prompt_template"] = type(
-                    self.llm.prompt_template
-                ).__name__
+                llm_meta["prompt_template"] = type(self.llm.prompt_template).__name__
             if hasattr(self.llm, "prompty") and self.llm.prompty is not None:
-                base_meta["llm.prompty"] = self.llm.prompty
+                llm_meta["prompty"] = self.llm.prompty
+            base_meta["llm"] = llm_meta
 
-        if self.execution is not None:
+        if self.execution:
             if (
                 hasattr(self.execution, "max_iterations")
                 and self.execution.max_iterations is not None
@@ -255,7 +259,7 @@ class AgentBase(AgentComponents):
             ):
                 base_meta["tool_choice"] = self.execution.tool_choice
 
-        if self.tools is not None and len(self.tools) > 0:
+        if self.tools and len(self.tools) > 0:
             tools_list = [
                 {
                     "tool_name": tool.name,
