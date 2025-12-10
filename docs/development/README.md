@@ -107,7 +107,7 @@ Working with local components-contrib changes:
 1. Make your changes in components-contrib.
 2. In `dapr/dapr`, update the root `go.mod` file to point to your local `components-contrib` repository. The override block is near the bottom to uncomment and adjust the path as needed.
 
-Working with local dapr/dapr changes:
+#### Using the Dapr CLI with local dapr/dapr changes:
 ```bash
 cd /cmd/daprd
 go build -tags=allcomponents -v
