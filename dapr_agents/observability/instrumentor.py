@@ -64,6 +64,8 @@ from .wrappers import (
     WorkflowActivityRegistrationWrapper,
 )
 
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient
+
 logger = logging.getLogger(__name__)
 
 # ============================================================================
@@ -177,6 +179,9 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
 
         # LLM provider integrations
         self._apply_llm_wrappers()
+
+        # Instrument gRPC client for context propagation to Dapr sidecar
+        GrpcInstrumentorClient().instrument()
 
         logger.info("✅ Dapr Agents OpenTelemetry instrumentation enabled")
 
