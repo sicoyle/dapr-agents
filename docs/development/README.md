@@ -71,6 +71,54 @@ uv sync --all-extras
 uv sync --all-extras --editable
 ```
 
+## Local Development
+
+Sometimes you need to work with local changes from other Dapr repositories.
+
+### Using Local Python Dapr Package Changes
+If you need to work with additional Python Dapr packages during local development,
+for example, those from [python-sdk](https://github.com/dapr/python-sdk) or [durabletask-python](https://github.com/dapr/durabletask-python), 
+then you can follow the same steps above and then install your local versions.
+Adjust the paths as needed for your setup.
+
+Example with pip:
+```bash
+pip install -e ../durabletask-python \
+   -e ../python-sdk \
+   -e ../python-sdk/ext/dapr-ext-fastapi \
+   -e ../python-sdk/ext/dapr-ext-workflow \ 
+```
+
+Or using uv:
+
+```bash
+uv pip install -e ../durabletask-python \
+   -e ../python-sdk \
+   -e ../python-sdk/ext/dapr-ext-fastapi \
+   -e ../python-sdk/ext/dapr-ext-workflow
+```
+
+### Using Local Dapr Runtime Changes
+If you need to make changes relating to Dapr runtime during local development,
+for example, those from [dapr](https://github.com/dapr/dapr) or [components-contrib](https://github.com/dapr/components-contrib),
+then follow these steps.
+
+Working with local components-contrib changes:
+1. Make your changes in components-contrib.
+2. In `dapr/dapr`, update the root `go.mod` file to point to your local `components-contrib` repository. The override block is near the bottom to uncomment and adjust the path as needed.
+
+#### Using the Dapr CLI with local dapr/dapr changes:
+```bash
+cd /cmd/daprd
+go build -tags=allcomponents -v
+cp daprd  ~/.dapr/bin/daprd
+```
+
+Once copied, the binary at `~/.dapr/bin/daprd` becomes the version used by `dapr run`.
+Adjust this path as needed for your local setup.
+Running `dapr version` should show the runtime as `edge`, which confirms your local build is being used.
+
+
 ## Command Mapping
 
 | pip/pip-tools command | uv equivalent |
