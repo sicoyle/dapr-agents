@@ -1,12 +1,21 @@
 # Dapr Agents Fundamentals
 
-This quickstart introduces Dapr Agents through simple examples that show how to build agents with memory and tools, run durable agents, and orchestrate agents through workflows. You will learn:
+This quickstart introduces the core concepts of Dapr Agents and walks you through progressively more advanced examples. You'll learn how to build agents that use memory and tools, how to run durable agents backed by workflows, and how to orchestrate multiple agents in deterministic workflows.
 
-1. How to create agents with memory, tools, and LLMs backed by Dapr
-2. How to build durable agents that survive restarts through Dapr workflows
-3. How to use deterministic workflows that interact with LLMs
-4. How to coordinate multiple agents using deterministic workflows
+You will learn how to:
+ 
+1. **[Build a simple agent with LLM + tools](#1-agent-with-llm-and-tools)**
+2. **[Use MCP tools loaded over STDIO](#2-agent-with-mcp-tools)**
+3. **[Add memory with persistence to the agent](#3-agent-with-memory-and-tools)**
+4. **[Run an agent as a durable workflow](#4-durable-agent-serve)**
+5. **[Trigger durable agents using pub/sub messages](#5-durable-agent-subscribe)**
+6. **[Use deterministic workflows that call LLMs](#6-workflow-with-llm-activities)**
+7. **[Orchestrate multiple agents inside a workflow](#7-workflow-with-agent-activities)**
+8. **[Enable distributed tracing for agents with Zipkin](#8-durable-agent-trace-zipkin)**
+ 
+These examples form the foundation of the Dapr Agents programming model and illustrate how LLM reasoning, tool execution, durable workflows, and agent coordination fit together.
 
+---
 ## Prerequisites
 
 - Python 3.10+ (https://www.python.org/downloads/)
@@ -64,76 +73,87 @@ metadata:
 
 Replace `OPENAI_API_KEY` with your actual OpenAI API key.
 
-# Examples
-
 ---
 
-# 1. Agent with LLM and Tools (No Memory)
+# 1. Agent with LLM and Tools
 
-Create a simple agent that uses the Dapr Conversation API with a tool, but no memory.
+This example shows how to quickly create an agent with a custom prompt, backed by the Dapr Conversation API, and how to expose a local Python function as a tool the agent can call during reasoning. It demonstrates the simplest way to run an agent locally as a regular Python program while benefiting from Dapr’s LLM abstraction.
 
 ```bash
 dapr run --app-id agent-llm --resources-path resources -- python 01_agent_llm_tools.py
 ```
 
 ## Expected Behavior
-The agent answers a weather question using the LLM and a weather tool. It does not retain conversation history.
-
+When you run the script, the agent receives a weather question, invokes a local tool to retrieve the temperature, and uses the LLM to produce a natural-language answer.
+ 
 ## How This Works
 
-1. The agent uses the Dapr Conversation API which allows you to switch LLM providers without changing code.
-2. The agent calls a local tool function for weather information (no memory).
+1. The agent sends prompts to the Dapr Conversation API, which routes them to the configured LLM provider without requiring changes to your application code.
+2. A Python function is registered as a tool, and the agent executes it when the LLM decides a tool call is needed.
+3. The interaction runs as a single-turn exchange with no persistence, serving as the minimal foundation for later examples.
 
+## How to Extend This Example
+
+* In addition to using the Conversation API, Dapr Agents also provide **native LLM clients** when you need other modality and adcanced features beyond simple chat. To explore this, see these examples [LLM Call quickstart](../02-llm-call-open-ai/README.md).
+* The functions you expose as tools can call out to **remote services using the Dapr client**, gaining resiliency (retries, timeouts, circuit breakers) and built-in observability through Dapr’s features.
+ 
 ---
 
-# 2. Agent with MCP Tools (No Memory)
+# 2. Agent with MCP Tools  
 
-Create a simple agent that loads its tools from an MCP server over STDIO.
+This example is very similar to the previous one, except that the agent does not use hard-coded Python functions as tools. Instead, it dynamically discovers its tools from an MCP (Model Context Protocol) server running locally over STDIO, allowing tools to be added or modified without changing the agent code.
 
 ```bash
 dapr run --app-id agent-mcp --resources-path resources -- python 02_agent_mcp_tools.py
 ```
 
 ## Expected Behavior
-The agent answers a weather question using MCP tools + the LLM. It does not retain conversation history.
-
+When you run the script, the agent queries the MCP server for available tools, invokes the MCP-provided weather tool to answer the question, and uses the LLM to produce the final response.
+ 
 ## How This Works
 
-1. MCP tools are served over STDIO from `mcp_tools.py`.
-2. The agent uses the Dapr Conversation API which allows you to switch LLM providers without changing code.
-3. The agent calls the MCP-provided tools for weather information (no memory).
+1. The agent connects to an MCP server over STDIO, allowing tools to be negotiated and loaded dynamically at runtime.
+2. The weather tools are served by the local MCP script (`mcp_tools.py`), and the agent invokes them when the LLM requests a tool call.
+3. The LLM call still goes through the Dapr Conversation API, giving the same provider abstraction as in Example 01 but with a more flexible tool architecture.
+
+## How to Extend This Example
+
+* To see how to connect to **remote MCP servers** (via SSE or Streamable HTTP) instead of STDIO, check out:
+
+  * [MCP Client with SSE](../07-agent-mcp-client-sse)
+  * [MCP Client with Streamable HTTP](../07-agent-mcp-client-streamablehttp)
 
 ---
 
-# 3. Agent with Memory and Tools
+# 3. Agent with Memory
 
-This example shows how to create an agent that uses memory and interacts with an LLM. The LLM is accessed through the Dapr Conversation API and memory is stored using the Dapr State Store API.
+This example shows how to create an agent that can store and recall its full conversation history across multiple interactions using a Dapr state store. By persisting the session history, the agent can continue a multi-turn dialog and provide answers informed by prior messages.
 
 ```bash
 dapr run --app-id agent-memory --resources-path resources -- python 03_agent_memory.py
 ```
 
 ## Expected Behavior
-When you run the agent, it answers a weather question by calling its tool and remembers your stated preference (“I like warm and dry places”), then uses that preference in a follow-up response.
+The script runs two prompts in sequence: the agent answers the initial weather question and persists the entire conversation history to the external state store. When the second prompt is sent—whether during the same run or after restarting the agent—it loads the stored session history and responds using that previously saved context.
 
 ## How This Works
 
-1. The agent uses the Dapr Conversation API which allows you to switch LLM providers without changing code.
-2. The agent stores conversation history in the Dapr state store which lets it resume context after restart.
-3. The agent calls a local tool function for weather information and then applies your stored preference in the next turn.
+1. The agent persists the full conversation history to a Dapr state store after each interaction, making the session durable across process restarts.
+2. Each call to `weather_agent.run()` retrieves any previously stored history, allowing the agent to continue the conversation seamlessly.
+3. The agent still performs tool calls as in earlier examples, but the LLM’s response now considers the restored session history.
 
 ## How to Extend This Example
 
-* Tools can be dynamically discovered through MCP servers. See the [MCP client quickstart](../07-agent-mcp-client-streamablehttp/README.md).
-* You can add resiliency, observability, and security using Dapr building blocks.
-* To see multi-tool usage and structured output patterns, refer to the [LLM Call quickstart](../02-llm-call-open-ai/README.md).
+* You can switch to any supported Dapr state store (Redis, Azure Cosmos DB, PostgreSQL, etc.) by updating the component YAML without modifying the code. See:
 
+  * **State Management Overview:** [https://docs.dapr.io/developing-applications/building-blocks/state-management/state-management-overview/](https://docs.dapr.io/developing-applications/building-blocks/state-management/state-management-overview/)
+  * **Supported State Stores:** [https://docs.dapr.io/reference/components-reference/supported-state-stores/](https://docs.dapr.io/reference/components-reference/supported-state-stores/)
+ 
 ---
 
 # 4. Durable Agent Serve
 
-This example converts the previous agent into a durable agent that can resume after interruption.
-
+This example turns the previous agent into a durable agent backed by the Dapr Workflow engine. Instead of running interactions in-process, every step of the agent’s execution is persisted to durable storage, allowing long-running interactions to survive interruptions. The agent exposes an HTTP endpoint to start a new workflow and provides a way to query progress or retrieve the final result at any time.
 ```bash
 dapr run --app-id durable-agent --resources-path resources -- python 04_durable_agent_http.py
 ```
@@ -145,9 +165,7 @@ curl -i -X POST http://localhost:8001/run \
   -H "Content-Type: application/json" \
   -d '{"task": "What is the weather in London?"}'
 ```
-You'll receive a WORKFLOW_ID in response. 
-
-Query agent response using the WORKFLOW_ID:
+You will receive a WORKFLOW_ID in response. Query the result:
 
 ```bash
 curl -i -X GET http://localhost:8001/run/WORKFLOW_ID
@@ -157,21 +175,30 @@ Replace `WORKFLOW_ID` with the ID returned from the POST request.
 
 ## Expected Behavior
 
-* The agent exposes a REST endpoint on port 8001 and is ready to accept new prompts.
-* You send a prompt to the agent and receive back a workflow ID representing the durable execution.
-* You query the workflow using that ID and see the final outcome of the prompt, even if the agent was stopped and restarted during execution.
+The agent exposes a REST endpoint, accepts a prompt, and returns a workflow ID that represents a durable execution. You can query this workflow at any time—even after stopping and restarting the agent—and it will resume exactly where it left off. The agent performs an LLM call and a tool call as part of completing the workflow and produces a final result.
 
-**Test durability:**
+## How This Works
 
-To validate the durability of a `DurableAgent`, you can interrupt its execution while it is running and observe that the workflow continues from the exact point it stopped once the agent is restarted. This demonstrates that durability is handled by the workflow engine rather than the running process. To reproduce this behavior, follow these steps:
+1. The agent schedules the prompt as a workflow execution and persists every step to durable storage.
+2. The agent creates a workflow activity to perform the LLM interaction and determine whether a tool call is needed.
+3. The agent creates another workflow activity to perform the tool call.
+4. The agent creates another workflow activity to return the tool call result to the LLM and complete the reasoning step.
+5. The agent finishes the execution, persisting every interaction and the final result. The workflow engine ensures reliable progression so no LLM or tool call is repeated unless required.
 
-1. Send another prompt to the agent using the curl command above.
-2. While it is executing (the tool call intentionally waits 5 seconds to give you time), kill the agent by pressing Ctrl+C.
-3. Bring the agent back by running the same dapr run command again.
-4. You will see that the agent continues from the point where it left off until the workflow completes.
-5. Verify the completion using the workflow ID with the GET command above.
 
-The durability comes from the underlying workflow execution state rather than the in-memory process. This ensures the agent interaction is not lost mid-execution, and the agent does not need to repeat earlier LLM calls or tool operations. The workflow engine restores the previous state and continues forward deterministically.
+**Testing durability:**
+
+This example includes a different tool, **SlowWeatherTool**, which intentionally waits five seconds before returning a result. This delay allows you to interrupt the agent mid-execution and verify that the workflow engine resumes from the same point after the agent restarts.
+
+To test this:
+
+1. Trigger the agent with a prompt using the POST command shown above.
+2. During the 5-second delay inside **SlowWeatherTool**, stop the agent by pressing **Ctrl+C**.
+3. Restart the agent using the same `dapr run` command.
+4. Query the workflow using the same `WORKFLOW_ID`; you will see that it continues from the step it was on—**without starting over, without repeating the LLM call, and without requiring a new prompt**.
+5. Once the workflow finishes, the GET request will show the completed result.
+
+In summary, the workflow engine preserves execution state across restarts, enabling reliable continuation of long-running agent interactions.
 
 ## How to Extend This Example
 
@@ -183,13 +210,14 @@ The durability comes from the underlying workflow execution state rather than th
 
 # 5. Durable Agent Subscribe
 
-This example is like the durable execution sample but runs in subscription mode, listening on a pub/sub topic (`weather.requests`) and reacting to messages.
+This example takes the same durable agent behavior from the previous example, but instead of exposing an HTTP endpoint, it uses pub/sub. With this setup, the durable agent runs in the background as an ambient agent and listens for incoming events on a message topic. When a message arrives, it automatically starts a workflow execution. 
 
+The agent code remains unchanged; only the AgentRunner configuration switches from REST to pub/sub.
 ```bash
 dapr run --app-id durable-agent-subscriber --resources-path resources --dapr-http-port 3500 -- python 05_durable_agent_pubsub.py
 ```
 
-On a different terminal, publish to the subscribed topic:
+On a different terminal, publish a message to the subscribed topic:
 
 ```bash
 dapr publish --publish-app-id durable-agent-subscriber --pubsub messagepubsub --topic weather.requests --data '{"task": "What is the weather in London?"}'
@@ -197,24 +225,23 @@ dapr publish --publish-app-id durable-agent-subscriber --pubsub messagepubsub --
 
 ## Expected Behavior
 
-The agent subscribes to `weather.requests` on the `messagepubsub` component. When a message is published (for example via `dapr publish`), it processes the task using the weather tool, with durable workflow backing.
+The agent listens to the weather.requests topic and, when a message is published, begins a durable workflow execution using the same logic as in the previous example. You can restart the agent at any time during execution, and the workflow will continue from the exact step where it was interrupted.
 
 ## How This Works
 
-1. The agent runs as a DurableAgent with pub/sub configuration.
-2. The runner uses `subscribe` to keep the agent listening for pub/sub events.
-3. Workflow state and memory are persisted in configured state stores.
+1. The agent runs as a durable agent subscribed to a pub/sub topic and listens for incoming events.
+2. A message is published to the topic using the dapr publish command.
+3. The agent runner receives the event and forwards it to the durable agent.
+4. The message triggers a workflow execution, which performs the LLM and tool-call activities with durable state persisted at every step.
 
 ## How to Extend This Example
 
-* Change the topic or pubsub component to match your environment.
-* Add additional tools or modify instructions to tailor responses.
-* Adjust the publish topic or port to match your environment.
-
+Try publishing multiple messages to the topic and observe the agent process each message as an independent durable workflow execution.
 
 ---
 
 # 6. Workflow with LLM Activities
+This example does not use an agent. Instead, it demonstrates how to create a Dapr workflow that performs LLM calls in a deterministic, durable sequence.
 
 ```bash
 dapr run --app-id workflow-llms --resources-path resources -- python 06_workflow_llm.py
@@ -222,25 +249,22 @@ dapr run --app-id workflow-llms --resources-path resources -- python 06_workflow
 
 ## Expected Behavior
 
-The workflow plans a blog post by generating an outline, then creates the final post from that plan.
+The workflow generates a short outline for the given topic using an LLM, then uses that outline to produce a short blog post. Both steps run as durable activities, so the workflow can restart without repeating completed LLM calls.
 
 ## How This Works
 
-1. The workflow calls the LLM in a fixed sequence which keeps execution deterministic.
-2. Each step is persisted by the workflow engine.
-3. The workflow can be restarted without losing progress.
+1. The workflow first performs an LLM-backed activity that generates an outline from the topic. This activity is decorated with `@llm_activity`, a Dapr Agents annotation that simplifies workflow activities by automatically wiring in the LLM client and performing the model invocation for you.
+2. The resulting outline is passed to a second `@llm_activity`-decorated activity, which uses the LLM to generate the final blog post. This output is returned as the result of the workflow.
 
 ## How to Extend This Example
-* Add custom activities that mix business logic and LLM steps.
-* Use structured output to enforce schema based LLM responses.
-* To see structured output and validation, refer to the [LLM Call quickstart](../02-llm-call-open-ai/README.md).
-
+* Modify the workflow to include additional activities that do not interact with LLMs, such as inserting validation steps, transformations, or business logic between LLM activities.
+* Use structured output to enforce schema-based responses from the LLM for predictable and validated workflow inputs. To see structured output and validation, refer to the [LLM Call quickstart](../02-llm-call-open-ai/README.md).
 
 ---
 
 # 7. Workflow with Agent Activities
 
-This example demonstrates orchestrating multiple agents through a deterministic workflow. Each agent has tools and memory, and while the agents are not durable, the workflow coordinates them within a durable execution that ensures reliable execution.
+This example shows how a workflow can invoke entire agents as workflow activities, allowing you to orchestrate multi-step agent reasoning in a durable and deterministic way. Unlike previous examples where activities called LLMs directly, this workflow delegates each step to an agent with tools and memory, while the workflow engine provides durability and reliable progression.
 
 ```bash
 dapr run --app-id workflow-agents --resources-path resources -- python 07_workflow_agents.py
@@ -248,62 +272,65 @@ dapr run --app-id workflow-agents --resources-path resources -- python 07_workfl
 
 ## Expected Behavior
 
-The workflow orchestrates two agents in sequence. The triage agent fetches customer information using a tool, and the expert agent uses that information to produce recommendations. The workflow ensures these interactions run reliably within a durable process.
+When the workflow runs, it first delegates the request to a triage agent, which gathers customer information using tools and produces a summary. It then passes that summary to an expert agent, which generates a final recommendation. Both steps run under a durable workflow, so if the process is interrupted, it resumes from the last completed activity even though the agents themselves are not durable.
 
 ## How This Works
 
-1. The workflow invokes each agent as an activity.
-2. The workflow passes inputs to the agents and collects structured outputs.
-3. If an agent fails or restarts the workflow retries or resumes because workflow state is persisted.
-4. The agents step themselves are not durable but the workflow guarantees durable orchestration and agent execution.
+1. The workflow invokes each agent using activities decorated with @agent_activity, which handles calling the agent and returning structured output.
+2. The triage activity runs first, producing a summary based on customer data and the issue description.
+3. The output of the triage agent is passed into the expert agent activity to generate the final recommendation.
+4. Although agents can use tools and maintain their own memory, the workflow execution is what provides durability: if interrupted, it restarts from the last completed step.
 
 ## How to Extend This Example
-You can create workflows that combine regular workflow activities with custom actions, LLM interactions, and agent calls. All of these can be orchestrated deterministically and reliably within the same workflow.
+Add additional workflow activities—some invoking agents, others performing business logic or LLM steps to create richer multi-stage workflows.
 
 ---
 
 # 8. Durable Agent Trace (Zipkin)
 
-Export the durable agent’s spans to Zipkin using OpenTelemetry.
+This example shows how to enable end-to-end tracing for a durable agent using OpenTelemetry and Zipkin. While the Dapr sidecar automatically emits workflow-related spans for each durable execution, this example extends the tracing model by adding application-level tracing inside the agent itself, allowing you to observe agent-specific steps such as LLM calls, tool calls, and memory operations alongside the workflow spans.
 
-When you install Dapper CLI, it by default installs Zipkin and runs it. You can check if it's already running by visiting this address: 
+## Run Zipkin Backend
+
+Dapr CLI installs and runs Zipkin by default. You can check whether it is running by visiting:
 
 http://localhost:9411/
 
-If it's not running, then you can run it as follows:
+If Zipkin is not running, start it manually:
 
 ```bash
 # Start Zipkin locally  
 docker run -d -p 9411:9411 openzipkin/zipkin
+```
 
-# Run the durable agent with tracing (executes the prompt in-process)
+Now run the durable agent with tracing enabled and prompting included:
+
+```
 dapr run --app-id durable-agent-trace --resources-path resources -- python 08_durable_agent_tracing.py
 ```
 
-## Notes
+## Expected Behavior
 
-- The script triggers the durable agent directly; no REST call is needed. Output is printed to the console, and spans go to Zipkin.
-- Tracing setup lives in `setup_tracing()` inside `08_durable_agent_tracing.py`. If you want spans, ensure Zipkin is running and call `setup_tracing()` before running.
-- Weather tools come from `function_tools.py`:
-  - `weather_func` returns a random temperature instantly.
-  - `slow_weather_func` simulates a delay before returning a random temperature.
+When the script runs, the durable agent executes its workflow in-process and emits tracing spans for every LLM call, tool call, and workflow step. These spans appear in Zipkin alongside the spans generated by the Dapr sidecar, giving you a unified, end-to-end view of the agent’s reasoning and workflow execution.
 
 ## How This Works
 
-1. `ZipkinExporter` sends spans to `http://localhost:9411/api/v2/spans`.
-2. `DaprAgentsInstrumentor` wires OpenTelemetry tracing into Dapr Agents execution.
-3. Durable workflow spans propagate across agent/tool/LLM calls for end-to-end visibility.
+1. The Dapr sidecar automatically intercepts the durable workflow execution and emits workflow-level spans for each step, retry, and state transition, giving you visibility into the orchestration layer.
+2. The application enables Dapr Agents instrumentation, which intercepts agent-level operations—including LLM invocations, tool calls, memory reads/writes, and decision steps—and records them as additional spans. Once the agent runs, you can open the Zipkin UI at the URL above and inspect the complete trace to see exactly how the agent behaves and how these spans are connected.
+
+## How to Extend This Example
+Open the Zipkin UI at the URL above and explore the full trace to see how the workflow spans and agent spans connect end-to-end.
 
 ---
 
-# Other Multi-Agent Examples
+# Other Dapr Agent Examples
 If you want to coordinate multiple agents that run in separate applications or communicate through Pub/Sub, check out the [multi-agent workflows quickstart](../05-multi-agent-workflows/README.md).
 
 ---
 
 # Troubleshooting
 
-1. **API Key Issues**: If you see an authentication error, verify your OpenAI API key in the `.env` file
+1. **API Key Issues**: If you see an authentication error, verify your LLM provider key is in the `openai.yaml` file
 2. **Python Version**: If you encounter compatibility issues, make sure you're using Python 3.10+
 3. **Environment Activation**: Ensure your virtual environment is activated before running examples
 4. **Import Errors**: If you see module not found errors, verify that `pip install -r requirements.txt` completed successfully
