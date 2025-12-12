@@ -6,7 +6,7 @@ _Please explain the changes you've made_
 
 We strive to have all PR being opened based on an issue, where the problem or feature have been discussed prior to implementation.
 
-Please reference the issue this PR will closes: #_[issue number]_
+Please reference the issue this PR closes: #_[issue number]_
 
 ## Checklist
 
