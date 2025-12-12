@@ -214,8 +214,61 @@ class AgentBase(AgentComponents):
             "instructions": list(self.prompting_helper.instructions),
         }
         if self.pubsub is not None:
-            base_meta["topic_name"] = self.agent_topic_name
-            base_meta["pubsub_name"] = self.message_bus_name
+            pubsub_meta: Dict[str, Any] = {}
+            pubsub_meta["agent_name"] = self.agent_topic_name
+            pubsub_meta["name"] = self.message_bus_name
+            base_meta["pubsub"] = pubsub_meta
+
+        if self.memory:
+            memory_meta: Dict[str, Any] = {}
+            memory_meta["type"] = type(self.memory).__name__
+            if getattr(self.memory, "store_name", None) is not None:
+                memory_meta["statestore"] = self.memory.store_name
+            if getattr(self.memory, "session_id", None) is not None:
+                memory_meta["session_id"] = self.memory.session_id
+            base_meta["memory"] = memory_meta
+
+        if self.llm:
+            llm_meta: Dict[str, Any] = {}
+            llm_meta["client"] = type(self.llm).__name__
+            llm_meta["provider"] = getattr(self.llm, "provider", "unknown")
+            llm_meta["api"] = getattr(self.llm, "api", "unknown")
+            llm_meta["model"] = getattr(self.llm, "model", "unknown")
+            # Include endpoint info (non-sensitive)
+            if hasattr(self.llm, "base_url") and self.llm.base_url:
+                llm_meta["base_url"] = self.llm.base_url
+            if hasattr(self.llm, "azure_endpoint") and self.llm.azure_endpoint:
+                llm_meta["azure_endpoint"] = self.llm.azure_endpoint
+            if hasattr(self.llm, "azure_deployment") and self.llm.azure_deployment:
+                llm_meta["azure_deployment"] = self.llm.azure_deployment
+            if self.llm.prompt_template is not None:
+                llm_meta["prompt_template"] = type(self.llm.prompt_template).__name__
+            if hasattr(self.llm, "prompty") and self.llm.prompty is not None:
+                llm_meta["prompty"] = self.llm.prompty
+            base_meta["llm"] = llm_meta
+
+        if self.execution:
+            if (
+                hasattr(self.execution, "max_iterations")
+                and self.execution.max_iterations is not None
+            ):
+                base_meta["max_iterations"] = self.execution.max_iterations
+            if (
+                hasattr(self.execution, "tool_choice")
+                and self.execution.tool_choice is not None
+            ):
+                base_meta["tool_choice"] = self.execution.tool_choice
+
+        if self.tools and len(self.tools) > 0:
+            tools_list = [
+                {
+                    "tool_name": tool.name,
+                    "tool_description": tool.description,
+                    "tool_args": tool.args_schema,
+                }
+                for tool in self.tools
+            ]
+            base_meta["tools"] = tools_list
 
         merged_meta = {**base_meta, **(agent_metadata or {})}
         self.agent_metadata = merged_meta

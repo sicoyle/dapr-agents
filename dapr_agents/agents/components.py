@@ -473,13 +473,35 @@ class AgentComponents:
 
         payload = dict(metadata or {})
         payload.setdefault("name", self.name)
-        payload.setdefault("team", self._effective_team(team))
+        if "agent" not in payload:
+            payload["agent"] = {}
+
+        payload["agent"]["type"] = type(self).__name__
+        payload.setdefault("registered_at", datetime.now(timezone.utc).isoformat())
 
         if self._pubsub is not None:
-            payload.setdefault("topic_name", self.agent_topic_name)
-            payload.setdefault("pubsub_name", self.message_bus_name)
+            if "pubsub" not in payload:
+                payload["pubsub"] = {}
+
+            payload["pubsub"]["agent_name"] = self.agent_topic_name
+            payload["pubsub"]["name"] = self.message_bus_name
+
             if self.broadcast_topic_name:
-                payload.setdefault("broadcast_topic", self.broadcast_topic_name)
+                payload["pubsub"]["broadcast_topic"] = self.broadcast_topic_name
+            if self._pubsub.agent_topic is not None:
+                payload["pubsub"]["agent_topic"] = self._pubsub.agent_topic
+
+        if self._state is not None:
+            payload["agent"]["statestore"] = self._state.store.store_name
+
+        if self._registry is not None:
+            if "registry" not in payload:
+                payload["registry"] = {}
+
+            payload["registry"]["statestore"] = self._registry.store.store_name
+
+            if self._registry.team_name is not None:
+                payload["registry"]["team"] = self._registry.team_name
 
         self._upsert_agent_entry(
             team=self._effective_team(team),
@@ -603,6 +625,7 @@ class AgentComponents:
                     key,
                     exc,
                 )
+                logger.info(updated)
                 if attempt == attempts:
                     raise StateStoreError(
                         f"Failed to mutate agent registry key '{key}' after {attempts} attempts."
