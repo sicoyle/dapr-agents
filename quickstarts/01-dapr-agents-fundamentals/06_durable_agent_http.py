@@ -16,7 +16,7 @@ def main() -> None:
         instructions=["Help users with weather information"],
         tools=[slow_weather_func],
         # Configure this agent to use Dapr Conversation API.
-        llm=DaprChatClient(component_name="openai"),
+        llm=DaprChatClient(component_name="llm-provider"),
         # Configure the agent to use Dapr State Store for conversation history.
         memory=AgentMemoryConfig(
             store=ConversationDaprStateMemory(

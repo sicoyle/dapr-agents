@@ -30,7 +30,7 @@ def main() -> None:
             "Provide concise, friendly weather info. Use MCP tools as needed."
         ],
         tools=tools,
-        llm=DaprChatClient(component_name="openai"),
+        llm=DaprChatClient(component_name="llm-provider"),
     )
 
     try:

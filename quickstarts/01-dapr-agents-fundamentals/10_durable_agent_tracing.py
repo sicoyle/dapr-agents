@@ -41,7 +41,7 @@ async def main() -> None:
         role="Weather Assistant",
         instructions=["Help users with weather information"],
         tools=[slow_weather_func],
-        llm=DaprChatClient(component_name="openai"),
+        llm=DaprChatClient(component_name="llm-provider"),
         memory=AgentMemoryConfig(
             store=ConversationDaprStateMemory(
                 store_name="conversation-statestore",

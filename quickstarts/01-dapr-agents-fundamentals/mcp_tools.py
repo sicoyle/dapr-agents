@@ -10,12 +10,5 @@ async def get_weather(location: str) -> str:
     temperature = random.randint(60, 80)
     return f"{location}: {temperature}F."
 
-
-@mcp.tool()
-async def jump(distance: str) -> str:
-    """Simulate a jump of a given distance."""
-    return f"I jumped the following distance: {distance}"
-
-
 if __name__ == "__main__":
     mcp.run("stdio")

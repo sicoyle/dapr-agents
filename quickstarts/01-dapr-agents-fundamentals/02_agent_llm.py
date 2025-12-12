@@ -3,17 +3,15 @@ import asyncio
 from dapr_agents.llm import DaprChatClient
 
 from dapr_agents import Agent
-from function_tools import weather_func
 
 
 def main() -> None:
-    # Simple agent: LLM + tools, but no memory
+    # Simple agent: LLM, no tools, no memory
     weather_agent = Agent(
         name="WeatherAgent",
         role="Weather Assistant",
         instructions=["Provide concise, friendly weather info."],
-        tools=[weather_func],
-        llm=DaprChatClient(component_name="openai"),
+        llm=DaprChatClient(component_name="llm-provider"),
     )
 
     try:

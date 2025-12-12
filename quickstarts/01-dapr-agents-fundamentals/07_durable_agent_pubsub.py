@@ -21,7 +21,7 @@ def main() -> None:
         role="Weather Assistant",
         instructions=["Help users with weather information"],
         tools=[slow_weather_func],
-        llm=DaprChatClient(component_name="openai"),
+        llm=DaprChatClient(component_name="llm-provider"),
         memory=AgentMemoryConfig(
             store=ConversationDaprStateMemory(
                 store_name="conversation-statestore",
@@ -32,7 +32,7 @@ def main() -> None:
             store=StateStoreService(store_name="workflow-statestore"),
         ),
         pubsub=AgentPubSubConfig(
-            pubsub_name="messagepubsub",
+            pubsub_name="message-pubsub",
             agent_topic="weather.requests",
             broadcast_topic="agents.broadcast",
         ),

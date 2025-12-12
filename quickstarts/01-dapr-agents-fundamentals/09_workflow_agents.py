@@ -14,7 +14,7 @@ load_dotenv()
 
 # Initialize workflow runtime + LLM client
 wfr = WorkflowRuntime()
-llm = DaprChatClient(component_name="openai")
+llm = DaprChatClient(component_name="llm-provider")
 
 
 # ------------- TOOLS -------------
