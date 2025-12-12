@@ -234,6 +234,8 @@ class AgentBase(AgentComponents):
             llm_meta["provider"] = getattr(self.llm, "provider", "unknown")
             llm_meta["api"] = getattr(self.llm, "api", "unknown")
             llm_meta["model"] = getattr(self.llm, "model", "unknown")
+            if hasattr(self.llm, "component_name") and self.llm.component_name:
+                llm_meta["component_name"] = self.llm.component_name
             # Include endpoint info (non-sensitive)
             if hasattr(self.llm, "base_url") and self.llm.base_url:
                 llm_meta["base_url"] = self.llm.base_url
