@@ -4,6 +4,7 @@ import re
 
 from dapr_agents import tool
 
+
 @tool
 async def weather_func(location: str) -> str:
     """Get weather information for a specific location."""

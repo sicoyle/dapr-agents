@@ -10,5 +10,6 @@ async def get_weather(location: str) -> str:
     temperature = random.randint(60, 80)
     return f"{location}: {temperature}F."
 
+
 if __name__ == "__main__":
     mcp.run("stdio")
