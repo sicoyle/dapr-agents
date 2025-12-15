@@ -162,7 +162,7 @@ class AgentTool(BaseModel):
         mcp_tools: list[MCPTool],
         session: Optional[ClientSession] = None,
         connection: Any = None,
-    ) -> list["AgentTool"]:
+    ) -> list[AgentTool]:
         """
         Batch-create AgentTool objects from a list of MCPTool objects.
 
