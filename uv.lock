@@ -886,7 +886,7 @@ requires-dist = [
     { name = "dapr-ext-workflow", specifier = ">=1.16.0rc2" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "docker", marker = "extra == 'test'", specifier = ">=7.0.0,<8.0.0" },
-    { name = "durabletask-dapr", specifier = ">=0.2.0a7" },
+    { name = "durabletask-dapr", specifier = ">=0.2.0a14" },
     { name = "fastapi", specifier = ">=0.110.0,<1.0.0" },
     { name = "httpx", marker = "extra == 'test'", specifier = ">=0.27.0,<1.0.0" },
     { name = "huggingface-hub", specifier = ">=0.33.4,<1.0.0" },
@@ -1014,16 +1014,16 @@ wheels = [
 
 [[package]]
 name = "durabletask-dapr"
-version = "0.2.0a13"
+version = "0.2.0a14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asyncio" },
     { name = "grpcio" },
     { name = "protobuf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/3a/218dd2a17110ebed220e700ea2aa6a93b6ff253904e70b4eb8bb131b5cad/durabletask_dapr-0.2.0a13.tar.gz", hash = "sha256:8e61c352eb85fdf294cac8e5106cc0a58c355b1284c9757d9cb04d05e17b4e27", size = 84309, upload-time = "2025-11-17T14:28:39.864Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/81/8b/b5d695156892c0acf5980c0670600f044fbd495a161c7b191a4e8676234a/durabletask_dapr-0.2.0a14.tar.gz", hash = "sha256:a2de5e64d6543e9ce64e69ca7ea2d890e4851f0242984c5e93e309d899098eed", size = 94293, upload-time = "2025-12-15T15:25:10.344Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/25/32779c970ce4beb885797f734aa4b5b95ff6a6806621ad0a98e8e62aa1ff/durabletask_dapr-0.2.0a13-py3-none-any.whl", hash = "sha256:9ca1ca4fff06cc0c73aa47fe361c6c47989f84b93a45327b81d0a9173f083f19", size = 58619, upload-time = "2025-11-17T14:28:38.578Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/11/9d69e77a2ccbaf32049052d9a2ef8e7e5d5fa683b39b92eaf57015fbcb86/durabletask_dapr-0.2.0a14-py3-none-any.whl", hash = "sha256:ab3802cd06e01eaac99ab6f1324f62680d0974325421522d02aa49dbf06f51c8", size = 62279, upload-time = "2025-12-15T15:25:09.334Z" },
 ]
 
 [[package]]
