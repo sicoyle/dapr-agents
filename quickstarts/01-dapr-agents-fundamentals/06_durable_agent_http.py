@@ -21,7 +21,7 @@ def main() -> None:
         memory=AgentMemoryConfig(
             store=ConversationDaprStateMemory(
                 store_name="conversation-statestore",
-                session_id="04-durable-agent",
+                session_id="04-durable-agent-http",
             )
         ),
         # This is where the execution state is stored

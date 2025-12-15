@@ -7,6 +7,7 @@ from dapr_agents.agents.configs import (
     AgentMemoryConfig,
     AgentPubSubConfig,
     AgentStateConfig,
+    AgentRegistryConfig,
 )
 from dapr_agents.memory import ConversationDaprStateMemory
 from dapr_agents.storage.daprstores.stateservice import StateStoreService
@@ -21,29 +22,36 @@ def main() -> None:
         role="Weather Assistant",
         instructions=["Help users with weather information"],
         tools=[slow_weather_func],
+        # Configure this agent to use Dapr Conversation API.
         llm=DaprChatClient(component_name="llm-provider"),
+        # Configure the agent to use Dapr State Store for conversation history.
         memory=AgentMemoryConfig(
             store=ConversationDaprStateMemory(
                 store_name="conversation-statestore",
                 session_id="05-durable-agent-sub",
             )
         ),
+        # This is where the execution state is stored
         state=AgentStateConfig(
             store=StateStoreService(store_name="workflow-statestore"),
         ),
+        # This is where the agent listens for incoming tasks.
         pubsub=AgentPubSubConfig(
             pubsub_name="message-pubsub",
             agent_topic="weather.requests",
             broadcast_topic="agents.broadcast",
+        ),
+        # This is where the agent registry is found
+        registry=AgentRegistryConfig(
+            store=StateStoreService(store_name="agents-registry"),
         ),
     )
 
     runner = AgentRunner()
     try:
         runner.subscribe(weather_agent)
-        asyncio.run(wait_for_shutdown())
     finally:
-        runner.shutdown(weather_agent)
+        runner.shutdown()
 
 
 if __name__ == "__main__":
