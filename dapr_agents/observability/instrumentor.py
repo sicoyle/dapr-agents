@@ -50,6 +50,7 @@ from .constants import (
     WRAPT_AVAILABLE,
     BaseInstrumentor,
     trace_api,
+    logs_api,
     context_api,
     wrap_function_wrapper,
 )
@@ -107,6 +108,7 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
 
     # Class-level tracer for global access
     _global_tracer = None
+    _global_logger = None
 
     def __init__(self) -> None:
         """
@@ -116,6 +118,7 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
         """
         super().__init__()
         self._tracer = None
+        self._logger = None
 
     def instrumentation_dependencies(self) -> Collection[str]:
         """
@@ -164,6 +167,9 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
             logger.warning("wrapt not available - instrumentation disabled")
             return
 
+        # Initialize logger for the instrumentor
+        self._initialize_logger(kwargs)
+
         # Initialize OpenTelemetry tracer with provider configuration
         self._initialize_tracer(kwargs)
 
@@ -185,7 +191,20 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
 
         logger.info("✅ Dapr Agents OpenTelemetry instrumentation enabled")
 
-    def _initialize_tracer(self, kwargs: dict) -> None:
+    def _initialize_logger(self, kwargs: dict[str, Any]) -> None:
+        """
+        Initialize the logger for the instrumentor.
+
+        Sets up the logger to use the module-level logger defined at the top.
+        """
+        logger_provider = kwargs.get("logger_provider")
+        if not logger_provider:
+            logger_provider = logs_api.get_logger_provider()
+
+        self._logger = logs_api.get_logger(__name__, logger_provider=logger_provider)
+        DaprAgentsInstrumentor._global_logger = self._logger
+
+    def _initialize_tracer(self, kwargs: dict[str, Any]) -> None:
         """
         Initialize OpenTelemetry tracer with provider configuration.
 
