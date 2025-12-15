@@ -8,6 +8,7 @@ from typing import Any
 try:
     from opentelemetry import context as context_api
     from opentelemetry import trace as trace_api
+    from opentelemetry import _logs as logs_api
     from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
     from opentelemetry.trace import Status, StatusCode
     from opentelemetry.util.types import AttributeValue
@@ -17,6 +18,7 @@ except ImportError:
     # OpenTelemetry is not available - instrumentation will be disabled
     # To enable observability features, install: pip install dapr-agents[observability]
     trace_api = None
+    logs_api = None
     BaseInstrumentor = object
     context_api = None
     Status = None
@@ -175,6 +177,7 @@ __all__ = [
     "OPENINFERENCE_AVAILABLE",
     # OpenTelemetry core
     "trace_api",
+    "logs_api",
     "context_api",
     "BaseInstrumentor",
     "Status",

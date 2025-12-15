@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import logging
 from typing import TYPE_CHECKING, Callable, Type, Optional, Any, Dict
@@ -80,10 +82,10 @@ class AgentTool(BaseModel):
     @classmethod
     def from_mcp(
         cls,
-        mcp_tool: "MCPTool",
-        session: "Optional[ClientSession]" = None,
+        mcp_tool: MCPTool,
+        session: Optional[ClientSession] = None,
         connection: Any = None,
-    ) -> "AgentTool":
+    ) -> AgentTool:
         """
         Create an AgentTool from an MCPTool and a session or connection.
 
@@ -157,10 +159,10 @@ class AgentTool(BaseModel):
     @classmethod
     def from_mcp_many(
         cls,
-        mcp_tools: list,
-        session: "ClientSession" = None,
+        mcp_tools: list[MCPTool],
+        session: Optional[ClientSession] = None,
         connection: Any = None,
-    ) -> list:
+    ) -> list[AgentTool]:
         """
         Batch-create AgentTool objects from a list of MCPTool objects.
 
@@ -182,7 +184,7 @@ class AgentTool(BaseModel):
         ]
 
     @classmethod
-    async def from_mcp_session(cls, session: "ClientSession") -> list:
+    async def from_mcp_session(cls, session: ClientSession) -> list[AgentTool]:
         """
         Fetch all tools and wrap them as AgentTool objects.
 
@@ -201,8 +203,8 @@ class AgentTool(BaseModel):
     @classmethod
     def from_toolbox(
         cls,
-        toolbox_tool: "ToolboxSyncTool",
-    ) -> "AgentTool":
+        toolbox_tool: ToolboxSyncTool,
+    ) -> AgentTool:
         """
         Create an AgentTool from a ToolboxSyncTool.
 
@@ -275,8 +277,8 @@ class AgentTool(BaseModel):
     @classmethod
     def from_toolbox_many(
         cls,
-        toolbox_tools: list,
-    ) -> list:
+        toolbox_tools: list[ToolboxSyncTool],
+    ) -> list[AgentTool]:
         """
         Batch-create AgentTool objects from a list of ToolboxSyncTool objects.
 
