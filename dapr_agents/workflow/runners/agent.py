@@ -493,7 +493,12 @@ class AgentRunner(WorkflowRunner):
                     "install uvicorn or pass an existing FastAPI app."
                 ) from exc
 
-            uvicorn.run(fastapi_app, host=host, port=port)
+            uvicorn.run(
+                fastapi_app,
+                host=host,
+                port=port,
+                log_level=logging.getLevelName(logger.getEffectiveLevel()).lower(),
+            )
 
         return fastapi_app
 
