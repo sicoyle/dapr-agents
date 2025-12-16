@@ -5,6 +5,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, Coroutine
 
+from dapr.clients import DaprClient
+from dapr.clients.grpc._response import GetMetadataResponse, RegisteredComponents
+
 from dapr_agents.agents.components import AgentComponents
 from dapr_agents.agents.configs import (
     AgentMemoryConfig,
@@ -124,11 +127,27 @@ class AgentBase(AgentComponents):
             workflow_grpc_options=workflow_grpc,
         )
 
+        if memory is None:
+            with DaprClient() as _client:
+                resp: GetMetadataResponse = _client.get_metadata()
+                components: Sequence[RegisteredComponents] = resp.registered_components
+                for component in components:
+                    if (
+                        "state" in component.type
+                        and component.name == "agent-statestore"
+                    ):
+                        memory = AgentMemoryConfig(
+                            store=ConversationDaprStateMemory(
+                                store_name="agent-statestore",
+                                session_id=f"{name.replace(' ', '-').lower() if name else 'default'}-session",
+                            )
+                        )
+
         # -----------------------------
         # Memory wiring
         # -----------------------------
         self._memory = memory or AgentMemoryConfig()
-        if self._memory.store is None and state is not None:
+        if self._memory.store and state is not None:
             # Auto-provision a Dapr-backed memory if we have a state store.
             self._memory.store = ConversationDaprStateMemory(  # type: ignore[union-attr]
                 store_name=state.store.store_name,

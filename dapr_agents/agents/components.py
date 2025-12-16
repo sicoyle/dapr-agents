@@ -6,7 +6,9 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional, Sequence
 
+from dapr.clients import DaprClient
 from dapr.clients.grpc._state import Concurrency, Consistency, StateOptions
+from dapr.clients.grpc._response import GetMetadataResponse, RegisteredComponents
 from pydantic import BaseModel, ValidationError
 
 from dapr_agents.agents.configs import (
@@ -18,7 +20,10 @@ from dapr_agents.agents.configs import (
     StateModelBundle,
 )
 from dapr_agents.agents.schemas import AgentWorkflowEntry
-from dapr_agents.storage.daprstores.stateservice import StateStoreError
+from dapr_agents.storage.daprstores.stateservice import (
+    StateStoreError,
+    StateStoreService,
+)
 from dapr_agents.types.workflow import DaprWorkflowStatus
 
 logger = logging.getLogger(__name__)
@@ -62,6 +67,37 @@ class AgentComponents:
         """
         self.name = name
         self._workflow_grpc_options = workflow_grpc_options
+
+        if pubsub is None or state is None or registry is None:
+            with DaprClient() as _client:
+                resp: GetMetadataResponse = _client.get_metadata()
+                components: Sequence[RegisteredComponents] = resp.registered_components
+                for component in components:
+                    if (
+                        "state" in component.type
+                        and component.name == "agent-wfstatestore"
+                        and state is None
+                    ):
+                        state = AgentStateConfig(
+                            store=StateStoreService(store_name=component.name),
+                            state_key=f"{name.replace(' ', '-').lower() if name else 'default'}:workflow_state",
+                        )
+                    if component.name == "agent-registry" and registry is None:
+                        registry = AgentRegistryConfig(
+                            store=StateStoreService(store_name="agent-registry"),
+                            team_name="default",
+                        )
+                    if (
+                        "pubsub" in component.type
+                        and component.name == "agent-pubsub"
+                        and pubsub is None
+                    ):
+                        logger.info(f"topic: {name}.topic")
+                        pubsub = AgentPubSubConfig(
+                            pubsub_name="agent-pubsub",
+                            agent_topic=f"{name.replace(' ', '-').lower()}.topic",
+                            broadcast_topic="agents.broadcast",
+                        )
 
         # -----------------------------
         # Pub/Sub configuration (copy)
