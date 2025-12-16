@@ -109,6 +109,12 @@ class MockDaprClient:
         """Mock delete_state that does nothing."""
         pass
 
+    def get_metadata(self):
+        """Mock get_metadata that returns empty metadata."""
+        response = MagicMock()
+        response.registered_components = []
+        return response
+
 
 class MockConversationInput:
     pass

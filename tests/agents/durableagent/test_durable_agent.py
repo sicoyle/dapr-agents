@@ -65,6 +65,14 @@ class MockDaprClient:
     def __call__(self, *args, **kwargs):
         return self
 
+    def get_metadata(self):
+        """Mock get_metadata that returns empty metadata."""
+        from unittest.mock import MagicMock
+
+        response = MagicMock()
+        response.registered_components = []
+        return response
+
 
 class TestDurableAgent:
     """Test cases for the DurableAgent class."""

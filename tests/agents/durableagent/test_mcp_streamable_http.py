@@ -47,6 +47,14 @@ def patch_dapr_check(monkeypatch):
         def execute_state_transaction(self, *args, **kwargs):
             pass
 
+        def get_metadata(self):
+            """Mock get_metadata that returns empty metadata."""
+            from unittest.mock import MagicMock
+
+            response = MagicMock()
+            response.registered_components = []
+            return response
+
     statestore.DaprClient = MockDaprClient
 
     # Patch out agent registration logic (skip state store entirely)
