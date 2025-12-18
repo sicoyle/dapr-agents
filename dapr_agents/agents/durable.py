@@ -147,7 +147,9 @@ class DurableAgent(AgentBase):
             retries = max_attempts
 
         if retries < 1:
-            raise (ValueError("max_attempts or DAPR_API_MAX_RETRIES must be at least 1."))
+            raise (
+                ValueError("max_attempts or DAPR_API_MAX_RETRIES must be at least 1.")
+            )
 
         self._retry_policy: wf.RetryPolicy = wf.RetryPolicy(
             max_number_of_attempts=retries,

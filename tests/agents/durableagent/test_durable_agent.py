@@ -1085,7 +1085,9 @@ class TestDurableAgent:
 
     def test_durable_agent_retry_policy_min_attempts_validation(self, mock_llm):
         """Test that max_attempts cannot be less than 1."""
-        with pytest.raises(ValueError, match="max_attempts or DAPR_API_MAX_RETRIES must be at least 1."):
+        with pytest.raises(
+            ValueError, match="max_attempts or DAPR_API_MAX_RETRIES must be at least 1."
+        ):
             DurableAgent(
                 name="RetryZeroAgent",
                 role="Retry Zero Assistant",
@@ -1107,21 +1109,23 @@ class TestDurableAgent:
         }
 
         call_activity_calls = []
-        
+
         def track_call_activity(activity, **kwargs):
-            call_activity_calls.append({
-                "activity": activity,
-                "input": kwargs.get("input"),
-                "retry_policy": kwargs.get("retry_policy"),
-            })
-            
+            call_activity_calls.append(
+                {
+                    "activity": activity,
+                    "input": kwargs.get("input"),
+                    "retry_policy": kwargs.get("retry_policy"),
+                }
+            )
+
             if hasattr(activity, "__name__"):
                 activity_name = activity.__name__
             elif hasattr(activity, "__func__"):
                 activity_name = activity.__func__.__name__
             else:
                 activity_name = str(activity)
-            
+
             if activity_name == "call_llm":
                 return {
                     "content": "Test response",
@@ -1131,15 +1135,24 @@ class TestDurableAgent:
                             "type": "function",
                             "function": {
                                 "name": "test_tool",
-                                "arguments": '{"arg": "value"}'
-                            }
+                                "arguments": '{"arg": "value"}',
+                            },
                         }
                     ],
-                    "role": "assistant"
+                    "role": "assistant",
                 }
             elif activity_name == "run_tool":
-                return {"tool_call_id": "call_test_123", "content": "tool result", "role": "tool", "name": "test_tool"}
-            elif activity_name in ["record_initial_entry", "finalize_workflow", "save_tool_results"]:
+                return {
+                    "tool_call_id": "call_test_123",
+                    "content": "tool result",
+                    "role": "tool",
+                    "name": "test_tool",
+                }
+            elif activity_name in [
+                "record_initial_entry",
+                "finalize_workflow",
+                "save_tool_results",
+            ]:
                 return None
 
         mock_workflow_context.instance_id = "test-instance-123"
@@ -1162,7 +1175,7 @@ class TestDurableAgent:
         workflow_gen = basic_durable_agent.agent_workflow(
             mock_workflow_context, message
         )
-        
+
         # Step through the generator, sending results back
         result = None
         try:
@@ -1172,21 +1185,30 @@ class TestDurableAgent:
             result = e.value
 
         # Verify that retry_policy was passed to critical activities
-        assert len(call_activity_calls) >= 5, f"Expected at least 3 activity calls, got {len(call_activity_calls)}"
+        assert (
+            len(call_activity_calls) >= 5
+        ), f"Expected at least 3 activity calls, got {len(call_activity_calls)}"
 
         # All activities should have retry_policy parameter
         for call in call_activity_calls:
             assert "retry_policy" in call, f"Missing retry_policy in call: {call}"
-            assert call["retry_policy"] == basic_durable_agent._retry_policy, \
-                f"Expected retry_policy {basic_durable_agent._retry_policy}, got {call['retry_policy']}"
-            
+            assert (
+                call["retry_policy"] == basic_durable_agent._retry_policy
+            ), f"Expected retry_policy {basic_durable_agent._retry_policy}, got {call['retry_policy']}"
+
         # Verify the key activities were called
         activity_names = [
-            getattr(call["activity"], "__name__", str(call["activity"])) 
+            getattr(call["activity"], "__name__", str(call["activity"]))
             for call in call_activity_calls
         ]
-        assert "record_initial_entry" in activity_names, f"Missing record_initial_entry in {activity_names}"
+        assert (
+            "record_initial_entry" in activity_names
+        ), f"Missing record_initial_entry in {activity_names}"
         assert "call_llm" in activity_names, f"Missing call_llm in {activity_names}"
         assert "run_tool" in activity_names, f"Missing run_tool in {activity_names}"
-        assert "save_tool_results" in activity_names, f"Missing save_tool_results in {activity_names}"
-        assert "finalize_workflow" in activity_names, f"Missing finalize_workflow in {activity_names}"
+        assert (
+            "save_tool_results" in activity_names
+        ), f"Missing save_tool_results in {activity_names}"
+        assert (
+            "finalize_workflow" in activity_names
+        ), f"Missing finalize_workflow in {activity_names}"
