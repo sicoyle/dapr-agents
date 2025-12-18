@@ -53,6 +53,7 @@ def patch_dapr_check(monkeypatch):
 
             response = MagicMock()
             response.registered_components = []
+            response.application_id = "test-app-id"
             return response
 
     statestore.DaprClient = MockDaprClient
