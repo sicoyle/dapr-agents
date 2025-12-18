@@ -113,6 +113,7 @@ class MockDaprClient:
         """Mock get_metadata that returns empty metadata."""
         response = MagicMock()
         response.registered_components = []
+        response.application_id = "test-app-id"
         return response
 
 
