@@ -67,37 +67,62 @@ class AgentComponents:
         """
         self.name = name
         self._workflow_grpc_options = workflow_grpc_options
+        self._runtime_secrets: Dict[str, str] = {}
+        self._runtime_conf: Dict[str, str] = {}
 
-        if pubsub is None or state is None or registry is None:
-            with DaprClient() as _client:
-                resp: GetMetadataResponse = _client.get_metadata()
-                components: Sequence[RegisteredComponents] = resp.registered_components
-                for component in components:
-                    if (
-                        "state" in component.type
-                        and component.name == "agent-wfstatestore"
-                        and state is None
-                    ):
-                        state = AgentStateConfig(
-                            store=StateStoreService(store_name=component.name),
-                            state_key=f"{name.replace(' ', '-').lower() if name else 'default'}:workflow_state",
-                        )
-                    if component.name == "agent-registry" and registry is None:
-                        registry = AgentRegistryConfig(
-                            store=StateStoreService(store_name="agent-registry"),
-                            team_name="default",
-                        )
-                    if (
-                        "pubsub" in component.type
-                        and component.name == "agent-pubsub"
-                        and pubsub is None
-                    ):
-                        logger.info(f"topic: {name}.topic")
-                        pubsub = AgentPubSubConfig(
-                            pubsub_name="agent-pubsub",
-                            agent_topic=f"{name.replace(' ', '-').lower()}.topic",
-                            broadcast_topic="agents.broadcast",
-                        )
+        #if pubsub is None or state is None or registry is None:
+        with DaprClient() as _client:
+            resp: GetMetadataResponse = _client.get_metadata()
+            components: Sequence[RegisteredComponents] = resp.registered_components
+            for component in components:
+                if (
+                    "state" in component.type
+                    and component.name == "agent-wfstatestore"
+                    and state is None
+                ):
+                    state = AgentStateConfig(
+                        store=StateStoreService(store_name=component.name),
+                        state_key=f"{name.replace(' ', '-').lower() if name else 'default'}:workflow_state",
+                    )
+                if "state" in component.type and component.name == "agent-registry" and registry is None:
+                    registry = AgentRegistryConfig(
+                        store=StateStoreService(store_name="agent-registry"),
+                        team_name="default",
+                    )
+                if "state" in component.type and component.name == "agent-runtime":
+                    raw_runtime_conf: StateResponse = _client.get_state(
+                        store_name=component.name,
+                        key="agent_runtime_configuration",
+                    )
+                    try:
+                        self._runtime_conf = json.loads(raw_runtime_conf.data) if raw_runtime_conf.data else {}
+                        for key, value in self._runtime_conf.items():
+                            logger.info(f"Runtime configuration: {key}={value}")
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to decode agent runtime configuration JSON. Using empty configuration.")
+                if (
+                    "pubsub" in component.type
+                    and component.name == "agent-pubsub"
+                    and pubsub is None
+                ):
+                    logger.info(f"topic: {name}.topic")
+                    pubsub = AgentPubSubConfig(
+                        pubsub_name="agent-pubsub",
+                        agent_topic=f"{name.replace(' ', '-').lower()}.topic",
+                        broadcast_topic="agents.broadcast",
+                    )
+                if "secretstores" in component.type and component.name == "agent-secretstore":
+                    try:
+                        agent_secrets: GetBulkSecretResponse = _client.get_bulk_secret(store_name="agent-secretstore")
+                        logger.info(f"Retrieved {len(agent_secrets.secrets.keys())} secrets from secret store.")
+                        for key, value in agent_secrets.secrets.items():
+                            # Since dapr returns a nested dict we flatten it here
+                            for _, v in value.items():
+                                self._runtime_secrets[key] = v
+                    except Exception:
+                        logger.warning(f"Failed to retrieve agent secrets. Skipping...")
+
+        self._setup_agent_runtime_configuration()
 
         # -----------------------------
         # Pub/Sub configuration (copy)
