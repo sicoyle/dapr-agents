@@ -586,6 +586,7 @@ class AgentComponents:
             payload["agent"] = {}
 
         payload["agent"]["type"] = type(self).__name__
+        payload["agent"]["appid"] = self.appid
         payload.setdefault("registered_at", datetime.now(timezone.utc).isoformat())
 
         if self._pubsub is not None:
