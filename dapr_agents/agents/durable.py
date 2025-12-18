@@ -26,7 +26,6 @@ from dapr_agents.prompt.base import PromptTemplateBase
 from dapr_agents.types import (
     AgentError,
     LLMChatResponse,
-    ToolExecutionRecord,
     ToolMessage,
     UserMessage,
 )
