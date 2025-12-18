@@ -139,7 +139,7 @@ class AgentComponents:
                             logger.info(f"Runtime configuration: {key}={value}")
                     except json.JSONDecodeError:
                         logger.warning(
-                            f"Failed to decode agent runtime configuration JSON. Using empty configuration."
+                            "Failed to decode agent runtime configuration JSON. Using empty configuration."
                         )
                 if (
                     "pubsub" in component.type
@@ -168,7 +168,7 @@ class AgentComponents:
                             for _, v in value.items():
                                 self._runtime_secrets[key] = v
                     except Exception:
-                        logger.warning(f"Failed to retrieve agent secrets. Skipping...")
+                        logger.warning("Failed to retrieve agent secrets. Skipping...")
 
         self._setup_agent_runtime_configuration()
 
