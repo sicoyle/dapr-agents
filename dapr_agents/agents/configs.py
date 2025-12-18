@@ -265,3 +265,21 @@ class AgentExecutionConfig:
     # TODO: add stop_at_tokens
     max_iterations: int = 10
     tool_choice: Optional[str] = "auto"
+
+
+@dataclass
+class DurableRetryConfig:
+    """
+    Configuration for durable retry policies in workflows.
+
+    Attributes:
+        max_attempts: Maximum number of retry attempts.
+        initial_backoff_seconds: Initial backoff interval in seconds.
+        max_backoff_seconds: Maximum backoff interval in seconds.
+        backoff_multiplier: Multiplier for exponential backoff.
+    """
+
+    max_attempts: Optional[int] = 1
+    initial_backoff_seconds: Optional[int] = 5
+    max_backoff_seconds: Optional[int] = 30
+    backoff_multiplier: Optional[float] = 1.5
