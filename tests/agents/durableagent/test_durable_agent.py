@@ -16,6 +16,7 @@ from dapr_agents.agents.configs import (
     AgentRegistryConfig,
     AgentMemoryConfig,
     AgentExecutionConfig,
+    DurableRetryConfig,
 )
 from dapr_agents.agents.schemas import (
     AgentWorkflowMessage,
@@ -1017,10 +1018,12 @@ class TestDurableAgent:
                 pubsub_name="testpubsub",
                 agent_topic="RetryTestAgent",
             ),
-            max_attempts=5,
-            initial_backoff=10,
-            max_backoff=60,
-            backoff_multiplier=2.0,
+            retry_policy=DurableRetryConfig(
+                max_attempts=5,
+                initial_backoff_seconds=10,
+                max_backoff_seconds=60,
+                backoff_multiplier=2.0,
+            ),
         )
 
         assert agent._retry_policy is not None
@@ -1043,7 +1046,7 @@ class TestDurableAgent:
 
         assert agent._retry_policy is not None
         assert agent._retry_policy.max_number_of_attempts == 1
-        assert agent._retry_policy.first_retry_interval.total_seconds() == 15
+        assert agent._retry_policy.first_retry_interval.total_seconds() == 5
         assert agent._retry_policy.max_retry_interval.total_seconds() == 30
         assert agent._retry_policy.backoff_coefficient == 1.5
 
@@ -1059,7 +1062,7 @@ class TestDurableAgent:
                 pubsub_name="testpubsub",
                 agent_topic="RetryEnvAgent",
             ),
-            max_attempts=3,
+            retry_policy=DurableRetryConfig(max_attempts=3),
         )
 
         # Should use env var value over max_attempts
@@ -1077,7 +1080,7 @@ class TestDurableAgent:
                 pubsub_name="testpubsub",
                 agent_topic="RetryInvalidEnvAgent",
             ),
-            max_attempts=3,
+            retry_policy=DurableRetryConfig(max_attempts=3),
         )
 
         # Should fall back to max_attempts since env var is invalid
@@ -1096,7 +1099,7 @@ class TestDurableAgent:
                     pubsub_name="testpubsub",
                     agent_topic="RetryZeroAgent",
                 ),
-                max_attempts=0,
+                retry_policy=DurableRetryConfig(max_attempts=0),
             )
 
     def test_agent_workflow_applies_retry_policy(

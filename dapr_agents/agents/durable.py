@@ -16,6 +16,7 @@ from dapr_agents.agents.configs import (
     AgentRegistryConfig,
     AgentStateConfig,
     WorkflowGrpcOptions,
+    DurableRetryConfig,
 )
 from dapr_agents.agents.prompting import AgentProfileConfig
 from dapr_agents.agents.schemas import (
@@ -77,10 +78,7 @@ class DurableAgent(AgentBase):
         agent_metadata: Optional[Dict[str, Any]] = None,
         workflow_grpc: Optional[WorkflowGrpcOptions] = None,
         runtime: Optional[wf.WorkflowRuntime] = None,
-        max_attempts: int = 1,
-        initial_backoff: int = 15,
-        max_backoff: int = 30,
-        backoff_multiplier: float = 1.5,
+        retry_policy: Optional[DurableRetryConfig] = DurableRetryConfig(),
     ) -> None:
         """
         Initialize behavior, infrastructure, and workflow runtime.
@@ -109,10 +107,7 @@ class DurableAgent(AgentBase):
             agent_metadata: Extra metadata to publish to the registry.
             workflow_grpc: Optional gRPC overrides for the workflow runtime channel.
             runtime: Optional pre-existing workflow runtime to attach to.
-            max_attempts: Maximum number of retry attempts for workflow operations. Default is 1 (no retries). Set DAPR_API_MAX_RETRIES env variable to override default.
-            initial_backoff: Initial backoff duration in seconds. Default is 15 seconds.
-            max_backoff: Maximum backoff duration in seconds. Default is 30 seconds.
-            backoff_multiplier: Backoff multiplier for exponential backoff. Default is 1.5.
+            retry_policy: Durable retry policy configuration.
         """
         super().__init__(
             pubsub=pubsub,
@@ -142,9 +137,9 @@ class DurableAgent(AgentBase):
         self._started = False
 
         try:
-            retries = int(getenv("DAPR_API_MAX_RETRIES", max_attempts))
+            retries = int(getenv("DAPR_API_MAX_RETRIES", ""))
         except ValueError:
-            retries = max_attempts
+            retries = retry_policy.max_attempts
 
         if retries < 1:
             raise (
@@ -153,9 +148,11 @@ class DurableAgent(AgentBase):
 
         self._retry_policy: wf.RetryPolicy = wf.RetryPolicy(
             max_number_of_attempts=retries,
-            first_retry_interval=timedelta(seconds=initial_backoff),
-            max_retry_interval=timedelta(seconds=max_backoff),
-            backoff_coefficient=backoff_multiplier,
+            first_retry_interval=timedelta(
+                seconds=retry_policy.initial_backoff_seconds
+            ),
+            max_retry_interval=timedelta(seconds=retry_policy.max_backoff_seconds),
+            backoff_coefficient=retry_policy.backoff_multiplier,
         )
 
     # ------------------------------------------------------------------
