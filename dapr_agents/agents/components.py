@@ -875,7 +875,7 @@ class AgentComponents:
 
             otlp_headers: dict[str, str] = {}
 
-            otel_token = self._runtime_secrets.get("OPEN_TELEMETRY_TOKEN", "")
+            otel_token = self._runtime_secrets.get("OTEL_TOKEN", "")
             if otel_token != "":
                 otlp_headers["authorization"] = f"Bearer {otel_token}"
 
