@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import random
 import time
@@ -8,7 +9,7 @@ from typing import Any, Callable, Dict, Optional, Sequence
 
 from dapr.clients import DaprClient
 from dapr.clients.grpc._state import Concurrency, Consistency, StateOptions
-from dapr.clients.grpc._response import GetMetadataResponse, RegisteredComponents
+from dapr.clients.grpc._response import GetMetadataResponse, RegisteredComponents, GetBulkSecretResponse, StateResponse
 from pydantic import BaseModel, ValidationError
 
 from dapr_agents.agents.configs import (
@@ -25,6 +26,20 @@ from dapr_agents.storage.daprstores.stateservice import (
     StateStoreService,
 )
 from dapr_agents.types.workflow import DaprWorkflowStatus
+
+from opentelemetry import trace
+from opentelemetry import _logs
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as OTLPGrpcSpanExporter
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter as OTLPGrpcLogExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as OTLPHTTPSpanExporter
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter as OTLPHTTPLogExporter
+from opentelemetry.exporter.zipkin.json import ZipkinExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, ConsoleLogRecordExporter
+from dapr_agents.observability import DaprAgentsInstrumentor
 
 logger = logging.getLogger(__name__)
 
@@ -810,6 +825,74 @@ class AgentComponents:
         if self._entry_container_getter:
             return self._entry_container_getter(self._state_model)
         return getattr(self._state_model, "instances", None)
+    
+    def _setup_agent_runtime_configuration(self) -> None:
+        """
+        Setup agent runtime configuration.
+        """
+        
+        # OTel setup
+        if self._runtime_conf.get("OTEL_ENABLED", "false").lower() == "true":
+            # Set resource name for tracing and logging
+            resource = Resource(attributes={"service.name": self.name.replace(" ", "-").lower()})
+            
+            otlp_headers: dict[str, str] = {}
+
+            otel_token = self._runtime_secrets.get("OTEL_TOKEN", "")
+            if otel_token != "":
+                otlp_headers["authorization"] = f"Bearer {otel_token}"
+
+            _endpoint = self._runtime_conf.get("OTEL_ENDPOINT", "")
+            
+            logger_provider = None
+            if self._runtime_conf.get("OTEL_LOGGING_ENABLED", "false").lower() == "true":
+                logger_provider = LoggerProvider(resource=resource)
+
+                _exporter = self._runtime_conf.get("OTEL_LOGGING_EXPORTER", "console").lower()
+                if _endpoint == "" and _exporter != "console":
+                    raise ValueError("OTEL_ENDPOINT must be set when OTEL_LOGGING_EXPORTER is not 'console'")
+                
+                match _exporter:
+                    case "otlp_grpc":
+                        log_processor = BatchLogRecordProcessor(OTLPGrpcLogExporter(endpoint=_endpoint, headers=otlp_headers))
+                    case "otlp_http":
+                        log_processor = BatchLogRecordProcessor(OTLPHTTPLogExporter(endpoint=_endpoint, headers=otlp_headers))
+                    case _:
+                        log_processor = BatchLogRecordProcessor(ConsoleLogRecordExporter())
+
+                if self._runtime_conf.get("OTEL_LOGGING_EXPORTER", "console").lower() == "console":
+                    log_processor = BatchLogRecordProcessor(ConsoleLogRecordExporter())
+                else:
+                    log_processor = BatchLogRecordProcessor(ConsoleLogRecordExporter())
+                
+                logger_provider.add_log_record_processor(log_processor)
+                _logs.set_logger_provider(logger_provider)
+            
+            tracer_provider = None
+            if self._runtime_conf.get("OTEL_TRACING_ENABLED", "false").lower() == "true":
+                tracer_provider = TracerProvider(resource=resource)
+
+                _exporter = self._runtime_conf.get("OTEL_TRACING_EXPORTER", "console").lower()
+                if _endpoint == "" and _exporter != "console":
+                    raise ValueError("OTEL_ENDPOINT must be set when OTEL_TRACING_EXPORTER is not 'console'")
+
+                match _exporter:
+                    case "otlp_grpc":
+                        tracing_exporter = OTLPGrpcSpanExporter(endpoint=_endpoint, headers=otlp_headers)
+                    case "otlp_http":
+                        tracing_exporter = OTLPHTTPSpanExporter(endpoint=_endpoint, headers=otlp_headers)
+                    case "zipkin":
+                        tracing_exporter = ZipkinExporter(endpoint=_endpoint)
+                    case _:
+                        tracing_exporter = ConsoleSpanExporter()
+
+                span_processor = BatchSpanProcessor(tracing_exporter)
+                tracer_provider.add_span_processor(span_processor)
+                trace.set_tracer_provider(tracer_provider)
+
+            instrumentor = DaprAgentsInstrumentor()
+            instrumentor.instrument(tracer_provider=tracer_provider, logger_provider=logger_provider, skip_dep_check=True)
+
 
     @staticmethod
     def _coerce_datetime(value: Optional[Any]) -> datetime:
