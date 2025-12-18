@@ -43,6 +43,21 @@ def patch_dapr_check(monkeypatch):
     mock_runtime = Mock(spec=wf.WorkflowRuntime)
     monkeypatch.setattr(wf, "WorkflowRuntime", lambda: mock_runtime)
 
+    class MockRetryPolicy:
+        def __init__(
+            self,
+            max_number_of_attempts=1,
+            first_retry_interval=timedelta(seconds=1),
+            max_retry_interval=timedelta(seconds=60),
+            backoff_coefficient=2.0,
+        ):
+            self.max_number_of_attempts = max_number_of_attempts
+            self.first_retry_interval = first_retry_interval
+            self.max_retry_interval = max_retry_interval
+            self.backoff_coefficient = backoff_coefficient
+
+    monkeypatch.setattr(wf, "RetryPolicy", MockRetryPolicy)
+
     # Return the mock runtime for tests that need it
     yield mock_runtime
 
