@@ -68,9 +68,10 @@ class AgentComponents:
         self.name = name
         self._workflow_grpc_options = workflow_grpc_options
 
-        if pubsub is None or state is None or registry is None:
-            with DaprClient() as _client:
-                resp: GetMetadataResponse = _client.get_metadata()
+        with DaprClient() as _client:
+            resp: GetMetadataResponse = _client.get_metadata()
+            self.appid = resp.application_id
+            if pubsub is None or state is None or registry is None:
                 components: Sequence[RegisteredComponents] = resp.registered_components
                 for component in components:
                     if (
@@ -513,6 +514,7 @@ class AgentComponents:
             payload["agent"] = {}
 
         payload["agent"]["type"] = type(self).__name__
+        payload["agent"]["appid"] = self.appid
         payload.setdefault("registered_at", datetime.now(timezone.utc).isoformat())
 
         if self._pubsub is not None:
