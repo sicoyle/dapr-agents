@@ -22,7 +22,7 @@ updates:
         update-types: ["version-update:semver-patch"]
   # Docker compose
   - package-ecosystem: "docker-compose"
-    directory: "quickstarts/05-multi-agent-workflow-k8s/"
+    directory: "/quickstarts/05-multi-agent-workflow-k8s"
     schedule:
       interval: "daily"
     cooldown:
