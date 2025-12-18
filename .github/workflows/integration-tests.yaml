@@ -43,7 +43,7 @@ jobs:
     - name: Get PR details
       if: github.event_name == 'issue_comment'
       id: pr
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const pr = context.payload.issue.pull_request;
@@ -62,14 +62,14 @@ jobs:
     
     - name: Checkout PR
       if: github.event_name == 'issue_comment'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         ref: ${{ steps.pr.outputs.head_sha }}
         repository: ${{ steps.pr.outputs.head_repo }}
     
     - name: Checkout
       if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: Set up Python ${{ matrix.python_ver }}
       uses: actions/setup-python@v5
@@ -127,7 +127,7 @@ jobs:
       actions: read
     steps:
     - name: Comment PR with test results summary
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const prNumber = context.payload.issue.number;
