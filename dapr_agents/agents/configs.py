@@ -268,7 +268,7 @@ class AgentExecutionConfig:
 
 
 @dataclass
-class DurableRetryConfig:
+class WorkflowRetryPolicy:
     """
     Configuration for durable retry policies in workflows.
 

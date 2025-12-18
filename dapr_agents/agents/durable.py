@@ -16,7 +16,7 @@ from dapr_agents.agents.configs import (
     AgentRegistryConfig,
     AgentStateConfig,
     WorkflowGrpcOptions,
-    DurableRetryConfig,
+    WorkflowRetryPolicy,
 )
 from dapr_agents.agents.prompting import AgentProfileConfig
 from dapr_agents.agents.schemas import (
@@ -78,7 +78,7 @@ class DurableAgent(AgentBase):
         agent_metadata: Optional[Dict[str, Any]] = None,
         workflow_grpc: Optional[WorkflowGrpcOptions] = None,
         runtime: Optional[wf.WorkflowRuntime] = None,
-        retry_policy: Optional[DurableRetryConfig] = DurableRetryConfig(),
+        retry_policy: WorkflowRetryPolicy = WorkflowRetryPolicy(),
     ) -> None:
         """
         Initialize behavior, infrastructure, and workflow runtime.

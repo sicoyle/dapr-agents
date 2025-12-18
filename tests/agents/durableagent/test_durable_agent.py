@@ -16,7 +16,7 @@ from dapr_agents.agents.configs import (
     AgentRegistryConfig,
     AgentMemoryConfig,
     AgentExecutionConfig,
-    DurableRetryConfig,
+    WorkflowRetryPolicy,
 )
 from dapr_agents.agents.schemas import (
     AgentWorkflowMessage,
@@ -1018,7 +1018,7 @@ class TestDurableAgent:
                 pubsub_name="testpubsub",
                 agent_topic="RetryTestAgent",
             ),
-            retry_policy=DurableRetryConfig(
+            retry_policy=WorkflowRetryPolicy(
                 max_attempts=5,
                 initial_backoff_seconds=10,
                 max_backoff_seconds=60,
@@ -1062,7 +1062,7 @@ class TestDurableAgent:
                 pubsub_name="testpubsub",
                 agent_topic="RetryEnvAgent",
             ),
-            retry_policy=DurableRetryConfig(max_attempts=3),
+            retry_policy=WorkflowRetryPolicy(max_attempts=3),
         )
 
         # Should use env var value over max_attempts
@@ -1080,7 +1080,7 @@ class TestDurableAgent:
                 pubsub_name="testpubsub",
                 agent_topic="RetryInvalidEnvAgent",
             ),
-            retry_policy=DurableRetryConfig(max_attempts=3),
+            retry_policy=WorkflowRetryPolicy(max_attempts=3),
         )
 
         # Should fall back to max_attempts since env var is invalid
@@ -1099,7 +1099,7 @@ class TestDurableAgent:
                     pubsub_name="testpubsub",
                     agent_topic="RetryZeroAgent",
                 ),
-                retry_policy=DurableRetryConfig(max_attempts=0),
+                retry_policy=WorkflowRetryPolicy(max_attempts=0),
             )
 
     def test_agent_workflow_applies_retry_policy(
