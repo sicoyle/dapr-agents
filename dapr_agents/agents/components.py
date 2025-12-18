@@ -104,6 +104,7 @@ class AgentComponents:
         # if pubsub is None or state is None or registry is None:
         with DaprClient() as _client:
             resp: GetMetadataResponse = _client.get_metadata()
+            self.appid = resp.application_id
             components: Sequence[RegisteredComponents] = resp.registered_components
             for component in components:
                 if (
