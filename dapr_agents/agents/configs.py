@@ -287,6 +287,7 @@ class WorkflowRetryPolicy:
         initial_backoff_seconds: Initial backoff interval in seconds.
         max_backoff_seconds: Maximum backoff interval in seconds.
         backoff_multiplier: Multiplier for exponential backoff.
+        retry_timeout: Optional total timeout for all retries in seconds.
     """
 
     max_attempts: Optional[int] = 1
