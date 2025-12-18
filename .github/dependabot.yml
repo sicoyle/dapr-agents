@@ -20,9 +20,49 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
-  # Docker compose
-  - package-ecosystem: "docker-compose"
-    directory: "/quickstarts/05-multi-agent-workflow-k8s"
+  # Docker - Frodo service
+  - package-ecosystem: "docker"
+    directory: "/quickstarts/05-multi-agent-workflow-k8s/services/frodo"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
+  # Docker - Sam service
+  - package-ecosystem: "docker"
+    directory: "/quickstarts/05-multi-agent-workflow-k8s/services/sam"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
+  # Docker - Gandalf service
+  - package-ecosystem: "docker"
+    directory: "/quickstarts/05-multi-agent-workflow-k8s/services/gandalf"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
+  # Docker - Legolas service
+  - package-ecosystem: "docker"
+    directory: "/quickstarts/05-multi-agent-workflow-k8s/services/legolas"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
+  # Docker - Workflow LLM service
+  - package-ecosystem: "docker"
+    directory: "/quickstarts/05-multi-agent-workflow-k8s/services/workflow-llm"
     schedule:
       interval: "daily"
     cooldown:
