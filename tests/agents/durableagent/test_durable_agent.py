@@ -91,6 +91,7 @@ class MockDaprClient:
 
         response = MagicMock()
         response.registered_components = []
+        response.application_id = "test-app-id"
         return response
 
 
