@@ -4,6 +4,7 @@
 # This applies to all areas in this file where we have with patch.object()...
 from datetime import timedelta
 import os
+from typing import Optional
 from unittest.mock import AsyncMock, Mock, patch, MagicMock
 
 import pytest
@@ -52,11 +53,13 @@ def patch_dapr_check(monkeypatch):
             first_retry_interval=timedelta(seconds=1),
             max_retry_interval=timedelta(seconds=60),
             backoff_coefficient=2.0,
+            retry_timeout: Optional[timedelta] = None,
         ):
             self.max_number_of_attempts = max_number_of_attempts
             self.first_retry_interval = first_retry_interval
             self.max_retry_interval = max_retry_interval
             self.backoff_coefficient = backoff_coefficient
+            self.retry_timeout = retry_timeout
 
     monkeypatch.setattr(wf, "RetryPolicy", MockRetryPolicy)
 
@@ -1023,6 +1026,7 @@ class TestDurableAgent:
                 initial_backoff_seconds=10,
                 max_backoff_seconds=60,
                 backoff_multiplier=2.0,
+                retry_timeout=300,
             ),
         )
 
@@ -1031,6 +1035,7 @@ class TestDurableAgent:
         assert agent._retry_policy.first_retry_interval.total_seconds() == 10
         assert agent._retry_policy.max_retry_interval.total_seconds() == 60
         assert agent._retry_policy.backoff_coefficient == 2.0
+        assert agent._retry_policy.retry_timeout.total_seconds() == 300
 
     def test_durable_agent_retry_policy_defaults(self, mock_llm):
         """Test that DurableAgent uses correct default retry values."""
@@ -1049,6 +1054,7 @@ class TestDurableAgent:
         assert agent._retry_policy.first_retry_interval.total_seconds() == 5
         assert agent._retry_policy.max_retry_interval.total_seconds() == 30
         assert agent._retry_policy.backoff_coefficient == 1.5
+        assert agent._retry_policy.retry_timeout is None
 
     def test_durable_agent_retry_policy_env_override(self, mock_llm, monkeypatch):
         """Test that DAPR_API_MAX_RETRIES environment variable overrides max_attempts."""

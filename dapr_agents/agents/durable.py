@@ -153,6 +153,9 @@ class DurableAgent(AgentBase):
             ),
             max_retry_interval=timedelta(seconds=retry_policy.max_backoff_seconds),
             backoff_coefficient=retry_policy.backoff_multiplier,
+            retry_timeout=timedelta(seconds=retry_policy.retry_timeout)
+            if retry_policy.retry_timeout
+            else None,
         )
 
     # ------------------------------------------------------------------

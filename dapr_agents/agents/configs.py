@@ -283,3 +283,4 @@ class WorkflowRetryPolicy:
     initial_backoff_seconds: Optional[int] = 5
     max_backoff_seconds: Optional[int] = 30
     backoff_multiplier: Optional[float] = 1.5
+    retry_timeout: Optional[Union[int, None]] = None
