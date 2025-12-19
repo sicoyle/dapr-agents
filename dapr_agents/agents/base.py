@@ -164,7 +164,6 @@ class AgentBase(AgentComponents):
         self._runtime_secrets: Dict[str, str] = {}
         self._runtime_conf: Dict[str, str] = {}
 
-        self._setup_agent_runtime_configuration()
         try:
             with DaprClient() as _client:
                 resp: GetMetadataResponse = _client.get_metadata()
@@ -261,6 +260,8 @@ class AgentBase(AgentComponents):
             logger.warning(
                 "Dapr sidecar not responding; proceeding without auto-configuration."
             )
+
+        self._setup_agent_runtime_configuration()
 
         # -----------------------------
         # Memory wiring
