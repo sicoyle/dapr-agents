@@ -161,7 +161,7 @@ class AgentComponents:
                         agent_secrets: GetBulkSecretResponse = _client.get_bulk_secret(
                             store_name="agent-secretstore"
                         )
-                        logger.info(
+                        logger.debug(
                             f"Retrieved {len(agent_secrets.secrets.keys())} secrets from secret store."
                         )
                         for key, value in agent_secrets.secrets.items():
