@@ -172,7 +172,7 @@ class AgentBase(AgentComponents):
                 for component in components:
                     if (
                         "state" in component.type
-                        and component.name == "agent-statestore"
+                        and component.name == "agent-memory"
                     ):
                         memory = AgentMemoryConfig(
                             store=ConversationDaprStateMemory(
@@ -189,7 +189,7 @@ class AgentBase(AgentComponents):
 
                     if (
                         "state" in component.type
-                        and component.name == "agent-wfstatestore"
+                        and component.name == "agent-workflow"
                         and state is None
                     ):
                         state = AgentStateConfig(
