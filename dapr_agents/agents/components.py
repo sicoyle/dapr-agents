@@ -1,20 +1,13 @@
 from __future__ import annotations
 
-import json
 import logging
 import random
 import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional, Sequence
 
-from dapr.clients import DaprClient
 from dapr.clients.grpc._state import Concurrency, Consistency, StateOptions
-from dapr.clients.grpc._response import (
-    GetMetadataResponse,
-    RegisteredComponents,
-    GetBulkSecretResponse,
-    StateResponse,
-)
+
 from pydantic import BaseModel, ValidationError
 
 from dapr_agents.agents.configs import (
@@ -28,34 +21,9 @@ from dapr_agents.agents.configs import (
 from dapr_agents.agents.schemas import AgentWorkflowEntry
 from dapr_agents.storage.daprstores.stateservice import (
     StateStoreError,
-    StateStoreService,
 )
 from dapr_agents.types.workflow import DaprWorkflowStatus
 
-from opentelemetry import trace
-from opentelemetry import _logs
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
-    OTLPSpanExporter as OTLPGrpcSpanExporter,
-)
-from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
-    OTLPLogExporter as OTLPGrpcLogExporter,
-)
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-    OTLPSpanExporter as OTLPHTTPSpanExporter,
-)
-from opentelemetry.exporter.otlp.proto.http._log_exporter import (
-    OTLPLogExporter as OTLPHTTPLogExporter,
-)
-from opentelemetry.exporter.zipkin.json import ZipkinExporter
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk._logs import LoggerProvider
-from opentelemetry.sdk._logs.export import (
-    BatchLogRecordProcessor,
-    ConsoleLogRecordExporter,
-)
-from dapr_agents.observability import DaprAgentsInstrumentor
 
 logger = logging.getLogger(__name__)
 
@@ -98,89 +66,6 @@ class AgentComponents:
         """
         self.name = name
         self._workflow_grpc_options = workflow_grpc_options
-        self._runtime_secrets: Dict[str, str] = {}
-        self._runtime_conf: Dict[str, str] = {}
-
-        try:
-            with DaprClient() as _client:
-                resp: GetMetadataResponse = _client.get_metadata()
-                self.appid = resp.application_id
-                components: Sequence[RegisteredComponents] = resp.registered_components
-                for component in components:
-                    if (
-                        "state" in component.type
-                        and component.name == "agent-wfstatestore"
-                        and state is None
-                    ):
-                        state = AgentStateConfig(
-                            store=StateStoreService(store_name=component.name),
-                            state_key=f"{name.replace(' ', '-').lower() if name else 'default'}:agent_workflow",
-                        )
-                    if (
-                        "state" in component.type
-                        and component.name == "agent-registry"
-                        and registry is None
-                    ):
-                        registry = AgentRegistryConfig(
-                            store=StateStoreService(store_name="agent-registry"),
-                            team_name="default",
-                        )
-                    if (
-                        "state" in component.type
-                        and component.name == "agent-runtimestatestore"
-                    ):
-                        raw_runtime_conf: StateResponse = _client.get_state(
-                            store_name=component.name,
-                            key="agent_runtime",
-                        )
-                        try:
-                            self._runtime_conf = (
-                                json.loads(raw_runtime_conf.data)
-                                if raw_runtime_conf.data
-                                else {}
-                            )
-                            for key, value in self._runtime_conf.items():
-                                logger.debug(f"Runtime configuration: {key}={value}")
-                        except json.JSONDecodeError:
-                            logger.warning(
-                                "Failed to decode agent runtime configuration JSON. Using empty configuration."
-                            )
-                    if (
-                        "pubsub" in component.type
-                        and component.name == "agent-pubsub"
-                        and pubsub is None
-                    ):
-                        logger.info(f"topic: {name}.topic")
-                        pubsub = AgentPubSubConfig(
-                            pubsub_name=component.name,
-                            agent_topic=f"{name.replace(' ', '-').lower()}.topic",
-                            broadcast_topic="agents.broadcast",
-                        )
-                    if (
-                        "secretstores" in component.type
-                        and component.name == "agent-secretstore"
-                    ):
-                        try:
-                            agent_secrets: GetBulkSecretResponse = (
-                                _client.get_bulk_secret(store_name="agent-secretstore")
-                            )
-                            logger.debug(
-                                f"Retrieved {len(agent_secrets.secrets.keys())} secrets from secret store."
-                            )
-                            for key, value in agent_secrets.secrets.items():
-                                # Since dapr returns a nested dict we flatten it here
-                                for _, v in value.items():
-                                    self._runtime_secrets[key] = v
-                        except Exception:
-                            logger.warning(
-                                "Failed to retrieve agent secrets. Skipping..."
-                            )
-        except TimeoutError:
-            logger.warning(
-                "Dapr sidecar not responding; proceeding without auto-configuration."
-            )
-
-        self._setup_agent_runtime_configuration()
 
         # -----------------------------
         # Pub/Sub configuration (copy)
@@ -869,109 +754,6 @@ class AgentComponents:
         if self._entry_container_getter:
             return self._entry_container_getter(self._state_model)
         return getattr(self._state_model, "instances", None)
-
-    def _setup_agent_runtime_configuration(self) -> None:
-        """
-        Setup agent runtime configuration.
-        """
-
-        # OTel setup
-        if self._runtime_conf.get("OTEL_ENABLED", "false").lower() == "true":
-            # Set resource name for tracing and logging
-            resource = Resource(
-                attributes={"service.name": self.name.replace(" ", "-").lower()}
-            )
-
-            otlp_headers: dict[str, str] = {}
-
-            otel_token = self._runtime_secrets.get("OTEL_TOKEN", "")
-            if otel_token != "":
-                otlp_headers["authorization"] = f"Bearer {otel_token}"
-
-            _endpoint = self._runtime_conf.get("OTEL_ENDPOINT", "")
-
-            logger_provider = None
-            if (
-                self._runtime_conf.get("OTEL_LOGGING_ENABLED", "false").lower()
-                == "true"
-            ):
-                logger_provider = LoggerProvider(resource=resource)
-
-                _exporter = self._runtime_conf.get(
-                    "OTEL_LOGGING_EXPORTER", "console"
-                ).lower()
-                if _endpoint == "" and _exporter != "console":
-                    raise ValueError(
-                        "OTEL_ENDPOINT must be set when OTEL_LOGGING_EXPORTER is not 'console'"
-                    )
-
-                match _exporter:
-                    case "otlp_grpc":
-                        log_processor = BatchLogRecordProcessor(
-                            OTLPGrpcLogExporter(
-                                endpoint=_endpoint, headers=otlp_headers
-                            )
-                        )
-                    case "otlp_http":
-                        log_processor = BatchLogRecordProcessor(
-                            OTLPHTTPLogExporter(
-                                endpoint=_endpoint, headers=otlp_headers
-                            )
-                        )
-                    case _:
-                        log_processor = BatchLogRecordProcessor(
-                            ConsoleLogRecordExporter()
-                        )
-
-                if (
-                    self._runtime_conf.get("OTEL_LOGGING_EXPORTER", "console").lower()
-                    == "console"
-                ):
-                    log_processor = BatchLogRecordProcessor(ConsoleLogRecordExporter())
-                else:
-                    log_processor = BatchLogRecordProcessor(ConsoleLogRecordExporter())
-
-                logger_provider.add_log_record_processor(log_processor)
-                _logs.set_logger_provider(logger_provider)
-
-            tracer_provider = None
-            if (
-                self._runtime_conf.get("OTEL_TRACING_ENABLED", "false").lower()
-                == "true"
-            ):
-                tracer_provider = TracerProvider(resource=resource)
-
-                _exporter = self._runtime_conf.get(
-                    "OTEL_TRACING_EXPORTER", "console"
-                ).lower()
-                if _endpoint == "" and _exporter != "console":
-                    raise ValueError(
-                        "OTEL_ENDPOINT must be set when OTEL_TRACING_EXPORTER is not 'console'"
-                    )
-
-                match _exporter:
-                    case "otlp_grpc":
-                        tracing_exporter = OTLPGrpcSpanExporter(
-                            endpoint=_endpoint, headers=otlp_headers
-                        )
-                    case "otlp_http":
-                        tracing_exporter = OTLPHTTPSpanExporter(
-                            endpoint=_endpoint, headers=otlp_headers
-                        )
-                    case "zipkin":
-                        tracing_exporter = ZipkinExporter(endpoint=_endpoint)
-                    case _:
-                        tracing_exporter = ConsoleSpanExporter()
-
-                span_processor = BatchSpanProcessor(tracing_exporter)
-                tracer_provider.add_span_processor(span_processor)
-                trace.set_tracer_provider(tracer_provider)
-
-            instrumentor = DaprAgentsInstrumentor()
-            instrumentor.instrument(
-                tracer_provider=tracer_provider,
-                logger_provider=logger_provider,
-            )
 
     @staticmethod
     def _coerce_datetime(value: Optional[Any]) -> datetime:
