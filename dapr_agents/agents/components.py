@@ -125,10 +125,10 @@ class AgentComponents:
                         store=StateStoreService(store_name="agent-registry"),
                         team_name="default",
                     )
-                if "state" in component.type and component.name == "agent-runtime":
+                if "state" in component.type and component.name == "agent-runtimestatestore":
                     raw_runtime_conf: StateResponse = _client.get_state(
                         store_name=component.name,
-                        key="agent_runtime_configuration",
+                        key="agent_runtime",
                     )
                     try:
                         self._runtime_conf = (
