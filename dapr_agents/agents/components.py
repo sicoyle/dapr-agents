@@ -101,7 +101,7 @@ class AgentComponents:
         self._runtime_secrets: Dict[str, str] = {}
         self._runtime_conf: Dict[str, str] = {}
 
-        try: 
+        try:
             with DaprClient() as _client:
                 resp: GetMetadataResponse = _client.get_metadata()
                 self.appid = resp.application_id
@@ -161,8 +161,8 @@ class AgentComponents:
                         and component.name == "agent-secretstore"
                     ):
                         try:
-                            agent_secrets: GetBulkSecretResponse = _client.get_bulk_secret(
-                                store_name="agent-secretstore"
+                            agent_secrets: GetBulkSecretResponse = (
+                                _client.get_bulk_secret(store_name="agent-secretstore")
                             )
                             logger.debug(
                                 f"Retrieved {len(agent_secrets.secrets.keys())} secrets from secret store."
@@ -172,7 +172,9 @@ class AgentComponents:
                                 for _, v in value.items():
                                     self._runtime_secrets[key] = v
                         except Exception:
-                            logger.warning("Failed to retrieve agent secrets. Skipping...")
+                            logger.warning(
+                                "Failed to retrieve agent secrets. Skipping..."
+                            )
         except TimeoutError:
             logger.warning(
                 "Dapr sidecar not responding; proceeding without auto-configuration."

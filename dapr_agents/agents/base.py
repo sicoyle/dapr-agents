@@ -131,7 +131,9 @@ class AgentBase(AgentComponents):
             try:
                 with DaprClient() as _client:
                     resp: GetMetadataResponse = _client.get_metadata()
-                    components: Sequence[RegisteredComponents] = resp.registered_components
+                    components: Sequence[
+                        RegisteredComponents
+                    ] = resp.registered_components
                     for component in components:
                         if (
                             "state" in component.type
