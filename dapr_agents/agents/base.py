@@ -142,6 +142,12 @@ class AgentBase(AgentComponents):
                                 session_id=f"{name.replace(' ', '-').lower() if name else 'default'}-session",
                             )
                         )
+                    if "conversation" in component.type and llm is None:
+                        # We got a default LLM component registered
+                        logger.debug(f"LLM component found: {component.name}")
+                        llm = get_default_llm()
+                        if hasattr(llm, "component_name"):
+                            llm.component_name = component.name  # type: ignore[attr-defined]
 
         # -----------------------------
         # Memory wiring
