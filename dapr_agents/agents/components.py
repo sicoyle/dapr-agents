@@ -137,7 +137,7 @@ class AgentComponents:
                             else {}
                         )
                         for key, value in self._runtime_conf.items():
-                            logger.info(f"Runtime configuration: {key}={value}")
+                            logger.debug(f"Runtime configuration: {key}={value}")
                     except json.JSONDecodeError:
                         logger.warning(
                             "Failed to decode agent runtime configuration JSON. Using empty configuration."
