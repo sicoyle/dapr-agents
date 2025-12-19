@@ -177,7 +177,7 @@ class AgentBase(AgentComponents):
                     ):
                         memory = AgentMemoryConfig(
                             store=ConversationDaprStateMemory(
-                                store_name="agent-statestore",
+                                store_name=component.name,
                                 session_id=f"{name.replace(' ', '-').lower() if name else 'default'}-session",
                             )
                         )
@@ -203,7 +203,7 @@ class AgentBase(AgentComponents):
                         and registry is None
                     ):
                         registry = AgentRegistryConfig(
-                            store=StateStoreService(store_name="agent-registry"),
+                            store=StateStoreService(store_name=component.name),
                             team_name="default",
                         )
                     if (
@@ -243,7 +243,7 @@ class AgentBase(AgentComponents):
                     ):
                         try:
                             agent_secrets: GetBulkSecretResponse = (
-                                _client.get_bulk_secret(store_name="agent-secretstore")
+                                _client.get_bulk_secret(store_name=component.name)
                             )
                             logger.debug(
                                 f"Retrieved {len(agent_secrets.secrets.keys())} secrets from secret store."
