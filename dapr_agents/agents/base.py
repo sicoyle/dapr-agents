@@ -128,26 +128,31 @@ class AgentBase(AgentComponents):
         )
 
         if memory is None:
-            with DaprClient() as _client:
-                resp: GetMetadataResponse = _client.get_metadata()
-                components: Sequence[RegisteredComponents] = resp.registered_components
-                for component in components:
-                    if (
-                        "state" in component.type
-                        and component.name == "agent-statestore"
-                    ):
-                        memory = AgentMemoryConfig(
-                            store=ConversationDaprStateMemory(
-                                store_name="agent-statestore",
-                                session_id=f"{name.replace(' ', '-').lower() if name else 'default'}-session",
+            try:
+                with DaprClient() as _client:
+                    resp: GetMetadataResponse = _client.get_metadata()
+                    components: Sequence[RegisteredComponents] = resp.registered_components
+                    for component in components:
+                        if (
+                            "state" in component.type
+                            and component.name == "agent-statestore"
+                        ):
+                            memory = AgentMemoryConfig(
+                                store=ConversationDaprStateMemory(
+                                    store_name="agent-statestore",
+                                    session_id=f"{name.replace(' ', '-').lower() if name else 'default'}-session",
+                                )
                             )
-                        )
-                    if "conversation" in component.type and llm is None:
-                        # We got a default LLM component registered
-                        logger.debug(f"LLM component found: {component.name}")
-                        llm = get_default_llm()
-                        if hasattr(llm, "component_name"):
-                            llm.component_name = component.name  # type: ignore[attr-defined]
+                        if "conversation" in component.type and llm is None:
+                            # We got a default LLM component registered
+                            logger.debug(f"LLM component found: {component.name}")
+                            llm = get_default_llm()
+                            if hasattr(llm, "component_name"):
+                                llm.component_name = component.name  # type: ignore[attr-defined]
+            except TimeoutError:
+                logger.warning(
+                    "Dapr sidecar not responding; proceeding without auto-configuration."
+                )
 
         # -----------------------------
         # Memory wiring
