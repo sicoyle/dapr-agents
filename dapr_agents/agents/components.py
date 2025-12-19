@@ -149,7 +149,7 @@ class AgentComponents:
                 ):
                     logger.info(f"topic: {name}.topic")
                     pubsub = AgentPubSubConfig(
-                        pubsub_name="agent-pubsub",
+                        pubsub_name=component.name,
                         agent_topic=f"{name.replace(' ', '-').lower()}.topic",
                         broadcast_topic="agents.broadcast",
                     )
