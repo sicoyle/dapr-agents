@@ -60,7 +60,6 @@ async def main() -> None:
         print(f"Agent result: {result}")
     finally:
         runner.shutdown(weather_agent)
-        tracer_provider.shutdown()
 
 
 if __name__ == "__main__":
