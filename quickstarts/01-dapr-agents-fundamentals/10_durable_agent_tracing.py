@@ -28,7 +28,7 @@ def setup_tracing() -> TracerProvider:
     trace.set_tracer_provider(tracer_provider)
 
     instrumentor = DaprAgentsInstrumentor()
-    instrumentor.instrument(tracer_provider=tracer_provider, skip_dep_check=True)
+    instrumentor.instrument(tracer_provider=tracer_provider)
 
     return tracer_provider
 
