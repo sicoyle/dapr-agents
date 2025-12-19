@@ -962,7 +962,6 @@ class AgentComponents:
             instrumentor.instrument(
                 tracer_provider=tracer_provider,
                 logger_provider=logger_provider,
-                skip_dep_check=True,
             )
 
     @staticmethod
