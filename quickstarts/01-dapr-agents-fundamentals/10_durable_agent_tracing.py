@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import os
 
 from dapr_agents.llm import DaprChatClient
 
@@ -34,7 +36,9 @@ def setup_tracing() -> TracerProvider:
 
 
 async def main() -> None:
-    tracer_provider = setup_tracing()
+    logging.basicConfig(level=logging.INFO)
+
+    setup_tracing()
 
     weather_agent = DurableAgent(
         name="WeatherAgent",
@@ -56,11 +60,11 @@ async def main() -> None:
     runner = AgentRunner()
     try:
         prompt = "What is the weather in London?"
-        result = await runner.run(weather_agent, payload={"task": prompt})
-        print(f"Agent result: {result}")
+        await runner.run(weather_agent, payload={"task": prompt})
     finally:
         runner.shutdown(weather_agent)
 
+        os._exit(0)
 
 if __name__ == "__main__":
     try:
