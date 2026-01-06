@@ -6,7 +6,7 @@ import os
 
 from dotenv import load_dotenv
 
-from dapr_agents.agents.durable import DurableAgent
+from dapr_agents import DurableAgent
 from dapr_agents.agents.configs import (
     AgentMemoryConfig,
     AgentPubSubConfig,
