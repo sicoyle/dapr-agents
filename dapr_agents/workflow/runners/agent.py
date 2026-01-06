@@ -605,6 +605,12 @@ class AgentRunner(WorkflowRunner):
                 if agent in self._managed_agents:
                     agent.stop()  # This is safe as they'll return None if not started
                     self._managed_agents.remove(agent)
+                if len(self._managed_agents) == 0:
+                    try:
+                        self.unwire_pubsub()
+                    finally:
+                        self._close_dapr_client()
+                        self._close_wf_client()
             return
         try:
             self.unwire_pubsub()
