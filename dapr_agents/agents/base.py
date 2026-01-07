@@ -968,6 +968,7 @@ class AgentBase(AgentComponents):
     ) -> AgentObservabilityConfig:
         """
         Merge two observability configurations, with the override taking precedence.
+        Only override if the override value is not None.
 
         Args:
             base: Base observability configuration.
@@ -975,37 +976,36 @@ class AgentBase(AgentComponents):
         Returns:
             Merged AgentObservabilityConfig instance.
         """
+        merged_headers = {**base.headers, **override.headers}
+
+        enabled = override.enabled if override.enabled is not None else base.enabled
+        logging_enabled = (
+            override.logging_enabled
+            if override.logging_enabled is not None
+            else base.logging_enabled
+        )
+        tracing_enabled = (
+            override.tracing_enabled
+            if override.tracing_enabled is not None
+            else base.tracing_enabled
+        )
 
         merged_config = AgentObservabilityConfig(
-            enabled=override.enabled if override.enabled is not None else base.enabled,
-            headers=override.headers if override.headers else base.headers,
-            auth_token=override.auth_token
-            if override.auth_token is not None
-            else base.auth_token,
-            endpoint=override.endpoint
-            if override.endpoint is not None
-            else base.endpoint,
-            service_name=override.service_name
-            if override.service_name is not None
-            else base.service_name,
-            logging_enabled=override.logging_enabled
-            if override.logging_enabled is not None
-            else base.logging_enabled,
-            logging_exporter=override.logging_exporter
-            if override.logging_exporter is not None
-            else base.logging_exporter,
-            tracing_enabled=override.tracing_enabled
-            if override.tracing_enabled is not None
-            else base.tracing_enabled,
-            tracing_exporter=override.tracing_exporter
-            if override.tracing_exporter is not None
-            else base.tracing_exporter,
+            enabled=enabled,
+            headers=merged_headers,
+            auth_token=override.auth_token or base.auth_token,
+            endpoint=override.endpoint or base.endpoint,
+            service_name=override.service_name or base.service_name,
+            logging_enabled=logging_enabled,
+            logging_exporter=override.logging_exporter or base.logging_exporter,
+            tracing_enabled=tracing_enabled,
+            tracing_exporter=override.tracing_exporter or base.tracing_exporter,
         )
         return merged_config
 
     def _setup_agent_runtime_configuration(self) -> None:
-        observability_config = self._resolve_observability_config()
-        self._setup_agent_observability(observability_config)
+        self._agent_observability = self._resolve_observability_config()
+        self._setup_agent_observability(self._agent_observability)
 
     def _setup_agent_observability(self, config: AgentObservabilityConfig) -> None:
         """

@@ -341,14 +341,14 @@ class AgentObservabilityConfig:
         tracing_exporter: Tracing exporter type.
     """
 
-    enabled: Optional[bool] = False
+    enabled: Optional[bool] = None
     headers: Dict[str, str] = field(default_factory=_empty_headers)
     auth_token: Optional[str] = None
     endpoint: Optional[str] = None
     service_name: Optional[str] = None
-    logging_enabled: Optional[bool] = False
+    logging_enabled: Optional[bool] = None
     logging_exporter: Optional[AgentLoggingExporter] = None
-    tracing_enabled: Optional[bool] = False
+    tracing_enabled: Optional[bool] = None
     tracing_exporter: Optional[AgentTracingExporter] = None
 
     @classmethod
@@ -370,7 +370,7 @@ class AgentObservabilityConfig:
             try:
                 tracing_exporter = AgentTracingExporter(tracing_exporter_str)
             except (ValueError, KeyError):
-                tracing_exporter = AgentTracingExporter.OTLP_GRPC
+                tracing_exporter = AgentTracingExporter.CONSOLE
 
         enabled: Optional[bool] = None
         if getenv("OTEL_ENABLED") is not None:
