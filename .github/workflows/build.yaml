@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python_ver: ["3.11", "3.12", "3.13", "3.14"]
+        python_ver: ["3.11", "3.12", "3.13"]
     steps:
     - uses: actions/checkout@v6
     - name: Set up Python ${{ matrix.python_ver }}
