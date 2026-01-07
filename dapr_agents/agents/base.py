@@ -16,13 +16,16 @@ from dapr.clients.grpc._response import (
 
 from dapr_agents.agents.components import AgentComponents
 from dapr_agents.agents.configs import (
+    AgentLoggingExporter,
     AgentMemoryConfig,
     AgentPubSubConfig,
     AgentRegistryConfig,
     AgentStateConfig,
     AgentExecutionConfig,
+    AgentTracingExporter,
     WorkflowGrpcOptions,
     DEFAULT_AGENT_WORKFLOW_BUNDLE,
+    AgentObservabilityConfig,
 )
 from dapr_agents.agents.prompting import AgentProfileConfig, PromptingAgentBase
 from dapr_agents.agents.utils.text_printer import ColorTextFormatter
@@ -106,6 +109,7 @@ class AgentBase(AgentComponents):
         workflow_grpc: Optional[WorkflowGrpcOptions] = None,
         # Execution
         execution: Optional[AgentExecutionConfig] = None,
+        agent_observability: Optional[AgentObservabilityConfig] = None,
     ) -> None:
         """
         Initialize an agent with behavior + infrastructure.
@@ -135,6 +139,8 @@ class AgentBase(AgentComponents):
 
             agent_metadata: Extra metadata to store in the registry.
             workflow_grpc: Optional gRPC overrides for the workflow runtime channel.
+            execution: Execution dials for the agent run.
+            agent_observability: Observability configuration for tracing/logging.
         """
         # Resolve and validate profile (ensures non-empty name).
         resolved_profile = self._build_profile(
@@ -163,6 +169,7 @@ class AgentBase(AgentComponents):
 
         self._runtime_secrets: Dict[str, str] = {}
         self._runtime_conf: Dict[str, str] = {}
+        self._agent_observability = agent_observability
 
         try:
             with DaprClient() as _client:
