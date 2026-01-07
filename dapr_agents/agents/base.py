@@ -878,49 +878,176 @@ class AgentBase(AgentComponents):
                 pass
         return datetime.now(timezone.utc)
 
+    def _resolve_observability_config(self) -> AgentObservabilityConfig:
+        """
+        Resolve the observability configuration for the agent in the following order:
+        1. Passed through instantiation (highest priority)
+        2. Environment variables
+        3. Default statestore runtime config (lowest priority)
+
+        Args:
+            agent_observability: Optional observability config provided during initialization.
+        Returns:
+            Resolved AgentObservabilityConfig instance.
+        """
+
+        config = self._load_observability_from_statestore()
+        logger.debug(f"Statestore observability config: {config}")
+
+        env_config = AgentObservabilityConfig.from_env()
+        logger.debug(f"Env observability config: {env_config}")
+
+        config = self._merge_observability_configs(config, env_config)
+        logger.debug(f"Merged observability config: {config}")
+
+        if self._agent_observability:
+            config = self._merge_observability_configs(
+                config, self._agent_observability
+            )
+            logger.debug(f"Final observability config with override: {config}")
+        return config
+
+    def _load_observability_from_statestore(self) -> AgentObservabilityConfig:
+        """
+        Load observability configuration from the state store.
+
+        Returns:
+            AgentObservabilityConfig instance loaded from state store.
+        """
+
+        try:
+            enabled = self._runtime_conf.get("OTEL_ENABLED", "false").lower() == "true"
+            auth_token = self._runtime_conf.get("OTEL_TOKEN") or None
+            endpoint = self._runtime_conf.get("OTEL_ENDPOINT") or None
+            service_name = self._runtime_conf.get("OTEL_SERVICE_NAME") or None
+            logging_enabled = (
+                self._runtime_conf.get("OTEL_LOGGING_ENABLED", "false").lower()
+                == "true"
+            )
+            tracing_enabled = (
+                self._runtime_conf.get("OTEL_TRACING_ENABLED", "false").lower()
+                == "true"
+            )
+
+            logging_exporter: Optional[AgentLoggingExporter] = None
+            logging_exporter_str = self._runtime_conf.get(
+                "OTEL_LOGGING_EXPORTER", "console"
+            )
+            if logging_exporter_str:
+                try:
+                    logging_exporter = AgentLoggingExporter(logging_exporter_str)
+                except (ValueError, KeyError):
+                    logging_exporter = AgentLoggingExporter.CONSOLE
+
+            tracing_exporter: Optional[AgentTracingExporter] = None
+            tracing_exporter_str = self._runtime_conf.get(
+                "OTEL_TRACING_EXPORTER", "console"
+            )
+            if tracing_exporter_str:
+                try:
+                    tracing_exporter = AgentTracingExporter(tracing_exporter_str)
+                except (ValueError, KeyError):
+                    tracing_exporter = AgentTracingExporter.CONSOLE
+
+            return AgentObservabilityConfig(
+                enabled=enabled,
+                auth_token=auth_token,
+                endpoint=endpoint,
+                service_name=service_name,
+                logging_enabled=logging_enabled,
+                logging_exporter=logging_exporter,
+                tracing_enabled=tracing_enabled,
+                tracing_exporter=tracing_exporter,
+            )
+        except Exception as e:
+            logger.debug(f"Could not load observability config from statestore: {e}")
+            return AgentObservabilityConfig()
+
+    def _merge_observability_configs(
+        self, base: AgentObservabilityConfig, override: AgentObservabilityConfig
+    ) -> AgentObservabilityConfig:
+        """
+        Merge two observability configurations, with the override taking precedence.
+
+        Args:
+            base: Base observability configuration.
+            override: Override observability configuration.
+        Returns:
+            Merged AgentObservabilityConfig instance.
+        """
+
+        merged_config = AgentObservabilityConfig(
+            enabled=override.enabled if override.enabled is not None else base.enabled,
+            headers=override.headers if override.headers else base.headers,
+            auth_token=override.auth_token
+            if override.auth_token is not None
+            else base.auth_token,
+            endpoint=override.endpoint
+            if override.endpoint is not None
+            else base.endpoint,
+            service_name=override.service_name
+            if override.service_name is not None
+            else base.service_name,
+            logging_enabled=override.logging_enabled
+            if override.logging_enabled is not None
+            else base.logging_enabled,
+            logging_exporter=override.logging_exporter
+            if override.logging_exporter is not None
+            else base.logging_exporter,
+            tracing_enabled=override.tracing_enabled
+            if override.tracing_enabled is not None
+            else base.tracing_enabled,
+            tracing_exporter=override.tracing_exporter
+            if override.tracing_exporter is not None
+            else base.tracing_exporter,
+        )
+        return merged_config
+
     def _setup_agent_runtime_configuration(self) -> None:
+        observability_config = self._resolve_observability_config()
+        self._setup_agent_observability(observability_config)
+
+    def _setup_agent_observability(self, config: AgentObservabilityConfig) -> None:
         """
         Setup agent runtime configuration.
         """
 
         # OTel setup
-        if self._runtime_conf.get("OTEL_ENABLED", "false").lower() == "true":
+        if config.enabled:
             # Set resource name for tracing and logging
             resource = Resource(
-                attributes={"service.name": self.name.replace(" ", "-").lower()}
+                attributes={
+                    "service.name": config.service_name
+                    or self.name.replace(" ", "-").lower()
+                }
             )
 
-            otlp_headers: dict[str, str] = {}
+            otlp_headers: dict[str, str] = config.headers or {}
 
-            otel_token = self._runtime_secrets.get("OTEL_TOKEN", "")
+            otel_token = config.auth_token
             if otel_token != "":
                 otlp_headers["authorization"] = f"Bearer {otel_token}"
 
-            _endpoint = self._runtime_conf.get("OTEL_ENDPOINT", "")
+            _endpoint = config.endpoint or ""
 
             logger_provider = None
-            if (
-                self._runtime_conf.get("OTEL_LOGGING_ENABLED", "false").lower()
-                == "true"
-            ):
+            if config.logging_enabled:
                 logger_provider = LoggerProvider(resource=resource)
 
-                _exporter = self._runtime_conf.get(
-                    "OTEL_LOGGING_EXPORTER", "console"
-                ).lower()
+                _exporter = config.logging_exporter
                 if _endpoint == "" and _exporter != "console":
                     raise ValueError(
                         "OTEL_ENDPOINT must be set when OTEL_LOGGING_EXPORTER is not 'console'"
                     )
 
                 match _exporter:
-                    case "otlp_grpc":
+                    case AgentLoggingExporter.OTLP_GRPC:
                         log_processor = BatchLogRecordProcessor(
                             OTLPGrpcLogExporter(
                                 endpoint=_endpoint, headers=otlp_headers
                             )
                         )
-                    case "otlp_http":
+                    case AgentLoggingExporter.OTLP_HTTP:
                         log_processor = BatchLogRecordProcessor(
                             OTLPHTTPLogExporter(
                                 endpoint=_endpoint, headers=otlp_headers
@@ -931,42 +1058,29 @@ class AgentBase(AgentComponents):
                             ConsoleLogRecordExporter()
                         )
 
-                if (
-                    self._runtime_conf.get("OTEL_LOGGING_EXPORTER", "console").lower()
-                    == "console"
-                ):
-                    log_processor = BatchLogRecordProcessor(ConsoleLogRecordExporter())
-                else:
-                    log_processor = BatchLogRecordProcessor(ConsoleLogRecordExporter())
-
                 logger_provider.add_log_record_processor(log_processor)
                 _logs.set_logger_provider(logger_provider)
 
             tracer_provider = None
-            if (
-                self._runtime_conf.get("OTEL_TRACING_ENABLED", "false").lower()
-                == "true"
-            ):
+            if config.tracing_enabled:
                 tracer_provider = TracerProvider(resource=resource)
 
-                _exporter = self._runtime_conf.get(
-                    "OTEL_TRACING_EXPORTER", "console"
-                ).lower()
+                _exporter = config.tracing_exporter
                 if _endpoint == "" and _exporter != "console":
                     raise ValueError(
                         "OTEL_ENDPOINT must be set when OTEL_TRACING_EXPORTER is not 'console'"
                     )
 
                 match _exporter:
-                    case "otlp_grpc":
+                    case AgentTracingExporter.OTLP_GRPC:
                         tracing_exporter = OTLPGrpcSpanExporter(
                             endpoint=_endpoint, headers=otlp_headers
                         )
-                    case "otlp_http":
+                    case AgentTracingExporter.OTLP_HTTP:
                         tracing_exporter = OTLPHTTPSpanExporter(
                             endpoint=_endpoint, headers=otlp_headers
                         )
-                    case "zipkin":
+                    case AgentTracingExporter.ZIPKIN:
                         tracing_exporter = ZipkinExporter(endpoint=_endpoint)
                     case _:
                         tracing_exporter = ConsoleSpanExporter()
