@@ -350,6 +350,7 @@ class AgentBase(AgentComponents):
         # Agent metadata & registry registration (from AgentComponents)
         # -----------------------------
         base_meta: Dict[str, Any] = {
+            "appid": self.appid,
             "name": self.name,
             "orchestrator": False,
             "role": self.prompting_helper.role,
