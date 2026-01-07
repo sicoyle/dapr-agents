@@ -66,6 +66,7 @@ async def main() -> None:
 
         os._exit(0)
 
+
 if __name__ == "__main__":
     try:
         asyncio.run(main())

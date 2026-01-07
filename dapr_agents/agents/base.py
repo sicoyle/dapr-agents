@@ -170,10 +170,7 @@ class AgentBase(AgentComponents):
                 self.appid = resp.application_id
                 components: Sequence[RegisteredComponents] = resp.registered_components
                 for component in components:
-                    if (
-                        "state" in component.type
-                        and component.name == "agent-memory"
-                    ):
+                    if "state" in component.type and component.name == "agent-memory":
                         memory = AgentMemoryConfig(
                             store=ConversationDaprStateMemory(
                                 store_name=component.name,
