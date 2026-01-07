@@ -367,7 +367,7 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
                 tracer_provider.force_flush(timeout_millis=5000)  # type: ignore
                 logger.info("Flushed tracer provider spans")
         except Exception:  # noqa: BLE001
-            logger.info("Error while shutting down tracer provider", exc_info=True)
+            logger.exception("Error while shutting down tracer provider", exc_info=True)
 
         self._grpc_instrumentor = None
         self._logger = None
