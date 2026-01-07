@@ -5,7 +5,12 @@ import os
 from dapr_agents.llm import DaprChatClient
 
 from dapr_agents import DurableAgent
-from dapr_agents.agents.configs import AgentMemoryConfig, AgentStateConfig, AgentObservabilityConfig, AgentTracingExporter
+from dapr_agents.agents.configs import (
+    AgentMemoryConfig,
+    AgentStateConfig,
+    AgentObservabilityConfig,
+    AgentTracingExporter,
+)
 from dapr_agents.memory import ConversationDaprStateMemory
 from dapr_agents.storage.daprstores.stateservice import StateStoreService
 from dapr_agents.workflow.runners import AgentRunner
@@ -36,7 +41,6 @@ async def main() -> None:
             tracing_exporter=AgentTracingExporter.ZIPKIN,
             endpoint="http://localhost:9411/api/v2/spans",
         ),
-
     )
 
     runner = AgentRunner()
