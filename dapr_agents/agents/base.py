@@ -155,18 +155,6 @@ class AgentBase(AgentComponents):
         self.profile = resolved_profile
         self.name = resolved_profile.name  # type: ignore[assignment]
 
-        # Wire infrastructure via AgentComponents.
-        super().__init__(
-            name=self.name,
-            pubsub=pubsub,
-            state=state,
-            registry=registry,
-            base_metadata=base_metadata,
-            max_etag_attempts=max_etag_attempts,
-            default_bundle=DEFAULT_AGENT_WORKFLOW_BUNDLE,
-            workflow_grpc_options=workflow_grpc,
-        )
-
         self._runtime_secrets: Dict[str, str] = {}
         self._runtime_conf: Dict[str, str] = {}
         self._agent_observability = agent_observability
@@ -264,6 +252,18 @@ class AgentBase(AgentComponents):
             logger.warning(
                 "Dapr sidecar not responding; proceeding without auto-configuration."
             )
+
+        # Wire infrastructure via AgentComponents.
+        super().__init__(
+            name=self.name,
+            pubsub=pubsub,
+            state=state,
+            registry=registry,
+            base_metadata=base_metadata,
+            max_etag_attempts=max_etag_attempts,
+            default_bundle=DEFAULT_AGENT_WORKFLOW_BUNDLE,
+            workflow_grpc_options=workflow_grpc,
+        )
 
         self._setup_agent_runtime_configuration()
 
