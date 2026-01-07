@@ -359,7 +359,7 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
         Args:
             **kwargs: Uninstrumentation configuration (unused)
         """
-        logger.info("Uninstrumenting Dapr Agents OpenTelemetry instrumentation")
+        logger.debug("Uninstrumenting Dapr Agents OpenTelemetry instrumentation")
 
         try:
             tracer_provider: TracerProvider = trace_api.get_tracer_provider()
