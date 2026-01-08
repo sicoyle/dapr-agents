@@ -222,7 +222,7 @@ class AgentBase(AgentComponents):
                         and component.name == "agent-pubsub"
                         and pubsub is None
                     ):
-                        logger.info(f"topic: {name}.topic")
+                        logger.debug(f"topic: {name}.topic")
                         pubsub = AgentPubSubConfig(
                             pubsub_name=component.name,
                             agent_topic=f"{name.replace(' ', '-').lower()}.topic",
