@@ -352,14 +352,18 @@ class AgentBase(AgentComponents):
         # -----------------------------
         # Agent metadata & registry registration (from AgentComponents)
         # -----------------------------
-        base_meta: Dict[str, Any] = {
+        base_meta: Dict[str, Any] = {}
+        base_meta["agent"] = {
             "appid": self.appid,
-            "name": self.name,
             "orchestrator": False,
-            "role": self.prompting_helper.role,
-            "goal": self.prompting_helper.goal,
-            "instructions": list(self.prompting_helper.instructions),
+            "role": self.profile.role,
+            "goal": self.profile.goal,
+            "instructions": list(self.profile.instructions),
         }
+
+        if self.profile.system_prompt:
+            base_meta["agent"]["system_prompt"] = self.profile.system_prompt
+
         if self.pubsub is not None:
             pubsub_meta: Dict[str, Any] = {}
             pubsub_meta["agent_name"] = self.agent_topic_name
