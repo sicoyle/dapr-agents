@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 from agent_tools import tools
 from dotenv import load_dotenv
@@ -46,6 +47,8 @@ async def main():
     finally:
         # Then shut down runner (unwire/close clients)
         runner.shutdown(weather_agent)
+
+        os._exit(0)
 
 
 if __name__ == "__main__":
