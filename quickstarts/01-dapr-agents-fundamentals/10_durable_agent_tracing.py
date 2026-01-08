@@ -7,7 +7,6 @@ from dapr_agents.llm import DaprChatClient
 from dapr_agents import DurableAgent
 from dapr_agents.agents.configs import (
     AgentMemoryConfig,
-    AgentRegistryConfig,
     AgentStateConfig,
     AgentObservabilityConfig,
     AgentTracingExporter,
