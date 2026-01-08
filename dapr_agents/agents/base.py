@@ -158,6 +158,9 @@ class AgentBase(AgentComponents):
         self._runtime_secrets: Dict[str, str] = {}
         self._runtime_conf: Dict[str, str] = {}
         self._agent_observability = agent_observability
+        self.appid = (
+            None  # We set the appid to None as standalone agents may not have one
+        )
 
         try:
             with DaprClient() as _client:
