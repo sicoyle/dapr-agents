@@ -88,7 +88,7 @@ class MockWorkflowActivityContext:
 class MockDaprClient:
     """Mock DaprClient that supports context manager and returns properly structured responses."""
 
-    def __init__(self, runtime_config=None):
+    def __init__(self, runtime_config=None, http_timeout_seconds=10):
         """Initialize mock with optional runtime config for observability tests."""
         self.runtime_config = runtime_config or {}
         self.query_state = MagicMock()

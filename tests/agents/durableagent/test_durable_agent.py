@@ -70,7 +70,7 @@ def patch_dapr_check(monkeypatch):
 class MockDaprClient:
     """Mock DaprClient that supports context manager protocol"""
 
-    def __init__(self):
+    def __init__(self, http_timeout_seconds=10):
         self.get_state = MagicMock(return_value=Mock(data=None, json=lambda: {}))
         self.save_state = MagicMock()
         self.delete_state = MagicMock()
