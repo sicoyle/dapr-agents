@@ -358,6 +358,7 @@ class AgentBase(AgentComponents):
             "orchestrator": False,
             "role": self.profile.role,
             "goal": self.profile.goal,
+            "name": self.profile.name,
             "instructions": list(self.profile.instructions),
         }
 
