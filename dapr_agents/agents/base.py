@@ -163,7 +163,7 @@ class AgentBase(AgentComponents):
         )
 
         try:
-            with DaprClient() as _client:
+            with DaprClient(http_timeout_seconds=10) as _client:
                 resp: GetMetadataResponse = _client.get_metadata()
                 self.appid = resp.application_id
                 components: Sequence[RegisteredComponents] = resp.registered_components
