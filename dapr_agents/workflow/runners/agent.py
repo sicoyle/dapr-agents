@@ -609,8 +609,8 @@ class AgentRunner(WorkflowRunner):
                     try:
                         self.unwire_pubsub()
                     finally:
-                        self._close_dapr_client()
                         self._close_wf_client()
+                        self._close_dapr_client()
             return
         try:
             self.unwire_pubsub()
@@ -619,5 +619,5 @@ class AgentRunner(WorkflowRunner):
                 agents = list(self._managed_agents)
             for ag in agents:
                 ag.stop()
-            self._close_dapr_client()
             self._close_wf_client()
+            self._close_dapr_client()
