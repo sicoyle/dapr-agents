@@ -32,7 +32,9 @@ class TestObservabilityConfigFromInstantiation:
 
         # Mock DaprClient with no runtime config
         mock_client = MockDaprClient()
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -176,7 +178,9 @@ class TestObservabilityConfigFromEnvironment:
 
         # Mock DaprClient with no runtime config
         mock_client = MockDaprClient()
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -371,7 +375,9 @@ class TestObservabilityConfigFromStatestore:
         }
 
         mock_client = MockDaprClient(runtime_config=runtime_config)
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -413,7 +419,9 @@ class TestObservabilityConfigFromStatestore:
         }
 
         mock_client = MockDaprClient(runtime_config=runtime_config)
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -448,7 +456,9 @@ class TestObservabilityConfigFromStatestore:
         }
 
         mock_client = MockDaprClient(runtime_config=runtime_config)
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -483,7 +493,9 @@ class TestObservabilityConfigFromStatestore:
         }
 
         mock_client = MockDaprClient(runtime_config=runtime_config)
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -554,7 +566,9 @@ class TestObservabilityConfigPrecedence:
 
         # Mock DaprClient with no runtime config
         mock_client = MockDaprClient()
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -603,7 +617,9 @@ class TestObservabilityConfigPrecedence:
         }
 
         mock_client = MockDaprClient(runtime_config=runtime_config)
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -652,7 +668,9 @@ class TestObservabilityConfigPrecedence:
         }
 
         mock_client = MockDaprClient(runtime_config=runtime_config)
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -703,7 +721,9 @@ class TestObservabilityConfigPrecedence:
         """Test merging configs with headers properly combines them."""
         # Mock DaprClient with no runtime config
         mock_client = MockDaprClient()
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -747,7 +767,9 @@ class TestObservabilityConfigPrecedence:
         """Test that when no config is provided, defaults are used."""
         # Mock DaprClient with no runtime config
         mock_client = MockDaprClient()
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
@@ -797,7 +819,9 @@ class TestObservabilityConfigMergeLogic:
 
         # Mock DaprClient
         mock_client = MockDaprClient()
-        monkeypatch.setattr("dapr_agents.agents.base.DaprClient", lambda: mock_client)
+        monkeypatch.setattr(
+            "dapr_agents.agents.base.DaprClient", lambda **kwargs: mock_client
+        )
         monkeypatch.setattr(
             "dapr_agents.storage.daprstores.statestore.DaprClient", lambda: mock_client
         )
