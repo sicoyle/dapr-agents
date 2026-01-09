@@ -65,7 +65,7 @@ jobs:
         version: "latest"
     - name: Install dependencies
       run: |
-        uv sync --extra=test,dev
+        uv sync --extra test --extra dev
     - name: Check Typing
       run: |
         uv run tox -e type
