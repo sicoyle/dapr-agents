@@ -1368,6 +1368,7 @@ dependencies = [
     { name = "dapr-ext-fastapi" },
     { name = "dapr-ext-workflow" },
     { name = "docker" },
+    { name = "durabletask" },
     { name = "durabletask-dapr" },
     { name = "fastapi" },
     { name = "huggingface-hub" },
@@ -1409,7 +1410,6 @@ vectorstore = [
 dev = [
     { name = "cachetools" },
     { name = "cloudevents" },
-    { name = "durabletask" },
     { name = "mypy" },
     { name = "numpy" },
     { name = "pip-tools" },
@@ -1444,6 +1444,7 @@ requires-dist = [
     { name = "dapr-ext-fastapi", specifier = ">=1.16.0rc2" },
     { name = "dapr-ext-workflow", specifier = ">=1.16.0rc2" },
     { name = "docker", specifier = ">=7.1.0" },
+    { name = "durabletask", specifier = ">=1.3.0" },
     { name = "durabletask-dapr", specifier = ">=0.2.0a14" },
     { name = "fastapi", specifier = ">=0.110.0,<1.0.0" },
     { name = "huggingface-hub", specifier = ">=0.33.4,<1.0.0" },
@@ -1481,7 +1482,6 @@ provides-extras = ["vectorstore"]
 dev = [
     { name = "cachetools", specifier = ">=6.1.0,<7.0.0" },
     { name = "cloudevents", specifier = ">=1.12.0" },
-    { name = "durabletask", specifier = ">=1.3.0" },
     { name = "mypy", specifier = ">=1.15.0,<2.0.0" },
     { name = "numpy", specifier = ">=2.3.5" },
     { name = "pip-tools", specifier = ">=7.4.1,<8.0.0" },
