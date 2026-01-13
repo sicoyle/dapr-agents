@@ -2,7 +2,6 @@ import os
 import signal
 import subprocess
 import logging
-import tempfile
 import shutil
 import time
 import socket
