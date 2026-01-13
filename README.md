@@ -80,7 +80,7 @@ For a complete list of issue (including bug fixes) please check out our [GitHub 
 
 ## Documentation
 
-- Documentation: [https://docs.dapr.io/developing-applications/dapr-agents/](https://docs.dapr.io/developing-applications/dapr-agents/)
+- [Documentation](https://docs.dapr.io/developing-ai/dapr-agents/)
 
 ## Community
 
