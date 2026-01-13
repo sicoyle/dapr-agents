@@ -14,11 +14,10 @@ authors = [
     {name = "Dapr Authors", email = "dapr@dapr.io"}
 ]
 dependencies = [
-    "dapr>=1.16.0rc2",
-    "dapr-ext-fastapi>=1.16.0rc2",
-    "dapr-ext-workflow>=1.16.0rc2",
-    "durabletask-dapr>=0.2.0a14",
-    "durabletask>=1.3.0",
+    "dapr>=1.16.0",
+    "dapr-ext-fastapi>=1.16.0",
+    "dapr-ext-workflow>=1.16.0",
+    "durabletask-dapr==0.2.0a14",
     "pydantic>=2.11.3,<3.0.0",
     "jinja2>=3.1.0,<4.0.0",
     "pyyaml>=6.0.1,<7.0.0",
@@ -78,8 +77,6 @@ dev = [
     "pip-tools>=7.4.1,<8.0.0",
     "cachetools>=6.1.0,<7.0.0",
     "ruff>=0.14.11",
-    "cloudevents>=1.12.0",
-    "numpy>=2.3.5",
 ]
 test = [
     "pytest>=7.0.0,<8.0.0",
