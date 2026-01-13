@@ -29,15 +29,14 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
     Returns:
         Path to the venv Python executable
     """
-    # Each quickstart has its own directory, so venv is already unique per quickstart
-    # Since pytest-xdist runs one test file per worker, and each quickstart has
-    # a unique directory, then we know that each venv path is unique and will not conflict.
-    venv_path = quickstart_dir / ".venv"
+    # Use the workspace root's venv instead of creating per-quickstart venvs
+    # This allows uv workspace dependencies to be properly resolved
+    venv_path = project_root / ".venv"
     if not venv_path.exists():
-        logger.info(f"Creating venv in {quickstart_dir}")
+        logger.info(f"Creating venv in {project_root}")
         result = subprocess.run(
             ["uv", "venv"],
-            cwd=quickstart_dir,
+            cwd=project_root,
             capture_output=True,
             text=True,
             timeout=30,
@@ -81,13 +80,13 @@ def setup_quickstart_venv(quickstart_dir: Path, project_root: Path) -> Path:
         # Also set VIRTUAL_ENV to help uv detect the venv
         install_env["VIRTUAL_ENV"] = str(venv_path.resolve())
 
-        # Try using uv pip install, with fallback to venv pip if needed
-        # Fall back to venv pip if all fail
+        # Try using uv sync from workspace root
         def try_uv_install(description: str):
-            """Try uv pip install with different strategies."""
+            """Try uv sync from workspace root"""
+            # Run uv sync from workspace root to ensure all workspace dependencies are available
             result = subprocess.run(
-                ["uv", "sync", "--active"],
-                cwd=quickstart_dir,
+                ["uv", "sync", "--frozen"],
+                cwd=project_root,
                 env=install_env,
                 capture_output=True,
                 text=True,
