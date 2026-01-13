@@ -30,7 +30,7 @@ class TestMessageRouterWorkflowQuickstart:
             timeout=180,
             use_dapr=True,
             app_id="message-router-app",
-            dapr_http_port=3500,
+            dapr_http_port=1337,
             trigger_pubsub={
                 "pubsub_name": "messagepubsub",
                 "topic": "blog.requests",

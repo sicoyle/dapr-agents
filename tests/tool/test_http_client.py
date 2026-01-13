@@ -115,7 +115,7 @@ class TestDaprHTTPClient:
     def test_base_url_private_attribute(self):
         """Test that _base_url private attribute is set correctly."""
         client = DaprHTTPClient()
-        assert client._base_url == "http://localhost:3500/v1.0/invoke"
+        assert client._base_url == "http://localhost:1337/v1.0/invoke"
 
     @patch.dict(os.environ, {"DAPR_AGENTS_OTEL_ENABLED": "false"}, clear=False)
     def test_empty_headers_default(self):

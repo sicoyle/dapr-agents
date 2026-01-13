@@ -279,7 +279,7 @@ def run_quickstart_script(
     use_dapr: bool = False,
     app_id: Optional[str] = None,
     resources_path: Optional[Path] = None,
-    dapr_http_port: int = 3500,
+    dapr_http_port: int = 1337,
     app_port: Optional[int] = None,
     trigger_curl: Optional[Dict[str, Any]] = None,
     trigger_pubsub: Optional[Dict[str, Any]] = None,
@@ -304,7 +304,7 @@ def run_quickstart_script(
         use_dapr: Whether to run with `dapr run`
         app_id: Dapr app ID (required if use_dapr=True)
         resources_path: Path to Dapr resources/components (defaults to cwd/components)
-        dapr_http_port: Dapr HTTP port (defaults to 3500)
+        dapr_http_port: Dapr HTTP port (defaults to 1337)
         app_port: App port for the application (e.g., 8001 for serve mode)
         trigger_curl: Optional dict with curl trigger details. Format:
             {
@@ -557,7 +557,7 @@ def run_quickstart_multi_app(
     # wait for the subscriber to be ready, publish a message, then terminate
     if trigger_pubsub:
         # Extract dapr_http_port from YAML or use default
-        dapr_http_port = 3500  # Default, multi-app run uses default ports
+        dapr_http_port = 1337  # Default, multi-app run uses default ports
         return _run_with_pubsub_trigger(
             cmd, cwd_path, full_env, timeout, trigger_pubsub, dapr_http_port
         )

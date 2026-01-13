@@ -165,7 +165,7 @@ class TestDurableAgentToolCallQuickstart:
             timeout=180,
             use_dapr=True,
             app_id="durableweatherapp",
-            dapr_http_port=3500,
+            dapr_http_port=1337,
             app_port=8001,
             trigger_curl={
                 "url": "http://localhost:8001/run",
@@ -197,7 +197,7 @@ class TestDurableAgentToolCallQuickstart:
             timeout=180,
             use_dapr=True,
             app_id="durableweatherapp",
-            dapr_http_port=3500,
+            dapr_http_port=1337,
             trigger_pubsub={
                 "pubsub_name": "messagepubsub",
                 "topic": "weather.requests",

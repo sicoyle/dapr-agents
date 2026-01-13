@@ -68,7 +68,7 @@ def docker_client():
     client.close()
 
 
-def _check_dapr_running(port: int = 3500) -> bool:
+def _check_dapr_running(port: int = 1337) -> bool:
     """Check if Dapr sidecar is running on the given port."""
     return not _check_port_available(port)
 
