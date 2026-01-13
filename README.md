@@ -95,7 +95,7 @@ For development setup and guidelines, see our [Development Guide](docs/developme
 Prerequisites:
 
 - [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/)
-- [Python 3.11](https://www.python.org/downloads/latest/python3.11/)
+- [Python >=3.11](https://www.python.org/downloads/latest/python3.11/)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ### Install Dapr Agents
