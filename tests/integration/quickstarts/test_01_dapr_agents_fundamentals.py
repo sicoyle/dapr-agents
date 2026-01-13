@@ -181,7 +181,7 @@ class TestHelloWorldQuickstart:
             timeout=180,
             use_dapr=True,
             app_id="durable-agent-sub",
-            dapr_http_port=1337,
+            dapr_http_port=3500,
             resources_path=self.quickstart_dir / "resources",
             trigger_pubsub={
                 "pubsub_name": "message-pubsub",
