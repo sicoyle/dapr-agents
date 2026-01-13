@@ -115,3 +115,27 @@ log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+[tool.uv.workspace]
+members = [
+    "quickstarts/01-dapr-agents-fundamentals",
+    "quickstarts/02-llm-call-dapr",
+    "quickstarts/02-llm-call-elevenlabs",
+    "quickstarts/02-llm-call-hugging-face",
+    "quickstarts/02-llm-call-nvidia",
+    "quickstarts/02-llm-call-open-ai",
+    "quickstarts/03-durable-agent-tool-call",
+    "quickstarts/03-standalone-agent-tool-call",
+    "quickstarts/04-agent-based-workflows",
+    "quickstarts/04-llm-based-workflows",
+    "quickstarts/04-message-router-workflow",
+    "quickstarts/05-multi-agent-workflow-k8s",
+    "quickstarts/05-multi-agent-workflows",
+    "quickstarts/06-document-agent-chainlit",
+    "quickstarts/07-agent-mcp-client-stdio",
+    "quickstarts/07-agent-mcp-client-sse",
+    "quickstarts/07-agent-mcp-client-streamablehttp",
+    "quickstarts/08-data-agent-mcp-chainlit",
+    "quickstarts/09-agent-observability",
+    "quickstarts/09-agents-as-activities-observability",
+]
