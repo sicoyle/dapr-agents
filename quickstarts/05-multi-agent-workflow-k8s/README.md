@@ -4,8 +4,7 @@ This quickstart demonstrates how to create and orchestrate event-driven workflow
 
 ## Prerequisites
 
-- Python 3.10 (recommended)
-- Pip package manager
+- uv package manager
 - OpenAI API key
 - Kind
 - Docker
