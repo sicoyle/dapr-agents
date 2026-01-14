@@ -142,6 +142,7 @@ name = "03-durable-agent-tool-call"
 version = "0.1.0"
 source = { virtual = "quickstarts/03-durable-agent-tool-call" }
 dependencies = [
+    { name = "arize-phoenix" },
     { name = "arize-phoenix-otel" },
     { name = "dapr-agents" },
     { name = "python-dotenv" },
@@ -149,6 +150,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "arize-phoenix", specifier = ">=12.16.0" },
     { name = "arize-phoenix-otel", specifier = ">=0.12.0,<0.13.0" },
     { name = "dapr-agents", editable = "." },
     { name = "python-dotenv", specifier = ">=1.2.1" },
@@ -160,15 +162,19 @@ version = "0.1.0"
 source = { virtual = "quickstarts/03-standalone-agent-tool-call" }
 dependencies = [
     { name = "arize-phoenix" },
+    { name = "arize-phoenix-otel" },
     { name = "dapr-agents", extra = ["vectorstore"] },
     { name = "python-dotenv" },
+    { name = "sentence-transformers" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "arize-phoenix", specifier = ">=12.16.0" },
+    { name = "arize-phoenix-otel", specifier = ">=0.12.1" },
     { name = "dapr-agents", extras = ["vectorstore"], editable = "." },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "sentence-transformers", specifier = ">=4.1.0" },
 ]
 
 [[package]]
