@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 from dapr_agents.llm import DaprChatClient
 
@@ -49,7 +50,7 @@ async def main() -> None:
     finally:
         runner.shutdown(weather_agent)
 
-        exit(0)
+        os._exit(0)
 
 
 if __name__ == "__main__":
