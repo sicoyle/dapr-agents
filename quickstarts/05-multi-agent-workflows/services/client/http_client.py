@@ -64,4 +64,4 @@ def start_workflow() -> None:
 
 if __name__ == "__main__":
     start_workflow()
-    os._exit(0)
+    exit(0)
