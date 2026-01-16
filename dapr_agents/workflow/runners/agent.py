@@ -587,7 +587,7 @@ class AgentRunner(WorkflowRunner):
         )
         logger.info("Mounted default workflow status endpoint at %s", status_path)
 
-    def shutdown(self, agent: Optional[AgentComponents]) -> None:
+    def shutdown(self, agent: Optional[AgentComponents] = None) -> None:
         """
         Unwire subscriptions and close owned clients.
 
