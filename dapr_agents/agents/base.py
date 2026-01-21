@@ -504,17 +504,21 @@ class AgentBase:
         """Delegate to DaprInfra."""
         return self._infra.register_agentic_system(metadata=metadata, team=team)
 
-    def get_agents_metadata(self, *, exclude_self=True, exclude_orchestrator=False, team=None):
+    def get_agents_metadata(
+        self, *, exclude_self=True, exclude_orchestrator=False, team=None
+    ):
         """Delegate to DaprInfra."""
         return self._infra.get_agents_metadata(
             exclude_self=exclude_self,
             exclude_orchestrator=exclude_orchestrator,
-            team=team
+            team=team,
         )
 
     def sync_system_messages(self, instance_id, all_messages):
         """Delegate to DaprInfra."""
-        return self._infra.sync_system_messages(instance_id=instance_id, all_messages=all_messages)
+        return self._infra.sync_system_messages(
+            instance_id=instance_id, all_messages=all_messages
+        )
 
     def _get_entry_container(self):
         """Delegate to DaprInfra."""
@@ -524,13 +528,15 @@ class AgentBase:
         """Delegate to DaprInfra."""
         return self._infra._message_dict_to_message_model(message)
 
-    def ensure_instance_exists(self, *, instance_id, input_value, triggering_workflow_instance_id, time=None):
+    def ensure_instance_exists(
+        self, *, instance_id, input_value, triggering_workflow_instance_id, time=None
+    ):
         """Delegate to DaprInfra."""
         return self._infra.ensure_instance_exists(
             instance_id=instance_id,
             input_value=input_value,
             triggering_workflow_instance_id=triggering_workflow_instance_id,
-            time=time
+            time=time,
         )
 
     # ------------------------------------------------------------------

@@ -107,12 +107,14 @@ class OrchestratorBase:
         """Delegate to DaprInfra."""
         return self._infra.register_agentic_system(metadata=metadata, team=team)
 
-    def get_agents_metadata(self, *, exclude_self=True, exclude_orchestrator=False, team=None):
+    def get_agents_metadata(
+        self, *, exclude_self=True, exclude_orchestrator=False, team=None
+    ):
         """Delegate to DaprInfra."""
         return self._infra.get_agents_metadata(
             exclude_self=exclude_self,
             exclude_orchestrator=exclude_orchestrator,
-            team=team
+            team=team,
         )
 
     def effective_team(self, team=None):

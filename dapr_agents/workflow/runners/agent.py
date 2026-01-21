@@ -347,7 +347,10 @@ class AgentRunner(WorkflowRunner):
         self._wired_pubsub = True
 
     def _wire_http_routes(
-        self, *, agent: Union[DurableAgent, OrchestratorBase], fastapi_app: Optional[FastAPI]
+        self,
+        *,
+        agent: Union[DurableAgent, OrchestratorBase],
+        fastapi_app: Optional[FastAPI],
     ) -> None:
         if fastapi_app is None or self._wired_http:
             return
@@ -587,7 +590,9 @@ class AgentRunner(WorkflowRunner):
         )
         logger.info("Mounted default workflow status endpoint at %s", status_path)
 
-    def shutdown(self, agent: Optional[Union[DurableAgent, OrchestratorBase]] = None) -> None:
+    def shutdown(
+        self, agent: Optional[Union[DurableAgent, OrchestratorBase]] = None
+    ) -> None:
         """
         Unwire subscriptions and close owned clients.
 
