@@ -43,6 +43,7 @@ from dapr_agents.types import AssistantMessage, ToolExecutionRecord, UserMessage
 
 from opentelemetry import trace
 from opentelemetry import _logs
+from opentelemetry.sdk._logs import LoggingHandler
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
@@ -1069,6 +1070,8 @@ class AgentBase(AgentComponents):
                         )
 
                 logger_provider.add_log_record_processor(log_processor)
+                handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+                logging.getLogger().addHandler(handler)
                 _logs.set_logger_provider(logger_provider)
 
             tracer_provider = None
