@@ -1061,7 +1061,7 @@ class AgentBase(AgentComponents):
                     case AgentLoggingExporter.OTLP_HTTP:
                         log_processor = BatchLogRecordProcessor(
                             OTLPHTTPLogExporter(
-                                endpoint=_endpoint, headers=otlp_headers
+                                endpoint=f"{_endpoint}/v1/logs" if "/v1/logs" not in _endpoint else _endpoint, headers=otlp_headers
                             )
                         )
                     case _:
@@ -1091,10 +1091,10 @@ class AgentBase(AgentComponents):
                         )
                     case AgentTracingExporter.OTLP_HTTP:
                         tracing_exporter = OTLPHTTPSpanExporter(
-                            endpoint=_endpoint, headers=otlp_headers
+                            endpoint=f"{_endpoint}/v1/traces" if "/v1/traces" not in _endpoint else _endpoint, headers=otlp_headers
                         )
                     case AgentTracingExporter.ZIPKIN:
-                        tracing_exporter = ZipkinExporter(endpoint=_endpoint)
+                        tracing_exporter = ZipkinExporter(endpoint=f"{_endpoint}/api/v2/spans" if "/api/v2/spans" not in _endpoint else _endpoint)
                     case _:
                         tracing_exporter = ConsoleSpanExporter()
 
