@@ -928,7 +928,7 @@ class AgentBase(AgentComponents):
 
         try:
             enabled = self._runtime_conf.get("OTEL_ENABLED", "false").lower() == "true"
-            auth_token = self._runtime_conf.get("OTEL_TOKEN") or None
+            auth_token = self._runtime_secrets.get("OTEL_TOKEN") or self._runtime_conf.get("OTEL_TOKEN") or None
             endpoint = self._runtime_conf.get("OTEL_ENDPOINT") or None
             service_name = self._runtime_conf.get("OTEL_SERVICE_NAME") or None
             logging_enabled = (
