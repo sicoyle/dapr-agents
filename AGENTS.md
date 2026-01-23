@@ -28,6 +28,7 @@
 Dapr Agents use semantic versioning for releasing. Prefer making changes that allow backward compatability.
 
 **Code Quality** (enforced by CI):
+- **Python version**: >=3.11
 - **Formatting**: ruff (auto-format, no exceptions)
 - **Linting**: flake8 (ignores: E501, F401, W503, E203)
 - **Type Checking**: mypy (config: `./mypy.ini`)
