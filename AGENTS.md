@@ -24,6 +24,9 @@
 - Types: `feat`, `fix`, `docs`, `chore`, `test`, `refactor`, `perf`, `ci`, `style`, `build`
 - Example: `feat(agents): add new orchestrator` or `fix(llm): handle timeout errors`
 
+**Versioning**:
+Dapr Agents use semantic versioning for releasing. Prefer making changes that allow backward compatability.
+
 **Code Quality** (enforced by CI):
 - **Formatting**: ruff (auto-format, no exceptions)
 - **Linting**: flake8 (ignores: E501, F401, W503, E203)
