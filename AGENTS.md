@@ -21,7 +21,7 @@
 **Branch Names**: `feat/*`, `fix/*`, `bugfix/*`, `hotfix/*`
 
 **Commit Format**: `<type>[scope]: <description>`
-- Types: `feat`, `fix`, `docs`, `chore`, `test`, `refactor`, `perf`, `ci`
+- Types: `feat`, `fix`, `docs`, `chore`, `test`, `refactor`, `perf`, `ci`, `style`, `build`
 - Example: `feat(agents): add new orchestrator` or `fix(llm): handle timeout errors`
 
 **Code Quality** (enforced by CI):
