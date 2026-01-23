@@ -43,6 +43,7 @@ from dapr_agents.types import AssistantMessage, ToolExecutionRecord, UserMessage
 
 from opentelemetry import trace
 from opentelemetry import _logs
+from opentelemetry.sdk._logs import LoggingHandler
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
@@ -268,6 +269,7 @@ class AgentBase(AgentComponents):
             workflow_grpc_options=workflow_grpc,
         )
 
+        self.instrumentor: Optional[DaprAgentsInstrumentor] = None
         self._setup_agent_runtime_configuration()
 
         # -----------------------------
@@ -926,7 +928,11 @@ class AgentBase(AgentComponents):
 
         try:
             enabled = self._runtime_conf.get("OTEL_ENABLED", "false").lower() == "true"
-            auth_token = self._runtime_conf.get("OTEL_TOKEN") or None
+            auth_token = (
+                self._runtime_secrets.get("OTEL_TOKEN")
+                or self._runtime_conf.get("OTEL_TOKEN")
+                or None
+            )
             endpoint = self._runtime_conf.get("OTEL_ENDPOINT") or None
             service_name = self._runtime_conf.get("OTEL_SERVICE_NAME") or None
             logging_enabled = (
@@ -1059,7 +1065,10 @@ class AgentBase(AgentComponents):
                     case AgentLoggingExporter.OTLP_HTTP:
                         log_processor = BatchLogRecordProcessor(
                             OTLPHTTPLogExporter(
-                                endpoint=_endpoint, headers=otlp_headers
+                                endpoint=f"{_endpoint}/v1/logs"
+                                if "/v1/logs" not in _endpoint
+                                else _endpoint,
+                                headers=otlp_headers,
                             )
                         )
                     case _:
@@ -1068,6 +1077,10 @@ class AgentBase(AgentComponents):
                         )
 
                 logger_provider.add_log_record_processor(log_processor)
+                handler = LoggingHandler(
+                    level=logging.NOTSET, logger_provider=logger_provider
+                )
+                logging.getLogger().addHandler(handler)
                 _logs.set_logger_provider(logger_provider)
 
             tracer_provider = None
@@ -1087,10 +1100,17 @@ class AgentBase(AgentComponents):
                         )
                     case AgentTracingExporter.OTLP_HTTP:
                         tracing_exporter = OTLPHTTPSpanExporter(
-                            endpoint=_endpoint, headers=otlp_headers
+                            endpoint=f"{_endpoint}/v1/traces"
+                            if "/v1/traces" not in _endpoint
+                            else _endpoint,
+                            headers=otlp_headers,
                         )
                     case AgentTracingExporter.ZIPKIN:
-                        tracing_exporter = ZipkinExporter(endpoint=_endpoint)
+                        tracing_exporter = ZipkinExporter(
+                            endpoint=f"{_endpoint}/api/v2/spans"
+                            if "/api/v2/spans" not in _endpoint
+                            else _endpoint
+                        )
                     case _:
                         tracing_exporter = ConsoleSpanExporter()
 
@@ -1098,8 +1118,8 @@ class AgentBase(AgentComponents):
                 tracer_provider.add_span_processor(span_processor)
                 trace.set_tracer_provider(tracer_provider)
 
-            instrumentor = DaprAgentsInstrumentor()
-            instrumentor.instrument(
+            self.instrumentor = DaprAgentsInstrumentor()
+            self.instrumentor.instrument(
                 tracer_provider=tracer_provider,
                 logger_provider=logger_provider,
             )
