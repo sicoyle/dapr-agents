@@ -6,16 +6,15 @@
 
 ## Quick Commands
 
-- **Setup**: `uv venv && source .venv/bin/activate && uv sync`
-- **Before commit (REQUIRED)**: `tox`
+- **Setup**: `uv venv && source .venv/bin/activate && uv sync --group test`
+- **Before commit (REQUIRED)**: `uv run ruff format && uv run flake8 dapr_agents tests --ignore=E501,F401,W503,E203,E704 && uv run mypy --config-file mypy.ini && uv run pytest tests -m "not integration"`
 - **Individual checks**:
-  - Auto-format: `tox -e ruff`
-  - Lint: `tox -e flake8`
-  - Type check: `tox -e type`
-  - Unit tests: `tox -e pytest`
+  - Auto-format: `uv run ruff format`
+  - Lint: `uv run flake8 dapr_agents tests --ignore=E501,F401,W503,E203,E704`
+  - Type check: `uv run mypy --config-file mypy.ini`
+  - Unit tests: `uv run pytest tests -m "not integration"`
 - **Testing**:
-  - Unit tests only: `pytest tests -m "not integration"`
-  - Integration tests (requires API keys): `pytest tests -m integration`
+  - Integration tests (requires API keys): `uv run pytest tests -m integration`
 
 ## Code Standards
 
@@ -37,8 +36,6 @@
 - `agents/`, `llm/`, `workflow/` - Unit tests
 - `quickstarts/` - E2E integration tests (requires API keys: `OPENAI_API_KEY`, etc.)
 
-**Run Before Commit**: `tox` (tests Python 3.11, 3.12, 3.13)
-
 **CI** (`./.github/workflows/build.yaml`): ruff → flake8 → mypy → pytest
 - Matrix: Python 3.11, 3.12, 3.13, 3.14
 - Failures block merge
@@ -46,7 +43,7 @@
 ## Pull Request Rules
 
 **REQUIRED Before PR**:
-1. Run `tox` locally - all checks must pass
+1. Run `uv run ruff format && uv run flake8 dapr_agents tests --ignore=E501,F401,W503,E203,E704 && uv run mypy --config-file mypy.ini && uv run pytest tests -m "not integration"` locally - all checks must pass
 2. Use conventional commit format for PR title
 3. Update docs in `dapr/docs` repo for: API changes, new features, breaking changes, config options
 4. Include "AGENTS.md Notes" in the PR with suggestions to make this prompt better
