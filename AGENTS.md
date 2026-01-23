@@ -53,6 +53,7 @@ Dapr Agents use semantic versioning for releasing. Prefer making changes that al
 4. Include "AGENTS.md Notes" in the PR with suggestions to make this prompt better
 
 **PR Will Fail If**:
+- Commits are not signed
 - Not formatted with ruff
 - Flake8 errors exist
 - Mypy type errors present
