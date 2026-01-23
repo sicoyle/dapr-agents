@@ -40,7 +40,7 @@
 **Run Before Commit**: `tox` (tests Python 3.11, 3.12, 3.13)
 
 **CI** (`./.github/workflows/build.yaml`): ruff → flake8 → mypy → pytest
-- Matrix: Python 3.11, 3.12, 3.13
+- Matrix: Python 3.11, 3.12, 3.13, 3.14
 - Failures block merge
 
 ## Pull Request Rules
