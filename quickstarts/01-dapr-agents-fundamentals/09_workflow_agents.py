@@ -9,7 +9,6 @@ from dapr_agents import Agent, tool
 from dapr_agents.agents.configs import AgentMemoryConfig
 from dapr_agents.llm.dapr import DaprChatClient
 from dapr_agents.memory import ConversationDaprStateMemory
-from dapr_agents.workflow.decorators import agent_activity
 
 load_dotenv()
 

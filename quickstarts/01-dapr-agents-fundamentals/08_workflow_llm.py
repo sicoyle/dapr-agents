@@ -5,7 +5,6 @@ from dapr.ext.workflow import DaprWorkflowContext, WorkflowRuntime
 from dotenv import load_dotenv
 
 from dapr_agents.llm.dapr import DaprChatClient
-from dapr_agents.workflow.decorators import llm_activity
 
 load_dotenv()
 

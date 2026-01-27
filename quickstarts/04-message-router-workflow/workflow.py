@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from dapr_agents.llm.dapr import DaprChatClient
-from dapr_agents.workflow.decorators import llm_activity
-from dapr_agents.workflow.decorators.routers import message_router
+from dapr_agents.workflow.decorators.decorators import message_router
 
 load_dotenv()
 

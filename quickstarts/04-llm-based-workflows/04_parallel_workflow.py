@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from dapr_agents.llm.dapr import DaprChatClient
-from dapr_agents.workflow.decorators import llm_activity
 
 # Load environment variables (API keys, etc.)
 load_dotenv()
