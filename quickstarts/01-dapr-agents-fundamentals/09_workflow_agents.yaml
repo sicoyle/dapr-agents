@@ -1,6 +1,6 @@
 version: 1
 common:
-  resourcesPath: ./resources
+  resourcesPath: ./components
   logLevel: info
   appLogDestination: console
   daprdLogDestination: console
