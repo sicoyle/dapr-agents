@@ -309,7 +309,7 @@ When the workflow runs, it first delegates the request to a triage agent, which 
 
 ## How This Works
 
-1. The workflow invokes each agent using activities decorated with @agent_activity, which handles calling the agent and returning structured output.
+1. The workflow invokes each agent by calling agent-backed activities as child workflows using `ctx.call_child_workflow`, which handles calling the agent and returning structured output.
 2. The triage activity runs first, producing a summary based on customer data and the issue description.
 3. The output of the triage agent is passed into the expert agent activity to generate the final recommendation.
 4. Although agents can use tools and maintain their own memory, the workflow execution is what provides durability: if interrupted, it restarts from the last completed step.

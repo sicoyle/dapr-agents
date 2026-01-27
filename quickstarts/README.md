@@ -106,7 +106,7 @@ This quickstart demonstrates how to design and run sequential and parallel workf
 
 ### Agent-based Workflow Patterns
 
-Learn to orchestrate **autonomous, role-driven agents** inside Dapr Workflows using the `@agent_activity` decorator.  
+Learn to orchestrate **autonomous, role-driven agents** inside Dapr Workflows by calling agent-backed activities as child workflows.  
 These patterns focus on chaining and coordinating specialized agents that reason, plan, and act within durable, stateful workflows.
 
 > Currently, this does not work with `DurableAgents`.
