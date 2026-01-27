@@ -94,7 +94,7 @@ This quickstart demonstrates how to build a weather assistant with durable, work
 
 ### LLM-based Workflow Patterns
 
-Learn to orchestrate stateful, resilient workflows powered by Language Models (LLMs) using `@llm_activity` decorator.
+Learn to orchestrate stateful, resilient workflows powered by Language Models (LLMs).
 
 - **LLM-powered Tasks**: Automate reasoning and decision-making in workflows
 - **Task Chaining**: Build multi-step processes with reliable state management

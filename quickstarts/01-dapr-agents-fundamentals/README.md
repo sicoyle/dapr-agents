@@ -286,8 +286,8 @@ The workflow generates a short outline for the given topic using an LLM, then us
 
 ## How This Works
 
-1. The workflow first performs an LLM-backed activity that generates an outline from the topic. This activity is decorated with `@llm_activity`, a Dapr Agents annotation that simplifies workflow activities by automatically wiring in the LLM client and performing the model invocation for you.
-2. The resulting outline is passed to a second `@llm_activity`-decorated activity, which uses the LLM to generate the final blog post. This output is returned as the result of the workflow.
+1. The workflow first performs an LLM-backed activity that generates an outline from the topic. This activity uses a direct LLM call, optionally with schema validation, for predictable and validated output.
+2. The resulting outline is passed to a second LLM-backed activity, which uses the LLM to generate the final blog post. This output is returned as the result of the workflow.
 
 ## How to Extend This Example
 * Modify the workflow to include additional activities that do not interact with LLMs, such as inserting validation steps, transformations, or business logic between LLM activities.
