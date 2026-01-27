@@ -363,14 +363,12 @@ name = "09-agents-as-activities-observability"
 version = "0.1.0"
 source = { virtual = "quickstarts/09-agents-as-activities-observability" }
 dependencies = [
-    { name = "arize-phoenix" },
     { name = "dapr-agents" },
     { name = "python-dotenv" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "arize-phoenix", specifier = ">=12.16.0" },
     { name = "dapr-agents", editable = "." },
     { name = "python-dotenv", specifier = ">=1.2.1" },
 ]
