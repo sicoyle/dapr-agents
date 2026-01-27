@@ -27,27 +27,24 @@ def task_chain_workflow(ctx: DaprWorkflowContext):
 
 
 @runtime.activity(name="get_character")
-@llm_activity(
-    prompt="""
+def get_character(ctx) -> str:
+    return str(
+        llm.generate(
+            prompt="""
 Pick a random character from The Lord of the Rings.
 Respond with the character's name only.
-""",
-    llm=llm,
-)
-def get_character(ctx) -> str:
-    # The llm_activity decorator handles the LLM call using the prompt above.
-    # Just declare the signature; the body can be empty or 'pass'.
-    pass
+"""
+        )
+    )
 
 
 @runtime.activity(name="get_line")
-@llm_activity(
-    prompt="What is a famous line by {character}?",
-    llm=llm,
-)
 def get_line(ctx, character: str) -> str:
-    # The llm_activity decorator will format the prompt with 'character'.
-    pass
+    return str(
+        llm.generate(
+            prompt=f"What is a famous line by {character}?"
+        )
+    )
 
 
 if __name__ == "__main__":

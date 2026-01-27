@@ -22,12 +22,12 @@ def single_task_workflow(ctx: DaprWorkflowContext, name: str):
 
 
 @runtime.activity(name="describe_person")
-@llm_activity(
-    prompt="Who was {name}?",
-    llm=llm,
-)
-async def describe_person(ctx, name: str) -> str:
-    pass
+def describe_person(ctx, name: str) -> str:
+    return str(
+        llm.generate(
+            prompt=f"Who was {name}?"
+        )
+    )
 
 
 if __name__ == "__main__":
