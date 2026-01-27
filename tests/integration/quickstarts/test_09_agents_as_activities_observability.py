@@ -1,4 +1,5 @@
 """Integration tests for 09-agents-as-activities-observability quickstart."""
+
 import pytest
 from tests.integration.quickstarts.conftest import run_quickstart_script
 
