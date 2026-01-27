@@ -1260,8 +1260,8 @@ def _run_with_pubsub_trigger(
         publish_cmd = [
             "dapr",
             "publish",
-            "--dapr-http-port",
-            str(dapr_http_port),
+            "--publish-app-id",
+            "e2e-test-publisher",
             "--pubsub",
             pubsub_name,
             "--topic",
