@@ -31,6 +31,7 @@ class Question(BaseModel):
 
 class Questions(BaseModel):
     """Encapsulates a list of research questions."""
+
     questions: List[Question] = Field(
         ..., description="A list of research questions generated for the topic."
     )
