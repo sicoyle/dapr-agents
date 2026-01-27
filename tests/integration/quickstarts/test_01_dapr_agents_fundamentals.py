@@ -1,7 +1,10 @@
 """Integration tests for 01-dapr-agents-fundamentals quickstart."""
 
 import pytest
-from tests.integration.quickstarts.conftest import run_quickstart_script
+from tests.integration.quickstarts.conftest import (
+    run_quickstart_multi_app,
+    run_quickstart_script,
+)
 
 
 @pytest.mark.integration
@@ -235,19 +238,17 @@ class TestHelloWorldQuickstart:
         Note: dapr_runtime parameter ensures Dapr is initialized before this test runs.
         The fixture is needed for setup, even though we don't use the value directly.
         """
-        script_path = self.quickstart_dir / "09_workflow_agents.py"
-        result = run_quickstart_script(
-            script_path,
+        dapr_yaml = self.quickstart_dir / "09_workflow_agents.yaml"
+        result = run_quickstart_multi_app(
+            dapr_yaml,
             cwd=self.quickstart_dir,
             env=self.env,
             timeout=180,
-            use_dapr=True,
-            app_id="workflow-agents",
-            resources_path=self.quickstart_dir / "resources",
+            stream_logs=True,
         )
 
         assert result.returncode == 0, (
-            f"Quickstart script '{script_path}' failed with return code {result.returncode}.\n"
+            f"Quickstart script '{dapr_yaml}' failed with return code {result.returncode}.\n"
             f"STDOUT:\n{result.stdout}\n"
             f"STDERR:\n{result.stderr}"
         )
