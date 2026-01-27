@@ -20,7 +20,7 @@ def main():
         llm=llm,
         memory=AgentMemoryConfig(
             store=ConversationDaprStateMemory(
-                store_name="conversation-statestore",
+                store_name="agent-memory",
                 session_id=f"expert-agent-session",
             )
         ),

@@ -8,12 +8,12 @@ common:
 apps:
   - appID: triage-agent
     appDirPath: ./
-    command: ["python3", "triage_agent.py"]
+    command: ["python3", "09_triage_agent.py"]
     appPort: 8001
 
   - appID: expert-agent
     appDirPath: ./
-    command: ["python3", "expert_agent.py"]
+    command: ["python3", "09_expert_agent.py"]
     appPort: 8002
 
   - appID: workflow

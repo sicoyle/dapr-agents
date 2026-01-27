@@ -35,7 +35,7 @@ def main():
         tools=[get_customer_info],
         memory=AgentMemoryConfig(
             store=ConversationDaprStateMemory(
-                store_name="conversation-statestore",
+                store_name="agent-memory",
                 session_id=f"triage-agent-session",
             )
         ),
