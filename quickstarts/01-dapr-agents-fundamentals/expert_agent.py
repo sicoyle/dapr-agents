@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 llm = DaprChatClient(component_name="llm-provider")
 
+
 def main():
     expert_agent = DurableAgent(
         name="expert_agent",
@@ -29,6 +30,7 @@ def main():
         runner.serve(expert_agent, port=8002)
     finally:
         runner.shutdown(expert_agent)
+
 
 if __name__ == "__main__":
     main()

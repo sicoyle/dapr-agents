@@ -11,7 +11,7 @@ def support_workflow(ctx: wf.DaprWorkflowContext, request: dict) -> str:
     # Each step is durable and can be retried
     triage_result = yield ctx.call_child_workflow(
         workflow="agent_workflow",
-        input={ "task": f"Assist with the following support request:\n\n{request}" },
+        input={"task": f"Assist with the following support request:\n\n{request}"},
         app_id="triage-agent",
     )
     if triage_result:
@@ -19,7 +19,7 @@ def support_workflow(ctx: wf.DaprWorkflowContext, request: dict) -> str:
 
     recommendation = yield ctx.call_child_workflow(
         workflow="agent_workflow",
-        input={ "task": triage_result.get("content", "") },
+        input={"task": triage_result.get("content", "")},
         app_id="expert-agent",
     )
     if recommendation:

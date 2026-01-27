@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 llm = DaprChatClient(component_name="llm-provider")
 
+
 @tool
 def get_customer_info(customer_name: str) -> str:
     """Get customer information by name. Returns a simple text description."""
@@ -20,6 +21,7 @@ def get_customer_info(customer_name: str) -> str:
         customer_name.lower(),
         f"Customer: {customer_name}, Standard Plan, 1 active service",
     )
+
 
 def main():
     triage_agent = DurableAgent(
@@ -43,6 +45,7 @@ def main():
         runner.serve(triage_agent, port=8001)
     finally:
         runner.shutdown(triage_agent)
+
 
 if __name__ == "__main__":
     main()
