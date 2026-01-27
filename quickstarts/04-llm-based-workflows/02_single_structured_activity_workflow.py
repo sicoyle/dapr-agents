@@ -41,6 +41,7 @@ def describe_dog(ctx, name: str) -> Dog:
         raise RuntimeError(f"LLM did not return a valid Dog: {e}")
     return dog
 
+
 if __name__ == "__main__":
     runtime.start()
     time.sleep(5)

@@ -13,6 +13,7 @@ HttpMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 
 R = TypeVar("R")
 
+
 def workflow_entry(func: Callable[..., R]) -> Callable[..., R]:
     """
     Mark a method/function as the workflow entrypoint for an Agent.

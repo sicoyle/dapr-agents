@@ -11,7 +11,8 @@ from dapr_agents.llm.dapr import DaprChatClient
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 llm = DaprChatClient(component_name="openai")
-\
+
+
 def main():
     extractor = DurableAgent(
         name="DestinationExtractor",
@@ -28,6 +29,7 @@ def main():
         runner.serve(extractor, port=8001)
     finally:
         runner.shutdown(extractor)
+
 
 if __name__ == "__main__":
     main()

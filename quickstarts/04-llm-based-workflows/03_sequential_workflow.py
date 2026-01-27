@@ -40,11 +40,7 @@ Respond with the character's name only.
 
 @runtime.activity(name="get_line")
 def get_line(ctx, character: str) -> str:
-    return str(
-        llm.generate(
-            prompt=f"What is a famous line by {character}?"
-        )
-    )
+    return str(llm.generate(prompt=f"What is a famous line by {character}?"))
 
 
 if __name__ == "__main__":

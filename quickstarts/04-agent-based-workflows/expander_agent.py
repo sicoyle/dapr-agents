@@ -11,7 +11,8 @@ from dapr_agents.llm.dapr import DaprChatClient
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 llm = DaprChatClient(component_name="openai")
-\
+
+
 def main():
     expander = DurableAgent(
         name="ItineraryAgent",
@@ -28,6 +29,7 @@ def main():
         runner.serve(expander, port=8003)
     finally:
         runner.shutdown(expander)
+
 
 if __name__ == "__main__":
     main()
