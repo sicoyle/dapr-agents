@@ -40,8 +40,6 @@ from dapr_agents.workflow.utils.grpc import apply_grpc_options
 from dapr_agents.workflow.utils.pubsub import broadcast_message, send_message_to_agent
 
 logger = logging.getLogger(__name__)
-
-
 class DurableAgent(AgentBase):
     """
     Workflow-native durable agent runtime on top of AgentBase.
@@ -133,7 +131,8 @@ class DurableAgent(AgentBase):
             agent_observability=agent_observability,
         )
 
-        apply_grpc_options(self.workflow_grpc_options)
+        grpc_options = getattr(self, 'workflow_grpc_options', None)
+        apply_grpc_options(grpc_options)
 
         self._runtime: wf.WorkflowRuntime = runtime or wf.WorkflowRuntime()
         self._runtime_owned = runtime is None
@@ -249,7 +248,6 @@ class DurableAgent(AgentBase):
                         self.execution.max_iterations,
                         ctx.instance_id,
                     )
-
                 assistant_response: Dict[str, Any] = yield ctx.call_activity(
                     self.call_llm,
                     input={
@@ -283,7 +281,6 @@ class DurableAgent(AgentBase):
                         for idx, tc in enumerate(tool_calls)
                     ]
                     tool_results: List[Dict[str, Any]] = yield wf.when_all(parallel)
-
                     yield ctx.call_activity(
                         self.save_tool_results,
                         input={
@@ -292,7 +289,6 @@ class DurableAgent(AgentBase):
                         },
                         retry_policy=self._retry_policy,
                     )
-
                     task = None  # prepare for next turn
                     continue
 
@@ -511,13 +507,13 @@ class DurableAgent(AgentBase):
         Raises:
             AgentError: If the LLM call fails or yields no message.
         """
-        # Load latest state to ensure we have current data
-        if self.state_store:
-            self.load_state()
-
         instance_id = payload.get("instance_id")
         task = payload.get("task")
 
+        # Load latest state to ensure we have current data
+        if self.state_store:
+            self.load_state()
+            
         chat_history = self._reconstruct_conversation_history(instance_id)
         messages = self.prompting_helper.build_initial_messages(
             user_input=task,
@@ -581,7 +577,6 @@ class DurableAgent(AgentBase):
         tool_call = payload.get("tool_call", {})
         fn_name = tool_call["function"]["name"]
         raw_args = tool_call["function"].get("arguments", "")
-
         try:
             args = json.loads(raw_args) if raw_args else {}
         except json.JSONDecodeError as exc:
@@ -589,10 +584,8 @@ class DurableAgent(AgentBase):
 
         async def _execute_tool() -> Any:
             return await self.tool_executor.run_tool(fn_name, **args)
-
         result = self._run_asyncio_task(_execute_tool())
 
-        # Debug: Log the actual result before serialization
         logger.debug(f"Tool {fn_name} returned: {result} (type: {type(result)})")
 
         # Serialize the tool result using centralized utility
@@ -607,7 +600,6 @@ class DurableAgent(AgentBase):
 
         # Print the tool result for visibility
         self.text_formatter.print_message(tool_result)
-
         return tool_result.model_dump()
 
     def save_tool_results(
