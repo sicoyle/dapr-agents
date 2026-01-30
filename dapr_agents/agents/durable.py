@@ -40,6 +40,8 @@ from dapr_agents.workflow.utils.grpc import apply_grpc_options
 from dapr_agents.workflow.utils.pubsub import broadcast_message, send_message_to_agent
 
 logger = logging.getLogger(__name__)
+
+
 class DurableAgent(AgentBase):
     """
     Workflow-native durable agent runtime on top of AgentBase.
@@ -131,7 +133,7 @@ class DurableAgent(AgentBase):
             agent_observability=agent_observability,
         )
 
-        grpc_options = getattr(self, 'workflow_grpc_options', None)
+        grpc_options = getattr(self, "workflow_grpc_options", None)
         apply_grpc_options(grpc_options)
 
         self._runtime: wf.WorkflowRuntime = runtime or wf.WorkflowRuntime()
@@ -513,7 +515,7 @@ class DurableAgent(AgentBase):
         # Load latest state to ensure we have current data
         if self.state_store:
             self.load_state()
-            
+
         chat_history = self._reconstruct_conversation_history(instance_id)
         messages = self.prompting_helper.build_initial_messages(
             user_input=task,
@@ -583,6 +585,7 @@ class DurableAgent(AgentBase):
 
         async def _execute_tool() -> Any:
             return await self.tool_executor.run_tool(fn_name, **args)
+
         result = self._run_asyncio_task(_execute_tool())
 
         logger.debug(f"Tool {fn_name} returned: {result} (type: {type(result)})")
