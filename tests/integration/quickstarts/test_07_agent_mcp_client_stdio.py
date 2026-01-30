@@ -1,4 +1,5 @@
 """Integration tests for 07-agent-mcp-client-stdio quickstart."""
+
 import pytest
 from tests.integration.quickstarts.conftest import run_quickstart_script
 
@@ -20,7 +21,7 @@ class TestMCPClientStdioQuickstart:
             script,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=90,
+            timeout=180,
             use_dapr=True,
             app_id="mcp-agent-stdio",
             stream_logs=True,

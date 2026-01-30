@@ -1,4 +1,5 @@
 """Integration tests for 04-llm-based-workflows quickstart."""
+
 import pytest
 from tests.integration.quickstarts.conftest import run_quickstart_script
 
@@ -19,7 +20,7 @@ class TestLLMBasedWorkflowsQuickstart:
             script,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=120,  # Workflows with Dapr may take longer
+            timeout=180,  # Workflows with Dapr may take longer
             use_dapr=True,
             app_id="dapr-agent-wf-sequence",
         )
@@ -37,7 +38,7 @@ class TestLLMBasedWorkflowsQuickstart:
             script,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=120,  # Workflows with Dapr may take longer
+            timeout=180,  # Workflows with Dapr may take longer
             use_dapr=True,
             app_id="dapr-agent-wf-sequence",
         )

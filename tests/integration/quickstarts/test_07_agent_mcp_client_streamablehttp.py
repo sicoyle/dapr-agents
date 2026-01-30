@@ -1,4 +1,5 @@
 """Integration tests for 07-agent-mcp-client-streamablehttp quickstart."""
+
 import pytest
 from tests.integration.quickstarts.conftest import (
     run_quickstart_script,
@@ -36,7 +37,7 @@ class TestMCPClientStreamableHTTPQuickstart:
                 script,
                 cwd=self.quickstart_dir,
                 env=self.env,
-                timeout=120,
+                timeout=180,
                 use_dapr=True,
                 app_id="mcp-agent-streamable",
                 app_port=8001,

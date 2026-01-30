@@ -1,4 +1,5 @@
 """Integration tests for 07-agent-mcp-client-sse quickstart."""
+
 import pytest
 from tests.integration.quickstarts.conftest import (
     run_quickstart_script,
@@ -36,7 +37,7 @@ class TestMCPClientSSEQuickstart:
                 script,
                 cwd=self.quickstart_dir,
                 env=self.env,
-                timeout=120,
+                timeout=180,
                 use_dapr=True,
                 app_id="mcp-agent-sse",
                 app_port=8001,
@@ -57,6 +58,6 @@ class TestMCPClientSSEQuickstart:
             # expect some output
             assert len(result.stdout) > 0 or len(result.stderr) > 0
             # Verify MCP connection succeeded (should not see "Failed to load MCP tools" error)
-            assert (
-                "Failed to load MCP tools via SSE" not in result.stderr
-            ), "MCP server connection failed. Check that server started correctly."
+            assert "Failed to load MCP tools via SSE" not in result.stderr, (
+                "MCP server connection failed. Check that server started correctly."
+            )

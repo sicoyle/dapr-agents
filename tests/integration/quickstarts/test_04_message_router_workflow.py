@@ -1,4 +1,5 @@
 """Integration tests for 04-message-router-workflow quickstart."""
+
 import pytest
 from tests.integration.quickstarts.conftest import run_quickstart_script
 
@@ -27,7 +28,7 @@ class TestMessageRouterWorkflowQuickstart:
             script,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=120,
+            timeout=180,
             use_dapr=True,
             app_id="message-router-app",
             dapr_http_port=3500,

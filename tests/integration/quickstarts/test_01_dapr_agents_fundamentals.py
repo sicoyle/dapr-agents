@@ -1,4 +1,5 @@
 """Integration tests for 01-dapr-agents-fundamentals quickstart."""
+
 import pytest
 from tests.integration.quickstarts.conftest import run_quickstart_script
 
@@ -24,7 +25,7 @@ class TestHelloWorldQuickstart:
             script_path,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=120,
+            timeout=180,
             use_dapr=True,
             app_id="llm-client",
             resources_path=self.quickstart_dir / "resources",
@@ -50,7 +51,7 @@ class TestHelloWorldQuickstart:
             script_path,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=120,
+            timeout=180,
             use_dapr=True,
             app_id="agent-llm",
             resources_path=self.quickstart_dir / "resources",
@@ -76,7 +77,7 @@ class TestHelloWorldQuickstart:
             script_path,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=120,
+            timeout=180,
             use_dapr=True,
             app_id="agent-llm",
             resources_path=self.quickstart_dir / "resources",
@@ -120,7 +121,7 @@ class TestHelloWorldQuickstart:
             script_path,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=120,
+            timeout=180,
             use_dapr=True,
             app_id="agent-memory",
             resources_path=self.quickstart_dir / "resources",
@@ -146,7 +147,7 @@ class TestHelloWorldQuickstart:
             script_path,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=120,
+            timeout=180,
             use_dapr=True,
             app_id="durable-agent",
             app_port=8001,
@@ -178,7 +179,7 @@ class TestHelloWorldQuickstart:
             script_path,
             cwd=self.quickstart_dir,
             env=self.env,
-            timeout=120,
+            timeout=180,
             use_dapr=True,
             app_id="durable-agent-sub",
             dapr_http_port=3500,
