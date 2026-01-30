@@ -546,7 +546,6 @@ class DurableAgent(AgentBase):
         try:
             response: LLMChatResponse = self.llm.generate(**generate_kwargs)
         except Exception as exc:  # noqa: BLE001
-            logger.exception("LLM generate failed: %s", exc)
             raise AgentError(str(exc)) from exc
 
         assistant_message = response.get_message()
