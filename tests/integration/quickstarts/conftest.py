@@ -490,6 +490,15 @@ def run_quickstart_multi_app(
             yaml_data = yaml.safe_load(f)
         if yaml_data and "common" in yaml_data:
             yaml_data["common"]["resourcesPath"] = str(tmp_path)
+        # Update appDirPath for each app to use absolute path to quickstart_dir
+        # This ensures scripts are found even when YAML is in a temp directory
+        if yaml_data and "apps" in yaml_data:
+            for app in yaml_data["apps"]:
+                if "appDirPath" in app:
+                    app_dir = app["appDirPath"]
+                    # If relative path, resolve it relative to quickstart_dir
+                    if not Path(app_dir).is_absolute():
+                        app["appDirPath"] = str((quickstart_dir / app_dir).resolve())
         temp_dir = tempfile.mkdtemp(prefix="rendered_yaml_")
         temp_yaml_path = Path(temp_dir) / dapr_yaml_path.name
         with open(temp_yaml_path, "w") as f:
