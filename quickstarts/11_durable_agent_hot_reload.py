@@ -20,7 +20,11 @@ async def main():
     # for supported backends.
     config = RuntimeSubscriptionConfig(
         store_name="runtime-config",
-        keys=[RuntimeConfigKey.AGENT_ROLE, RuntimeConfigKey.AGENT_GOAL, RuntimeConfigKey.AGENT_INSTRUCTIONS],
+        keys=[
+            RuntimeConfigKey.AGENT_ROLE,
+            RuntimeConfigKey.AGENT_GOAL,
+            RuntimeConfigKey.AGENT_INSTRUCTIONS,
+        ],
     )
 
     # Durable state configuration
