@@ -191,8 +191,7 @@ class AgentBase:
             target_type=str,
             setter=lambda agent, v: (
                 setattr(agent.registry_state, "store_name", str(v))
-                if agent.registry_state
-                and hasattr(agent.registry_state, "store_name")
+                if agent.registry_state and hasattr(agent.registry_state, "store_name")
                 else None
             ),
         ),

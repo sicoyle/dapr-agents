@@ -256,7 +256,6 @@ class RuntimeSubscriptionConfig:
     on_config_change: Optional[Callable[[str, Any], None]] = None
 
 
-
 @dataclass
 class AgentRegistryConfig:
     """Configuration for agent registry storage."""
