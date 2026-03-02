@@ -165,11 +165,6 @@ class AgentBase:
             setter=lambda agent, v: setattr(agent.llm, "api_key", v),
             sensitive=True,
         ),
-        RuntimeConfigKey.OPENAI_API_KEY: ConfigFieldDescriptor(
-            target_type=str,
-            setter=lambda agent, v: setattr(agent.llm, "api_key", v),
-            sensitive=True,
-        ),
         RuntimeConfigKey.LLM_PROVIDER: ConfigFieldDescriptor(
             target_type=str,
             setter=lambda agent, v: setattr(agent.llm, "provider", v),

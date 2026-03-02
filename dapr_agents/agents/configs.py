@@ -392,7 +392,6 @@ class RuntimeConfigKey(StrEnum):
 
     # LLM fields
     LLM_API_KEY = "llm_api_key"
-    OPENAI_API_KEY = "openai_api_key"
     LLM_PROVIDER = "llm_provider"
     LLM_MODEL = "llm_model"
 
