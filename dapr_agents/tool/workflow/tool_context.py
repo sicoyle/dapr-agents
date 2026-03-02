@@ -23,15 +23,24 @@ class WorkflowContextInjectedTool(AgentTool):
         self, func: Callable, *args: Any, **kwargs: Any
     ) -> Dict[str, Any]:
         """
-        Pop workflow context out of kwargs, validate the remaining args against args_model,
-        then re-attach the context so the executor receives it.
+        Pop workflow context and any hidden runtime kwargs out of kwargs, validate
+        the remaining args against args_model, then re-attach the hidden kwargs so
+        the executor receives them without exposing them in the LLM tool schema.
+
+        Hidden kwargs stripped here:
+          - ``ctx``          — Dapr workflow context (required)
+          - ``_source_agent`` — name of the calling agent, used for "on-behalf-of"
+                                labelling (optional)
         """
         ctx = kwargs.pop(self.context_kwarg, None)
         if ctx is None:
             raise ToolError(
                 f"Missing workflow context. Pass it as '{self.context_kwarg}=<DaprWorkflowContext>'."
             )
+        source_agent = kwargs.pop("_source_agent", None)
 
         validated = super()._validate_and_prepare_args(func, *args, **kwargs)
         validated[self.context_kwarg] = ctx
+        if source_agent is not None:
+            validated["_source_agent"] = source_agent
         return validated

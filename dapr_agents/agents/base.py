@@ -392,6 +392,7 @@ class AgentBase:
             appid=self.appid or "unknown",
             type=type(self).__name__,
             orchestrator=bool(agent_metadata and agent_metadata.get("orchestrator")),
+            is_tool=self.is_tool,
             role=self.profile.role or None,
             goal=self.profile.goal or None,
             instructions=list(self.profile.instructions),

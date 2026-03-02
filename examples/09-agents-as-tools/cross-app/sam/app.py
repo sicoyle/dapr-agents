@@ -4,10 +4,6 @@ Cross-app agents-as-tools: Sam service.
 Sam runs as a standalone Dapr app (app-id: SamApp).
 Setting ``is_tool=True`` publishes the ``is_tool`` flag to the shared registry,
 so that any agent sharing that registry can discover and call Sam as a tool automatically.
-
-Sam can also be targeted explicitly via ``agent_to_tool`` without a registry by passing ``target_app_id="SamApp"``.
-Alternatively, as long as Sam and Frodo are registered under the same team,
-then Frodo will see that Sam is enabled as a tool and can call it automatically.
 """
 
 from __future__ import annotations

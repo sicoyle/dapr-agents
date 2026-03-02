@@ -48,6 +48,7 @@ def _schedule_agent_workflow(
     task: str,
     agent_name: str,
     target_app_id: Optional[str] = None,
+    _source_agent: Optional[str] = None,
 ) -> Any:
     """
     Schedule a child workflow for a named agent.
@@ -62,10 +63,16 @@ def _schedule_agent_workflow(
         task: The instruction to forward to the child agent.
         agent_name: Registered name of the target agent.
         target_app_id: Dapr app-id for cross-app routing; ``None`` for in-process.
+        _source_agent: Name of the calling agent; forwarded in ``_message_metadata``
+            so the child agent labels the user message as "on behalf of".
     """
+    input_payload: dict = {"task": task}
+    if _source_agent:
+        input_payload["_message_metadata"] = {"source": _source_agent}
+
     call_kwargs: dict = {
         "workflow": f"{agent_name}{AGENT_WORKFLOW_SUFFIX}",
-        "input": {"task": task},
+        "input": input_payload,
     }
     if target_app_id:
         call_kwargs["app_id"] = target_app_id

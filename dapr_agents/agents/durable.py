@@ -141,9 +141,10 @@ class DurableAgent(AgentBase):
 
             memory: Enable long-term conversation memory storage; defaults to false.
             llm: Chat client; defaults to `get_default_llm()`.
-            tools: Optional tool callables, ``AgentTool`` instances, ``DurableAgent``
-                instances (auto-converted to ``AgentWorkflowTool``), or agent name
-                strings (resolved from the registry at workflow start).
+            tools: Optional tool callables or ``AgentTool`` instances.
+                Agents marked ``is_tool=True`` in the shared registry are
+                auto-discovered at workflow start via ``_load_tools`` — no
+                explicit wiring needed.
 
             agent_metadata: Extra metadata to publish to the registry.
             workflow_grpc: Optional gRPC overrides for the workflow runtime channel.
@@ -159,20 +160,6 @@ class DurableAgent(AgentBase):
         if execution and execution.orchestration_mode:
             agent_metadata = dict(agent_metadata or {})
             agent_metadata["orchestrator"] = True
-
-        # Separate agent-as-tool entries from regular tools before passing to super class, ie AgentBase.
-        # DurableAgent instances and plain strings are not valid AgentToolExecutor entries.
-        _agents_as_tools: List[DurableAgent] = []
-        _agentname_as_tool: List[str] = []
-        _regular_callable_tools: List[Any] = []
-
-        for t in tools or []:
-            if isinstance(t, DurableAgent):
-                _agents_as_tools.append(t)
-            elif isinstance(t, str):
-                _agentname_as_tool.append(t)
-            else:
-                _regular_callable_tools.append(t)
 
         super().__init__(
             pubsub=pubsub,
@@ -190,25 +177,11 @@ class DurableAgent(AgentBase):
             agent_metadata=agent_metadata,
             workflow_grpc=workflow_grpc,
             llm=llm,
-            tools=_regular_callable_tools or None,
+            tools=tools,
             prompt_template=prompt_template,
             agent_observability=agent_observability,
             is_tool=is_tool,
         )
-
-        # Convert DurableAgent instances immediately — their appid is already set.
-        for agent_inst in _agents_as_tools:
-            agent_tool = agent_to_tool(
-                agent_inst.name,
-                description=f"{agent_inst.profile.role}. Goal: {agent_inst.profile.goal}",
-                target_app_id=agent_inst.appid
-                if agent_inst.appid != self.appid
-                else None,
-            )
-            self.tool_executor.register_tool(agent_tool)
-
-        # String names are resolved from the registry at workflow start.
-        self._agentname_as_tool: List[str] = _agentname_as_tool
 
         grpc_options = getattr(self, "workflow_grpc_options", None)
         apply_grpc_options(grpc_options)
@@ -401,6 +374,7 @@ class DurableAgent(AgentBase):
                             "task": task,
                             "instance_id": ctx.instance_id,
                             "time": ctx.current_utc_datetime.isoformat(),
+                            "source": source,
                         },
                         retry_policy=self._retry_policy,
                     )
@@ -431,7 +405,9 @@ class DurableAgent(AgentBase):
                             ):
                                 raw_args = tc["function"].get("arguments", "")
                                 args = json.loads(raw_args) if raw_args else {}
-                                workflow_tasks.append(tool_obj(ctx=ctx, **args))
+                                workflow_tasks.append(
+                                    tool_obj(ctx=ctx, _source_agent=self.name, **args)
+                                )
                                 workflow_meta.append({"order": idx, "tool_call": tc})
                             # Invoke and execute regular tools.
                             else:
@@ -1304,6 +1280,7 @@ class DurableAgent(AgentBase):
         # TODO(@sicoyle): i think i can use the instance_id in teh ctx instead here!!
         instance_id = payload.get("instance_id")
         task = payload.get("task")
+        source = payload.get("source")
         response_format_name = payload.get("response_format")
 
         response_model = None
@@ -1342,9 +1319,10 @@ class DurableAgent(AgentBase):
 
             # Skip printing for orchestrators' internal LLM calls
             if user_copy is not None and not self.orchestrator:
-                self.text_formatter.print_message(
-                    {str(k): v for k, v in user_copy.items()}
-                )
+                print_msg = {str(k): v for k, v in user_copy.items()}
+                if source and source != "direct":
+                    print_msg["name"] = f"on-behalf-of {source}"
+                self.text_formatter.print_message(print_msg)
 
         tools = self.get_llm_tools()
         generate_kwargs = {
@@ -1628,8 +1606,8 @@ class DurableAgent(AgentBase):
 
     def _load_tools(self, ctx: wf.WorkflowActivityContext) -> List[str]:
         """
-        Discover ``is_tool=True`` agents from the registry and resolve any string-named agents,
-        registering each as an ``AgentWorkflowTool`` in this agent's tool executor.
+        Discover ``is_tool=True`` agents from the registry and register each as
+        an ``AgentWorkflowTool`` in this agent's tool executor.
 
         The activity is idempotent: agents already present in the tool executor
         are skipped.  It is called at the start of every ``agent_workflow`` and
@@ -1644,22 +1622,6 @@ class DurableAgent(AgentBase):
 
         agents_metadata = self._infra.get_agents_metadata(exclude_self=True)
         registered: List[str] = []
-
-        # Resolve string-named agents declared at init time
-        for name in self._agentname_as_tool:
-            if not self.tool_executor.get_tool(name) and name in agents_metadata:
-                meta = agents_metadata[name]
-                tool = agent_to_tool(
-                    name,
-                    description=(
-                        f"{meta['agent'].get('role', '')}. "
-                        f"Goal: {meta['agent'].get('goal', '')}"
-                    ),
-                    target_app_id=meta["agent"].get("appid"),
-                )
-                self.tool_executor.register_tool(tool)
-                registered.append(name)
-                logger.debug("Registered agent name tool: %s", name)
 
         # Auto-discover all is_tool=True agents in the registry
         for name, meta in agents_metadata.items():
