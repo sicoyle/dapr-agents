@@ -78,6 +78,10 @@ def mock_llm():
     llm.provider = "mock"
     llm.api = "mock"
     llm.model = "mock-model"
+    llm.component_name = None
+    llm.base_url = None
+    llm.azure_endpoint = None
+    llm.azure_deployment = None
     return llm
 
 
@@ -133,7 +137,7 @@ class TestToolsListPreprocessing:
 
     def test_string_name_stored_as_deferred(self, mock_llm):
         frodo = _make_agent("frodo", mock_llm, tools=["gandalf"])
-        assert "gandalf" in frodo._agentname_as_tool
+        assert "gandalf" in frodo._agents_as_tools
 
     def test_string_name_not_in_tool_executor(self, mock_llm):
         frodo = _make_agent("frodo", mock_llm, tools=["gandalf"])
@@ -155,7 +159,7 @@ class TestToolsListPreprocessing:
         # AgentTool registered directly
         assert frodo.tool_executor.get_tool("rope_tool") is not None
         # String deferred
-        assert "gandalf" in frodo._agentname_as_tool
+        assert "gandalf" in frodo._agents_as_tools
 
 
 # ---------------------------------------------------------------------------

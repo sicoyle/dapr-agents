@@ -24,7 +24,9 @@ class TestAgentsAsToolsExample:
             trigger_curl={
                 "url": "http://localhost:8001/agent/run",
                 "method": "POST",
-                "data": {"task": "What supplies do we have for the next leg of the journey? Ask Sam."},
+                "data": {
+                    "task": "What supplies do we have for the next leg of the journey? Ask Sam."
+                },
                 "headers": {"Content-Type": "application/json"},
                 "app_port": 8001,
                 "wait_seconds": 30,

@@ -161,6 +161,18 @@ class DurableAgent(AgentBase):
             agent_metadata = dict(agent_metadata or {})
             agent_metadata["orchestrator"] = True
 
+        # Agents (by name or object) to expose as tools are stored separately and
+        # resolved at runtime in _load_tools.  Filter them out of the regular tools
+        # list so AgentBase / AgentToolExecutor only sees valid tool objects.
+        self._agents_as_tools: List[Any] = [
+            item for item in list(tools or []) if isinstance(item, (str, DurableAgent))
+        ]
+        tools = [
+            item
+            for item in list(tools or [])
+            if not isinstance(item, (str, DurableAgent))
+        ]
+
         super().__init__(
             pubsub=pubsub,
             profile=profile,
@@ -1638,6 +1650,27 @@ class DurableAgent(AgentBase):
                     self.tool_executor.register_tool(tool)
                     registered.append(name)
                     logger.debug("Auto-registered is_tool agent: %s", name)
+
+        # Resolve agents stored in _agents_as_tools (strings or DurableAgent objects)
+        for item in self._agents_as_tools:
+            agent_name = item if isinstance(item, str) else item.name
+            if self.tool_executor.get_tool(agent_name):
+                continue
+            if isinstance(item, DurableAgent):
+                tool = agent_to_tool(agent_name, description=item.role or "")
+            else:
+                meta = agents_metadata.get(agent_name, {})
+                tool = agent_to_tool(
+                    agent_name,
+                    description=(
+                        f"{meta.get('agent', {}).get('role', '')}. "
+                        f"Goal: {meta.get('agent', {}).get('goal', '')}"
+                    ),
+                    target_app_id=meta.get("agent", {}).get("appid"),
+                )
+            self.tool_executor.register_tool(tool)
+            registered.append(agent_name)
+            logger.debug("Resolved agent-as-tool: %s", agent_name)
 
         if registered:
             logger.info(

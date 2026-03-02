@@ -134,7 +134,9 @@ def agent_to_tool(
         agent_name=agent_name,
         target_app_id=target_app_id,
     )
-    setattr(executor, "__name__", agent_name)  # partial has no __name__; AgentTool validator reads it
+    setattr(
+        executor, "__name__", agent_name
+    )  # partial has no __name__; AgentTool validator reads it
     return AgentWorkflowTool(
         name=agent_name,
         description=description,
