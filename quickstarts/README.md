@@ -340,7 +340,7 @@ docker run -d -p 9411:9411 openzipkin/zipkin
 Now run the durable agent with tracing enabled and prompting included:
 
 ```
-uv run dapr run --app-id durable-agent-trace --resources-path resources-- python 10_durable_agent_tracing.py
+uv run dapr run --app-id durable-agent-trace --resources-path resources -- python 10_durable_agent_tracing.py
 ```
 
 ## Expected Behavior

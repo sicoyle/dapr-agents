@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS configuration (
 
 -- Trigger function that fires a pg_notify on every INSERT or UPDATE.
 -- The channel name MUST match the pgNotifyChannel in the
--- AgentConfigurationConfig metadata dict (default: "config").
+-- RuntimeSubscriptionConfig metadata dict (default: "config").
 CREATE OR REPLACE FUNCTION notify_event()
 RETURNS TRIGGER AS $$
 DECLARE

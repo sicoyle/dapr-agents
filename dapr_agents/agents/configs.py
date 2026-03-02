@@ -13,7 +13,6 @@ from typing import (
     MutableMapping,
     Optional,
     Sequence,
-    Tuple,
     Type,
     Union,
 )
@@ -192,16 +191,18 @@ class ConfigFieldDescriptor:
     """Describes how a configuration key maps to an agent attribute.
 
     Attributes:
-        targets: Dot-paths to set on the agent (e.g. ``"profile.role"``).
         target_type: Expected Python type for the coerced value.
+        setter: Callable ``(agent, value) -> None`` that applies the value.
         sensitive: If ``True``, the value is redacted in log output.
         validator: Optional callable to validate/transform the coerced value.
+        rebuilds_prompt: If ``True``, the prompt template is rebuilt after update.
     """
 
-    targets: Tuple[str, ...]
     target_type: Type
+    setter: Callable[..., None]
     sensitive: bool = False
     validator: Optional[Callable[..., Any]] = None
+    rebuilds_prompt: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -254,9 +255,6 @@ class RuntimeSubscriptionConfig:
     metadata: Dict[str, str] = field(default_factory=dict)
     on_config_change: Optional[Callable[[str, Any], None]] = None
 
-
-# Backward-compatible alias
-AgentConfigurationConfig = RuntimeSubscriptionConfig
 
 
 @dataclass
@@ -375,23 +373,18 @@ class WorkflowRetryPolicy:
     retry_timeout: Optional[Union[int, None]] = None
 
 
-class ConfigKey(StrEnum):
+class RuntimeConfigKey(StrEnum):
     """Supported keys for runtime configuration hot-reload.
 
-    Both short (``role``) and prefixed (``agent_role``) forms are provided
-    for convenience — they resolve to the same agent attribute.
+    All profile keys use the ``agent_`` prefix to avoid ambiguity.
+    Execution, LLM, and component keys are unprefixed.
     """
 
     # Profile fields
-    ROLE = "role"
     AGENT_ROLE = "agent_role"
-    GOAL = "goal"
     AGENT_GOAL = "agent_goal"
-    INSTRUCTIONS = "instructions"
     AGENT_INSTRUCTIONS = "agent_instructions"
-    SYSTEM_PROMPT = "system_prompt"
     AGENT_SYSTEM_PROMPT = "agent_system_prompt"
-    STYLE_GUIDELINES = "style_guidelines"
     AGENT_STYLE_GUIDELINES = "agent_style_guidelines"
 
     # Execution fields

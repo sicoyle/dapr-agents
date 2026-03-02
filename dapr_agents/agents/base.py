@@ -29,7 +29,7 @@ from dapr_agents.agents.configs import (
     AgentExecutionConfig,
     AgentTracingExporter,
     ConfigFieldDescriptor,
-    ConfigKey,
+    RuntimeConfigKey,
     LLMMetadata,
     MemoryMetadata,
     MemoryStoreMetadata,
@@ -104,107 +104,107 @@ class AgentBase:
     Infrastructure (pub/sub, durable state, registry) is provided by `DaprInfra`.
     """
 
-    # Dual aliases (e.g. "role" and "agent_role") exist intentionally:
-    # a user setting keys in Redis might use "agent_role" for clarity,
-    # while "role" is the short form. Both resolve to the same target.
     _CONFIG_FIELD_MAP: Dict[str, ConfigFieldDescriptor] = {
-        # Profile fields
-        ConfigKey.ROLE: ConfigFieldDescriptor(
-            targets=("profile.role", "prompting_helper.role"),
+        # Profile fields — setter callbacks replace dot-path strings.
+        RuntimeConfigKey.AGENT_ROLE: ConfigFieldDescriptor(
             target_type=str,
+            setter=lambda agent, v: (
+                setattr(agent.profile, "role", v),
+                setattr(agent.prompting_helper, "role", v),
+            ),
             validator=validate_non_empty_string,
+            rebuilds_prompt=True,
         ),
-        ConfigKey.AGENT_ROLE: ConfigFieldDescriptor(
-            targets=("profile.role", "prompting_helper.role"),
+        RuntimeConfigKey.AGENT_GOAL: ConfigFieldDescriptor(
             target_type=str,
+            setter=lambda agent, v: (
+                setattr(agent.profile, "goal", v),
+                setattr(agent.prompting_helper, "goal", v),
+            ),
             validator=validate_non_empty_string,
+            rebuilds_prompt=True,
         ),
-        ConfigKey.GOAL: ConfigFieldDescriptor(
-            targets=("profile.goal", "prompting_helper.goal"),
-            target_type=str,
-            validator=validate_non_empty_string,
-        ),
-        ConfigKey.AGENT_GOAL: ConfigFieldDescriptor(
-            targets=("profile.goal", "prompting_helper.goal"),
-            target_type=str,
-            validator=validate_non_empty_string,
-        ),
-        ConfigKey.INSTRUCTIONS: ConfigFieldDescriptor(
-            targets=("profile.instructions", "prompting_helper.instructions"),
+        RuntimeConfigKey.AGENT_INSTRUCTIONS: ConfigFieldDescriptor(
             target_type=list,
+            setter=lambda agent, v: (
+                setattr(agent.profile, "instructions", v),
+                setattr(agent.prompting_helper, "instructions", v),
+            ),
+            rebuilds_prompt=True,
         ),
-        ConfigKey.AGENT_INSTRUCTIONS: ConfigFieldDescriptor(
-            targets=("profile.instructions", "prompting_helper.instructions"),
-            target_type=list,
-        ),
-        ConfigKey.SYSTEM_PROMPT: ConfigFieldDescriptor(
-            targets=("profile.system_prompt", "prompting_helper.system_prompt"),
+        RuntimeConfigKey.AGENT_SYSTEM_PROMPT: ConfigFieldDescriptor(
             target_type=str,
+            setter=lambda agent, v: (
+                setattr(agent.profile, "system_prompt", v),
+                setattr(agent.prompting_helper, "system_prompt", v),
+            ),
+            rebuilds_prompt=True,
         ),
-        ConfigKey.AGENT_SYSTEM_PROMPT: ConfigFieldDescriptor(
-            targets=("profile.system_prompt", "prompting_helper.system_prompt"),
-            target_type=str,
-        ),
-        ConfigKey.STYLE_GUIDELINES: ConfigFieldDescriptor(
-            targets=("profile.style_guidelines", "prompting_helper.style_guidelines"),
+        RuntimeConfigKey.AGENT_STYLE_GUIDELINES: ConfigFieldDescriptor(
             target_type=list,
-        ),
-        ConfigKey.AGENT_STYLE_GUIDELINES: ConfigFieldDescriptor(
-            targets=("profile.style_guidelines", "prompting_helper.style_guidelines"),
-            target_type=list,
+            setter=lambda agent, v: (
+                setattr(agent.profile, "style_guidelines", v),
+                setattr(agent.prompting_helper, "style_guidelines", v),
+            ),
+            rebuilds_prompt=True,
         ),
         # Execution fields
-        ConfigKey.MAX_ITERATIONS: ConfigFieldDescriptor(
-            targets=("execution.max_iterations",),
+        RuntimeConfigKey.MAX_ITERATIONS: ConfigFieldDescriptor(
             target_type=int,
+            setter=lambda agent, v: setattr(agent.execution, "max_iterations", v),
             validator=validate_max_iterations,
         ),
-        ConfigKey.TOOL_CHOICE: ConfigFieldDescriptor(
-            targets=("execution.tool_choice",),
+        RuntimeConfigKey.TOOL_CHOICE: ConfigFieldDescriptor(
             target_type=str,
+            setter=lambda agent, v: setattr(agent.execution, "tool_choice", v),
             validator=validate_tool_choice,
         ),
         # LLM fields
-        ConfigKey.LLM_API_KEY: ConfigFieldDescriptor(
-            targets=("llm.api_key",), target_type=str, sensitive=True
+        RuntimeConfigKey.LLM_API_KEY: ConfigFieldDescriptor(
+            target_type=str,
+            setter=lambda agent, v: setattr(agent.llm, "api_key", v),
+            sensitive=True,
         ),
-        ConfigKey.OPENAI_API_KEY: ConfigFieldDescriptor(
-            targets=("llm.api_key",), target_type=str, sensitive=True
+        RuntimeConfigKey.OPENAI_API_KEY: ConfigFieldDescriptor(
+            target_type=str,
+            setter=lambda agent, v: setattr(agent.llm, "api_key", v),
+            sensitive=True,
         ),
-        ConfigKey.LLM_PROVIDER: ConfigFieldDescriptor(
-            targets=("llm.provider",), target_type=str
+        RuntimeConfigKey.LLM_PROVIDER: ConfigFieldDescriptor(
+            target_type=str,
+            setter=lambda agent, v: setattr(agent.llm, "provider", v),
         ),
-        ConfigKey.LLM_MODEL: ConfigFieldDescriptor(
-            targets=("llm.model",), target_type=str
+        RuntimeConfigKey.LLM_MODEL: ConfigFieldDescriptor(
+            target_type=str,
+            setter=lambda agent, v: setattr(agent.llm, "model", v),
         ),
         # Component references
-        ConfigKey.STATE_STORE: ConfigFieldDescriptor(
-            targets=("_component_state_store",), target_type=str
+        RuntimeConfigKey.STATE_STORE: ConfigFieldDescriptor(
+            target_type=str,
+            setter=lambda agent, v: (
+                setattr(agent.state_store, "store_name", str(v))
+                if agent.state_store and hasattr(agent.state_store, "store_name")
+                else None
+            ),
         ),
-        ConfigKey.REGISTRY_STORE: ConfigFieldDescriptor(
-            targets=("_component_registry_store",), target_type=str
+        RuntimeConfigKey.REGISTRY_STORE: ConfigFieldDescriptor(
+            target_type=str,
+            setter=lambda agent, v: (
+                setattr(agent.registry_state, "store_name", str(v))
+                if agent.registry_state
+                and hasattr(agent.registry_state, "store_name")
+                else None
+            ),
         ),
-        ConfigKey.MEMORY_STORE: ConfigFieldDescriptor(
-            targets=("_component_memory_store",), target_type=str
+        RuntimeConfigKey.MEMORY_STORE: ConfigFieldDescriptor(
+            target_type=str,
+            setter=lambda agent, v: (
+                setattr(agent.memory, "store_name", str(v))
+                if hasattr(agent.memory, "store_name")
+                else None
+            ),
         ),
     }
-
-    _SENSITIVE_KEYS = frozenset({"llm_api_key", "openai_api_key"})
-
-    _PROMPT_REBUILD_KEYS = frozenset(
-        {
-            "role",
-            "agent_role",
-            "goal",
-            "agent_goal",
-            "instructions",
-            "agent_instructions",
-            "system_prompt",
-            "agent_system_prompt",
-            "style_guidelines",
-            "agent_style_guidelines",
-        }
-    )
 
     def __init__(
         self,
@@ -754,12 +754,14 @@ class AgentBase:
                 )
                 return
 
-        # Apply to all targets
-        for target_path in descriptor.targets:
-            self._set_nested_attr(target_path, coerced_value)
+        # Apply via setter callback
+        try:
+            descriptor.setter(self, coerced_value)
+        except (AttributeError, TypeError):
+            logger.debug("Could not apply setter for key '%s' (likely read-only)", key)
 
         # Rebuild prompt template if a profile key changed
-        if normalized_key in self._PROMPT_REBUILD_KEYS:
+        if descriptor.rebuilds_prompt:
             self._rebuild_prompt_after_config_update()
 
         # Fire user callbacks
@@ -817,36 +819,6 @@ class AgentBase:
             raise ValueError(f"Cannot coerce {type(value).__name__} to dict")
 
         raise ValueError(f"Unsupported target type: {target_type}")
-
-    def _set_nested_attr(self, target_path: str, value: Any) -> None:
-        """Set a nested attribute given a dot-path like 'profile.role'."""
-        # Component references require null-checks on the owning object.
-        if target_path == "_component_state_store":
-            if self.state_store and hasattr(self.state_store, "store_name"):
-                logger.info("Hot-reloading state store to: %s", value)
-                self.state_store.store_name = str(value)
-            return
-        if target_path == "_component_registry_store":
-            if self.registry_state and hasattr(self.registry_state, "store_name"):
-                logger.info("Hot-reloading registry store to: %s", value)
-                self.registry_state.store_name = str(value)
-            return
-        if target_path == "_component_memory_store":
-            if hasattr(self.memory, "store_name"):
-                logger.info("Hot-reloading memory store to: %s", value)
-                self.memory.store_name = str(value)  # type: ignore
-            return
-
-        parts = target_path.split(".")
-        obj: Any = self
-        for part in parts[:-1]:
-            obj = getattr(obj, part, None)
-            if obj is None:
-                return
-        try:
-            setattr(obj, parts[-1], value)
-        except (AttributeError, TypeError):
-            logger.debug("Could not set %s (likely read-only)", target_path)
 
     def _rebuild_prompt_after_config_update(self) -> None:
         """Rebuild the prompt template after a profile field change."""

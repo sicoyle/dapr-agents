@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch
 
 from dapr_agents.agents.base import AgentBase
-from dapr_agents.agents.configs import AgentConfigurationConfig
+from dapr_agents.agents.configs import RuntimeSubscriptionConfig
 from .mocks.llm_client import MockLLMClient
 
 
@@ -34,25 +34,17 @@ class TestApplyConfigUpdate:
         )
 
     def test_update_role(self, basic_agent):
-        basic_agent._apply_config_update("role", "New Role")
+        basic_agent._apply_config_update("agent_role", "New Role")
         assert basic_agent.profile.role == "New Role"
         assert basic_agent.prompting_helper.role == "New Role"
 
-    def test_update_agent_role_alias(self, basic_agent):
-        basic_agent._apply_config_update("agent_role", "Alias Role")
-        assert basic_agent.profile.role == "Alias Role"
-
     def test_update_goal(self, basic_agent):
-        basic_agent._apply_config_update("goal", "New Goal")
+        basic_agent._apply_config_update("agent_goal", "New Goal")
         assert basic_agent.profile.goal == "New Goal"
         assert basic_agent.prompting_helper.goal == "New Goal"
 
-    def test_update_agent_goal_alias(self, basic_agent):
-        basic_agent._apply_config_update("agent_goal", "Alias Goal")
-        assert basic_agent.profile.goal == "Alias Goal"
-
     def test_update_instructions_string(self, basic_agent):
-        basic_agent._apply_config_update("instructions", "Single instruction")
+        basic_agent._apply_config_update("agent_instructions", "Single instruction")
         assert basic_agent.profile.instructions == ["Single instruction"]
         assert basic_agent.prompting_helper.instructions == ["Single instruction"]
 
@@ -61,7 +53,7 @@ class TestApplyConfigUpdate:
         assert basic_agent.profile.instructions == ["First", "Second"]
 
     def test_update_system_prompt(self, basic_agent):
-        basic_agent._apply_config_update("system_prompt", "New system prompt")
+        basic_agent._apply_config_update("agent_system_prompt", "New system prompt")
         assert basic_agent.profile.system_prompt == "New system prompt"
         assert basic_agent.prompting_helper.system_prompt == "New system prompt"
 
@@ -82,6 +74,12 @@ class TestApplyConfigUpdate:
             basic_agent._apply_config_update("unknown_key", "value")
             mock_reg.assert_not_called()
 
+    def test_unprefixed_profile_key_is_unrecognized(self, basic_agent):
+        """Short-form profile keys (e.g. 'role') are no longer supported."""
+        original = basic_agent.profile.role
+        basic_agent._apply_config_update("role", "Should Not Apply")
+        assert basic_agent.profile.role == original
+
     def test_sensitive_key_redacted_in_logs(self, basic_agent, caplog):
         with caplog.at_level(logging.INFO):
             basic_agent._apply_config_update("openai_api_key", "sk-secret-123")
@@ -91,6 +89,15 @@ class TestApplyConfigUpdate:
     def test_hyphenated_key_normalized(self, basic_agent):
         basic_agent._apply_config_update("agent-role", "Hyphen Role")
         assert basic_agent.profile.role == "Hyphen Role"
+
+    def test_invalid_type_for_valid_key_rejected(self, basic_agent, caplog):
+        """Passing a non-coercible type (e.g. dict for an int key) should be
+        logged as a warning and the original value preserved."""
+        original = basic_agent.execution.max_iterations
+        with caplog.at_level(logging.WARNING):
+            basic_agent._apply_config_update("max_iterations", {"bad": "type"})
+        assert "invalid value" in caplog.text.lower()
+        assert basic_agent.execution.max_iterations == original
 
 
 class TestApplyConfigUpdateReregistration:
@@ -130,7 +137,7 @@ class TestApplyConfigUpdateReregistration:
 
     def test_triggers_reregistration(self, agent_with_registry):
         with patch.object(agent_with_registry, "register_agentic_system") as mock_reg:
-            agent_with_registry._apply_config_update("role", "Updated Role")
+            agent_with_registry._apply_config_update("agent_role", "Updated Role")
             mock_reg.assert_called_once()
 
     def test_syncs_llm_metadata(self, agent_with_registry):
@@ -145,7 +152,7 @@ class TestApplyConfigUpdateReregistration:
 
     def test_syncs_profile_metadata(self, agent_with_registry):
         with patch.object(agent_with_registry, "register_agentic_system"):
-            agent_with_registry._apply_config_update("goal", "New Goal")
+            agent_with_registry._apply_config_update("agent_goal", "New Goal")
             assert agent_with_registry.agent_metadata["agent"]["goal"] == "New Goal"
 
     def test_reregistration_failure_is_warning(self, agent_with_registry, caplog):
@@ -155,7 +162,7 @@ class TestApplyConfigUpdateReregistration:
             side_effect=Exception("store error"),
         ):
             with caplog.at_level(logging.WARNING):
-                agent_with_registry._apply_config_update("role", "Fail Role")
+                agent_with_registry._apply_config_update("agent_role", "Fail Role")
         assert "Failed to re-register" in caplog.text
 
 
@@ -187,13 +194,13 @@ class TestConfigHandler:
         return response
 
     def test_plain_value(self, basic_agent):
-        response = self._make_config_response({"role": "Handler Role"})
+        response = self._make_config_response({"agent_role": "Handler Role"})
         basic_agent._config_handler("sub-1", response)
         assert basic_agent.profile.role == "Handler Role"
 
     def test_json_dict_value(self, basic_agent):
         response = self._make_config_response(
-            {"config": '{"role": "JSON Role", "goal": "JSON Goal"}'}
+            {"config": '{"agent_role": "JSON Role", "agent_goal": "JSON Goal"}'}
         )
         basic_agent._config_handler("sub-1", response)
         assert basic_agent.profile.role == "JSON Role"
@@ -201,7 +208,7 @@ class TestConfigHandler:
 
     def test_json_non_dict_falls_through(self, basic_agent):
         """A JSON string that is not a dict should be treated as a plain value."""
-        response = self._make_config_response({"role": '"just a string"'})
+        response = self._make_config_response({"agent_role": '"just a string"'})
         basic_agent._config_handler("sub-1", response)
         # The raw JSON string (with quotes) gets applied as role
         assert basic_agent.profile.role == '"just a string"'
@@ -225,7 +232,7 @@ class TestSetupConfigurationSubscription:
         agent = ConcreteAgentBase(
             name="ConfigAgent",
             llm=mock_llm_client,
-            configuration=AgentConfigurationConfig(
+            configuration=RuntimeSubscriptionConfig(
                 store_name="runtime-config",
                 keys=["agent_role", "agent_goal"],
             ),
@@ -248,7 +255,7 @@ class TestSetupConfigurationSubscription:
         agent = ConcreteAgentBase(
             name="MyAgent",
             llm=mock_llm_client,
-            configuration=AgentConfigurationConfig(store_name="runtime-config"),
+            configuration=RuntimeSubscriptionConfig(store_name="runtime-config"),
         )
         mock_client = MagicMock()
         mock_client.subscribe_configuration.return_value = "sub-456"
@@ -263,7 +270,7 @@ class TestSetupConfigurationSubscription:
         agent = ConcreteAgentBase(
             name="ErrorAgent",
             llm=mock_llm_client,
-            configuration=AgentConfigurationConfig(
+            configuration=RuntimeSubscriptionConfig(
                 store_name="runtime-config", keys=["k"]
             ),
         )
@@ -319,7 +326,7 @@ class TestStop:
         agent = ConcreteAgentBase(
             name="StopAgent",
             llm=mock_llm_client,
-            configuration=AgentConfigurationConfig(
+            configuration=RuntimeSubscriptionConfig(
                 store_name="runtime-config", keys=["k"]
             ),
         )
@@ -425,19 +432,19 @@ class TestLoadInitialConfiguration:
             name="InitAgent",
             role="Default",
             llm=mock_llm_client,
-            configuration=AgentConfigurationConfig(
-                store_name="runtime-config", keys=["role"]
+            configuration=RuntimeSubscriptionConfig(
+                store_name="runtime-config", keys=["agent_role"]
             ),
         )
         mock_client = MagicMock()
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=False)
         mock_client.get_configuration.return_value = self._make_config_response(
-            {"role": "Loaded Role"}
+            {"agent_role": "Loaded Role"}
         )
 
         with patch("dapr_agents.agents.base.DaprClient", return_value=mock_client):
-            agent._load_initial_configuration(["role"])
+            agent._load_initial_configuration(["agent_role"])
 
         assert agent.profile.role == "Loaded Role"
 
@@ -447,9 +454,9 @@ class TestLoadInitialConfiguration:
             name="MetaAgent",
             role="Default",
             llm=mock_llm_client,
-            configuration=AgentConfigurationConfig(
+            configuration=RuntimeSubscriptionConfig(
                 store_name="runtime-config",
-                keys=["role"],
+                keys=["agent_role"],
                 metadata={"pgNotifyChannel": "config"},
             ),
         )
@@ -461,7 +468,7 @@ class TestLoadInitialConfiguration:
         mock_client.get_configuration.return_value = response
 
         with patch("dapr_agents.agents.base.DaprClient", return_value=mock_client):
-            agent._load_initial_configuration(["role"])
+            agent._load_initial_configuration(["agent_role"])
 
         # Verify get_configuration was called without config_metadata
         call_kwargs = mock_client.get_configuration.call_args
@@ -474,8 +481,8 @@ class TestLoadInitialConfiguration:
         agent = ConcreteAgentBase(
             name="FailAgent",
             llm=mock_llm_client,
-            configuration=AgentConfigurationConfig(
-                store_name="runtime-config", keys=["role"]
+            configuration=RuntimeSubscriptionConfig(
+                store_name="runtime-config", keys=["agent_role"]
             ),
         )
         mock_client = MagicMock()
@@ -485,7 +492,7 @@ class TestLoadInitialConfiguration:
 
         with patch("dapr_agents.agents.base.DaprClient", return_value=mock_client):
             with caplog.at_level(logging.WARNING):
-                agent._load_initial_configuration(["role"])
+                agent._load_initial_configuration(["agent_role"])
 
         assert "could not load initial configuration" in caplog.text.lower()
 
@@ -494,8 +501,8 @@ class TestLoadInitialConfiguration:
             name="EmptyAgent",
             role="Default",
             llm=mock_llm_client,
-            configuration=AgentConfigurationConfig(
-                store_name="runtime-config", keys=["role"]
+            configuration=RuntimeSubscriptionConfig(
+                store_name="runtime-config", keys=["agent_role"]
             ),
         )
         mock_client = MagicMock()
@@ -506,7 +513,7 @@ class TestLoadInitialConfiguration:
         mock_client.get_configuration.return_value = response
 
         with patch("dapr_agents.agents.base.DaprClient", return_value=mock_client):
-            agent._load_initial_configuration(["role"])
+            agent._load_initial_configuration(["agent_role"])
 
         # Profile unchanged
         assert agent.profile.role == "Default"
@@ -530,7 +537,7 @@ class TestLoadInitialConfiguration:
         agent = ConcreteAgentBase(
             name="OrderAgent",
             llm=mock_llm_client,
-            configuration=AgentConfigurationConfig(
+            configuration=RuntimeSubscriptionConfig(
                 store_name="runtime-config", keys=["k"]
             ),
         )
@@ -550,29 +557,29 @@ class TestConfigChangeCallback:
 
     def test_callback_invoked(self, mock_llm_client):
         callback = Mock()
-        config = AgentConfigurationConfig(
+        config = RuntimeSubscriptionConfig(
             store_name="runtime-config",
-            keys=["role"],
+            keys=["agent_role"],
             on_config_change=callback,
         )
         agent = ConcreteAgentBase(
             name="CBAgent", llm=mock_llm_client, configuration=config
         )
-        agent._apply_config_update("role", "New Role")
-        callback.assert_called_once_with("role", "New Role")
+        agent._apply_config_update("agent_role", "New Role")
+        callback.assert_called_once_with("agent_role", "New Role")
 
     def test_callback_error_swallowed(self, mock_llm_client, caplog):
         callback = Mock(side_effect=RuntimeError("boom"))
-        config = AgentConfigurationConfig(
+        config = RuntimeSubscriptionConfig(
             store_name="runtime-config",
-            keys=["role"],
+            keys=["agent_role"],
             on_config_change=callback,
         )
         agent = ConcreteAgentBase(
             name="CBAgent", llm=mock_llm_client, configuration=config
         )
         with caplog.at_level(logging.WARNING):
-            agent._apply_config_update("role", "New Role")
+            agent._apply_config_update("agent_role", "New Role")
         assert "callback failed" in caplog.text.lower()
         # Value still applied despite callback failure
         assert agent.profile.role == "New Role"
@@ -580,7 +587,7 @@ class TestConfigChangeCallback:
     def test_no_callback_configured(self, mock_llm_client):
         """No callback set should not raise."""
         agent = ConcreteAgentBase(name="NoCB", llm=mock_llm_client)
-        agent._apply_config_update("role", "Updated")
+        agent._apply_config_update("agent_role", "Updated")
         assert agent.profile.role == "Updated"
 
 
@@ -603,18 +610,14 @@ class TestNewHotReloadableFields:
         )
 
     def test_update_style_guidelines_string(self, basic_agent):
-        basic_agent._apply_config_update("style_guidelines", "Be concise")
+        basic_agent._apply_config_update("agent_style_guidelines", "Be concise")
         assert basic_agent.profile.style_guidelines == ["Be concise"]
 
     def test_update_style_guidelines_json_list(self, basic_agent):
         basic_agent._apply_config_update(
-            "style_guidelines", '["Be concise", "Use examples"]'
+            "agent_style_guidelines", '["Be concise", "Use examples"]'
         )
         assert basic_agent.profile.style_guidelines == ["Be concise", "Use examples"]
-
-    def test_update_style_guidelines_alias(self, basic_agent):
-        basic_agent._apply_config_update("agent_style_guidelines", "Formal")
-        assert basic_agent.profile.style_guidelines == ["Formal"]
 
     def test_update_max_iterations(self, basic_agent):
         basic_agent._apply_config_update("max_iterations", "5")

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from dapr_agents.agents.durable import DurableAgent
 from dapr_agents.agents.configs import (
-    ConfigKey,
+    RuntimeConfigKey,
     RuntimeSubscriptionConfig,
     AgentStateConfig,
 )
@@ -20,7 +20,7 @@ async def main():
     # for supported backends.
     config = RuntimeSubscriptionConfig(
         store_name="runtime-config",
-        keys=[ConfigKey.AGENT_ROLE, ConfigKey.AGENT_GOAL, ConfigKey.AGENT_INSTRUCTIONS],
+        keys=[RuntimeConfigKey.AGENT_ROLE, RuntimeConfigKey.AGENT_GOAL, RuntimeConfigKey.AGENT_INSTRUCTIONS],
     )
 
     # Durable state configuration
