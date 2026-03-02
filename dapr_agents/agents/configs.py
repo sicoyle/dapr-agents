@@ -406,7 +406,8 @@ class AgentMetadata(BaseModel):
         False, description="Indicates if the agent is an orchestrator"
     )
     is_tool: bool = Field(
-        False, description="Indicates if this agent can be called as a tool by other agents"
+        False,
+        description="Indicates if this agent can be called as a tool by other agents",
     )
     role: Optional[str] = Field(default=None, description="Role of the agent")
     goal: Optional[str] = Field(
