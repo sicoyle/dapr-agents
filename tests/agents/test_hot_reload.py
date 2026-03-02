@@ -82,7 +82,7 @@ class TestApplyConfigUpdate:
 
     def test_sensitive_key_redacted_in_logs(self, basic_agent, caplog):
         with caplog.at_level(logging.INFO):
-            basic_agent._apply_config_update("openai_api_key", "sk-secret-123")
+            basic_agent._apply_config_update("llm_api_key", "sk-secret-123")
         assert "sk-secret-123" not in caplog.text
         assert "***" in caplog.text
 
