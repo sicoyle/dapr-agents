@@ -135,14 +135,6 @@ class TestToolsListPreprocessing:
         tool = frodo.tool_executor.get_tool("sam")
         assert tool.name.lower() == "sam"
 
-    def test_string_name_stored_as_deferred(self, mock_llm):
-        frodo = _make_agent("frodo", mock_llm, tools=["gandalf"])
-        assert "gandalf" in frodo._agents_as_tools
-
-    def test_string_name_not_in_tool_executor(self, mock_llm):
-        frodo = _make_agent("frodo", mock_llm, tools=["gandalf"])
-        assert frodo.tool_executor.get_tool("gandalf") is None
-
     def test_mixed_tools_list(self, mock_llm):
         from dapr_agents.tool.base import AgentTool
 
@@ -152,14 +144,12 @@ class TestToolsListPreprocessing:
         mock_tool.description = "Tie a knot"
         mock_tool._is_async = False
 
-        frodo = _make_agent("frodo", mock_llm, tools=[sam, mock_tool, "gandalf"])
+        frodo = _make_agent("frodo", mock_llm, tools=[sam, mock_tool])
 
         # DurableAgent instance converted immediately
         assert frodo.tool_executor.get_tool("sam") is not None
         # AgentTool registered directly
         assert frodo.tool_executor.get_tool("rope_tool") is not None
-        # String deferred
-        assert "gandalf" in frodo._agents_as_tools
 
 
 # ---------------------------------------------------------------------------
@@ -281,23 +271,6 @@ class TestLoadTools:
 
         # sam was already registered, nothing new
         assert "sam" not in result
-
-    def test_resolves_deferred_string_agent(self, mock_llm):
-        frodo = _make_agent("frodo", mock_llm, tools=["gandalf"])
-        self._with_registry(frodo)
-        ctx = MagicMock()
-
-        metadata = self._make_registry_metadata(
-            {
-                "gandalf": {"role": "wizard", "goal": "guide", "is_tool": False},
-            }
-        )
-
-        with patch.object(frodo._infra, "get_agents_metadata", return_value=metadata):
-            result = frodo._load_tools(ctx)
-
-        assert "gandalf" in result
-        assert frodo.tool_executor.get_tool("gandalf") is not None
 
     def test_returns_empty_list_when_no_registry(self, mock_llm):
         frodo = _make_agent("frodo", mock_llm)
