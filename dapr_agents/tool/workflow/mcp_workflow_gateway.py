@@ -19,7 +19,7 @@ def make_mcp_gateway_via_child_workflow_tool(
     using the *current* workflow context (passed in by the agent) to schedule a
     multi-app child workflow.
 
-    This uses Dapr's multi-application child workflow routing via `app_id`. :contentReference[oaicite:1]{index=1}
+    This uses Dapr's multi-application child workflow routing via `app_id`.
 
     The called workflow is expected to:
       - Receive input: {"tool": <str>, "arguments": <dict>}
@@ -66,9 +66,8 @@ def make_mcp_gateway_via_child_workflow_tool(
             instance_id,
         )
 
-        # Dapr multi-app child workflow call: route execution to target_app_id. :contentReference[oaicite:2]{index=2}
-        # The Python context API shown in docs:
-        #   yield ctx.call_child_workflow(workflow='Workflow2', input='my-input', app_id='App2') :contentReference[oaicite:3]{index=3}
+        # Dapr multi-app child workflow call: route execution to target_app_id.
+        # API: yield ctx.call_child_workflow(workflow='Workflow2', input='my-input', app_id='App2')
         if instance_id:
             return ctx.call_child_workflow(
                 workflow=gateway_workflow_name,

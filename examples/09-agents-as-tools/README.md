@@ -1,4 +1,4 @@
-# 05 — Agents as Tools
+# 09 — Agents as Tools
 
 This example demonstrates how one `DurableAgent` can call another as a
 **synchronous child workflow tool**.  The calling agent's LLM picks the tool,
@@ -25,7 +25,7 @@ Both agents share one Dapr sidecar.  Sam is passed directly as a `DurableAgent`
 instance in Frodo's `tools` list and is auto-converted to an `AgentWorkflowTool`.
 
 ```bash
-cd examples/05-agents-as-tools
+cd examples/09-agents-as-tools
 dapr run -f dapr-in-process.yaml
 ```
 
@@ -41,10 +41,10 @@ curl -X POST http://localhost:8001/agent/run \
 
 Sam and Frodo each have their own Dapr sidecar.  Frodo discovers Sam via the
 shared registry (`USE_REGISTRY=1`, the default) or you can wire them explicitly
-with `convert_agent_as_tool`.
+with `agent_to_tool`.
 
 ```bash
-cd examples/05-agents-as-tools
+cd examples/09-agents-as-tools
 dapr run -f dapr-cross-app.yaml
 ```
 
@@ -61,7 +61,7 @@ curl -X POST http://localhost:8001/agent/run \
 1. **`is_tool=True`** — Sam registers itself in the shared Dapr state-store
    registry with `agent.is_tool = true`.
 2. **Auto-discovery** — At the start of every `frodo_agent_workflow` run,
-   `_load_tool_agents` scans the registry for agents with `is_tool=True` and
+   `_load_tools` scans the registry for agents with `is_tool=True` and
    registers them in Frodo's `tool_executor`.
 3. **LLM picks the tool** — Frodo's LLM sees `sam` as a function-call tool
    (the Dapr workflow context `ctx` is hidden from the schema).
@@ -74,10 +74,10 @@ curl -X POST http://localhost:8001/agent/run \
 ## Key APIs
 
 ```python
-from dapr_agents.tool.workflow import convert_agent_as_tool
+from dapr_agents.tool.workflow.agent_tool import agent_to_tool
 
 # Explicit cross-app factory (no registry needed)
-sam_tool = convert_agent_as_tool(
+sam_tool = agent_to_tool(
     "sam",
     description="Sam Gamgee. Goal: Manage provisions.",
     target_app_id="SamApp",
@@ -88,7 +88,4 @@ frodo = DurableAgent(name="frodo", tools=[sam_tool], ...)
 # OR: pass a DurableAgent instance (auto-converted, same app)
 sam = DurableAgent(name="sam", is_tool=True, ...)
 frodo = DurableAgent(name="frodo", tools=[sam], ...)
-
-# OR: pass a string name (deferred registry lookup)
-frodo = DurableAgent(name="frodo", tools=["sam"], registry=registry, ...)
 ```

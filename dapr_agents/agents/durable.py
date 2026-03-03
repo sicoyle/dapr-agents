@@ -197,6 +197,10 @@ class DurableAgent(AgentBase):
             self.tool_executor.register_tool(
                 agent_to_tool(item.name, description=item.profile.role or "")
             )
+        # Re-enable tool_choice if AgentBase cleared it due to an empty tools list
+        # but we've now registered agent-as-tool entries into the executor.
+        if self._agents_as_tools and self.execution.tool_choice is None:
+            self.execution.tool_choice = "auto"
 
         grpc_options = getattr(self, "workflow_grpc_options", None)
         apply_grpc_options(grpc_options)
