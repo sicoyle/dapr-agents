@@ -194,14 +194,14 @@ uv run dapr run --app-id durable-agent --resources-path components -- python 06_
 On a different terminal, trigger the agent:
 
 ```bash
-curl -i -X POST http://localhost:8001/run \
+curl -i -X POST http://localhost:8001/agent/run \
   -H "Content-Type: application/json" \
   -d '{"task": "What is the weather in London?"}'
 ```
 You will receive a WORKFLOW_ID in response. Query the result:
 
 ```bash
-curl -i -X GET http://localhost:8001/run/WORKFLOW_ID
+curl -i -X GET http://localhost:8001/agent/instances/WORKFLOW_ID
 ```
 
 Replace `WORKFLOW_ID` with the ID returned from the POST request.
@@ -253,7 +253,7 @@ uv run dapr run --app-id durable-agent-subscriber --resources-path components --
 On a different terminal, publish a message to the subscribed topic:
 
 ```bash
-dapr publish --publish-app-id durable-agent-subscriber --pubsub message-pubsub --topic weather.requests --data '{"task": "What is the weather in London?"}'
+dapr publish --publish-app-id durable-agent-subscriber --pubsub agent-pubsub --topic weather.requests --data '{"task": "What is the weather in London?"}'
 ```
 
 ## Expected Behavior
