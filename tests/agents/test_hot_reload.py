@@ -5,7 +5,12 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch
 
 from dapr_agents.agents.base import AgentBase
-from dapr_agents.agents.configs import RuntimeSubscriptionConfig
+from dapr_agents.agents.configs import (
+    AgentMetadata,
+    AgentMetadataSchema,
+    LLMMetadata,
+    RuntimeSubscriptionConfig,
+)
 from .mocks.llm_client import MockLLMClient
 
 
@@ -122,17 +127,23 @@ class TestApplyConfigUpdateReregistration:
         mock_registry.store.store_name = "agent-registry"
         agent._infra._registry = mock_registry
         agent._infra.registry_state = mock_registry.store
-        agent.agent_metadata = {
-            "agent": {
-                "role": "Role",
-                "goal": "Goal",
-                "instructions": ["Instr"],
-            },
-            "llm": {
-                "provider": "openai",
-                "model": "gpt-4o",
-            },
-        }
+        agent.agent_metadata = AgentMetadataSchema(
+            version="0.0.0-test",
+            name="RegAgent",
+            registered_at="2026-01-01T00:00:00Z",
+            agent=AgentMetadata(
+                appid="reg-agent",
+                type="standalone",
+                role="Role",
+                goal="Goal",
+                instructions=["Instr"],
+            ),
+            llm=LLMMetadata(
+                client="openai",
+                provider="openai",
+                model="gpt-4o",
+            ),
+        )
         return agent
 
     def test_triggers_reregistration(self, agent_with_registry):
@@ -143,17 +154,17 @@ class TestApplyConfigUpdateReregistration:
     def test_syncs_llm_metadata(self, agent_with_registry):
         with patch.object(agent_with_registry, "register_agentic_system"):
             agent_with_registry._apply_config_update("llm_model", "gpt-4o-mini")
-            assert agent_with_registry.agent_metadata["llm"]["model"] == "gpt-4o-mini"
+            assert agent_with_registry.agent_metadata.llm.model == "gpt-4o-mini"
 
     def test_syncs_llm_model_metadata(self, agent_with_registry):
         with patch.object(agent_with_registry, "register_agentic_system"):
             agent_with_registry._apply_config_update("llm_model", "gpt-3.5-turbo")
-            assert agent_with_registry.agent_metadata["llm"]["model"] == "gpt-3.5-turbo"
+            assert agent_with_registry.agent_metadata.llm.model == "gpt-3.5-turbo"
 
     def test_syncs_profile_metadata(self, agent_with_registry):
         with patch.object(agent_with_registry, "register_agentic_system"):
             agent_with_registry._apply_config_update("agent_goal", "New Goal")
-            assert agent_with_registry.agent_metadata["agent"]["goal"] == "New Goal"
+            assert agent_with_registry.agent_metadata.agent.goal == "New Goal"
 
     def test_reregistration_failure_is_warning(self, agent_with_registry, caplog):
         with patch.object(

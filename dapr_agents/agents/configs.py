@@ -396,9 +396,9 @@ class RuntimeConfigKey(StrEnum):
     LLM_MODEL = "llm_model"
 
     # Component references
-    STATE_STORE = "agent_workflow"
-    REGISTRY_STORE = "agent_registry"
-    MEMORY_STORE = "agent_memory"
+    AGENT_WORKFLOW = "agent_workflow"
+    AGENT_REGISTRY = "agent_registry"
+    AGENT_MEMORY = "agent_memory"
 
 
 class AgentTracingExporter(StrEnum):

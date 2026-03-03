@@ -174,7 +174,7 @@ class AgentBase:
             setter=lambda agent, v: setattr(agent.llm, "model", v),
         ),
         # Component references
-        RuntimeConfigKey.STATE_STORE: ConfigFieldDescriptor(
+        RuntimeConfigKey.AGENT_WORKFLOW: ConfigFieldDescriptor(
             target_type=str,
             setter=lambda agent, v: (
                 setattr(agent.state_store, "store_name", str(v))
@@ -182,7 +182,7 @@ class AgentBase:
                 else None
             ),
         ),
-        RuntimeConfigKey.REGISTRY_STORE: ConfigFieldDescriptor(
+        RuntimeConfigKey.AGENT_REGISTRY: ConfigFieldDescriptor(
             target_type=str,
             setter=lambda agent, v: (
                 setattr(agent.registry_state, "store_name", str(v))
@@ -190,7 +190,7 @@ class AgentBase:
                 else None
             ),
         ),
-        RuntimeConfigKey.MEMORY_STORE: ConfigFieldDescriptor(
+        RuntimeConfigKey.AGENT_MEMORY: ConfigFieldDescriptor(
             target_type=str,
             setter=lambda agent, v: (
                 setattr(agent.memory, "store_name", str(v))
@@ -839,35 +839,29 @@ class AgentBase:
         if self.registry_state is None:
             return
 
-        self.agent_metadata["agent"]["role"] = self.profile.role
-        self.agent_metadata["agent"]["goal"] = self.profile.goal
-        self.agent_metadata["agent"]["instructions"] = list(self.profile.instructions)
-        if self.profile.system_prompt:
-            self.agent_metadata["agent"]["system_prompt"] = self.profile.system_prompt
+        meta = self.agent_metadata
+        if meta is None:
+            return
 
-        # Sync execution metadata
-        if self.execution:
-            self.agent_metadata["max_iterations"] = self.execution.max_iterations
-            if self.execution.tool_choice is not None:
-                self.agent_metadata["tool_choice"] = self.execution.tool_choice
+        # Sync profile fields
+        if hasattr(meta, "agent") and meta.agent is not None:
+            meta.agent.role = self.profile.role
+            meta.agent.goal = self.profile.goal
+            meta.agent.instructions = list(self.profile.instructions)
+            if self.profile.system_prompt:
+                meta.agent.system_prompt = self.profile.system_prompt
+            if self.execution:
+                meta.agent.max_iterations = self.execution.max_iterations
+                if self.execution.tool_choice is not None:
+                    meta.agent.tool_choice = self.execution.tool_choice
 
         # Sync LLM metadata
-        if "llm" in self.agent_metadata and self.llm:
-            self.agent_metadata["llm"]["provider"] = getattr(
-                self.llm, "provider", "unknown"
-            )
-            self.agent_metadata["llm"]["model"] = getattr(self.llm, "model", "unknown")
-
-        # Update component names in metadata if they changed
-        if "statestore" in self.agent_metadata.get("agent", {}):
-            self.agent_metadata["agent"]["statestore"] = self.state_store.store_name
-        if "memory" in self.agent_metadata:
-            self.agent_metadata["memory"]["statestore"] = getattr(
-                self.memory, "store_name", "unknown"
-            )
+        if hasattr(meta, "llm") and meta.llm is not None and self.llm:
+            meta.llm.provider = getattr(self.llm, "provider", "unknown")
+            meta.llm.model = getattr(self.llm, "model", "unknown")
 
         try:
-            self.register_agentic_system(metadata=self.agent_metadata)
+            self.register_agentic_system(metadata=meta)
         except Exception as e:
             logger.warning("Failed to re-register agent after config update: %s", e)
 
