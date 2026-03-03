@@ -1654,7 +1654,6 @@ class DurableAgent(AgentBase):
                     registered.append(name)
                     logger.debug("Auto-registered is_tool agent: %s", name)
 
-
         if registered:
             logger.info(
                 "Agent %s: loaded %d agent tool(s): %s",
