@@ -19,12 +19,6 @@
           "title": "Orchestrator",
           "type": "boolean"
         },
-        "is_tool": {
-          "default": false,
-          "description": "Indicates if this agent can be called as a tool by other agents",
-          "title": "Is Tool",
-          "type": "boolean"
-        },
         "role": {
           "anyOf": [
             {
@@ -495,5 +489,5 @@
   "title": "AgentMetadataSchema",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "0.13.0"
+  "version": "0.13.1"
 }
