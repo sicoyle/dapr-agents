@@ -1147,6 +1147,30 @@ class AgentBase:
             return msg
         return None
 
+    def purge(self, workflow_instance_id: str) -> None:
+        """
+        Purge all durable state for a workflow instance: workflow state and
+        long-term conversation memory.
+
+        Both halves are best-effort: failures are logged as warnings and do not
+        prevent the other half from running.  Callers should monitor logs for
+        partial-failure signals.
+
+        Args:
+            workflow_instance_id: Workflow instance whose data should be removed.
+        """
+        self._infra.purge_state(workflow_instance_id)
+        if self.memory is not None:
+            try:
+                self.memory.purge_memory(workflow_instance_id)
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "Failed to purge conversation memory for instance_id=%s; "
+                    "continuing with partial purge.",
+                    workflow_instance_id,
+                    exc_info=True,
+                )
+
     def _summarize_conversation(
         self,
         instance_id: str,
