@@ -15,14 +15,13 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from dapr_agents.agents.durable import (
-    AGENT_WORKFLOW_SUFFIX,
-    BROADCAST_WORKFLOW_SUFFIX,
-    ORCHESTRATION_WORKFLOW_SUFFIX,
     DurableAgent,
+    broadcast_workflow_id,
 )
 from dapr_agents.tool.workflow.agent_tool import (
     AgentWorkflowTool,
     agent_to_tool,
+    agent_workflow_id,
 )
 
 
@@ -144,7 +143,7 @@ class TestRegisterWorkflowsNaming:
         registered_names = [
             call.args[0].__name__ for call in rt.register_workflow.call_args_list
         ]
-        assert f"frodo{AGENT_WORKFLOW_SUFFIX}" in registered_names
+        assert agent_workflow_id("frodo") in registered_names
 
     def test_broadcast_workflow_registered_with_name_suffix(self, mock_llm):
         sam = _make_agent("sam", mock_llm)
@@ -152,15 +151,15 @@ class TestRegisterWorkflowsNaming:
         registered_names = [
             call.args[0].__name__ for call in rt.register_workflow.call_args_list
         ]
-        assert f"sam{BROADCAST_WORKFLOW_SUFFIX}" in registered_names
+        assert broadcast_workflow_id("sam") in registered_names
 
     def test_agent_workflow_name_property(self, mock_llm):
         frodo = _make_agent("frodo", mock_llm)
-        assert frodo.agent_workflow_name == f"frodo{AGENT_WORKFLOW_SUFFIX}"
+        assert frodo.agent_workflow_name == agent_workflow_id("frodo")
 
     def test_broadcast_workflow_name_property(self, mock_llm):
         sam = _make_agent("sam", mock_llm)
-        assert sam.broadcast_workflow_name == f"sam{BROADCAST_WORKFLOW_SUFFIX}"
+        assert sam.broadcast_workflow_name == broadcast_workflow_id("sam")
 
     def test_load_tools_activity_registered(self, mock_llm):
         frodo = _make_agent("frodo", mock_llm)
@@ -181,8 +180,8 @@ class TestRegisterWorkflowsNaming:
         all_names = [
             call.args[0].__name__ for call in rt.register_workflow.call_args_list
         ]
-        assert f"frodo{AGENT_WORKFLOW_SUFFIX}" in all_names
-        assert f"sam{AGENT_WORKFLOW_SUFFIX}" in all_names
+        assert agent_workflow_id("frodo") in all_names
+        assert agent_workflow_id("sam") in all_names
         # No duplicates
         assert len(all_names) == len(set(all_names))
 

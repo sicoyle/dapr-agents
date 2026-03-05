@@ -17,17 +17,17 @@ runtime = wf.WorkflowRuntime()
 def chained_planner_workflow(ctx: DaprWorkflowContext, user_msg: str) -> str:
     """Plan a 3-day trip using chained agent activities."""
     dest = yield ctx.call_child_workflow(
-        workflow="DestinationExtractor_agent_workflow",
+        workflow="dapr.durableagent.DestinationExtractor.workflow",
         input={"task": user_msg},
         app_id="extractor",
     )
     outline = yield ctx.call_child_workflow(
-        workflow="PlannerAgent_agent_workflow",
+        workflow="dapr.durableagent.PlannerAgent.workflow",
         input={"task": dest.get("content")},
         app_id="planner",
     )
     itinerary = yield ctx.call_child_workflow(
-        workflow="ItineraryAgent_agent_workflow",
+        workflow="dapr.durableagent.ItineraryAgent.workflow",
         input={"task": outline.get("content")},
         app_id="expander",
     )

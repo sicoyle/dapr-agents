@@ -10,13 +10,18 @@ from dapr_agents.tool.workflow.agent_tool import (
     AgentWorkflowTool,
     _schedule_agent_workflow,
     agent_to_tool,
+    agent_workflow_id,
 )
 from dapr_agents.tool.workflow.tool_context import WorkflowContextInjectedTool
 
 
 class TestAgentWorkflowSuffix:
     def test_suffix_constant_value(self):
-        assert AGENT_WORKFLOW_SUFFIX == "_agent_workflow"
+        assert AGENT_WORKFLOW_SUFFIX == "_agent_workflow"  # backward compat
+
+    def test_agent_workflow_id(self):
+        assert agent_workflow_id("sam") == "dapr.durableagent.sam.workflow"
+        assert agent_workflow_id("frodo") == "dapr.durableagent.frodo.workflow"
 
 
 class TestAgentTaskArgs:
@@ -34,7 +39,7 @@ class TestScheduleAgentWorkflow:
         ctx = MagicMock()
         _schedule_agent_workflow(ctx, task="carry the Ring", agent_name="sam")
         ctx.call_child_workflow.assert_called_once_with(
-            workflow="sam_agent_workflow",
+            workflow=agent_workflow_id("sam"),
             input={"task": "carry the Ring"},
         )
 
@@ -44,7 +49,7 @@ class TestScheduleAgentWorkflow:
             ctx, task="scout ahead", agent_name="legolas", target_app_id="legolas-app"
         )
         ctx.call_child_workflow.assert_called_once_with(
-            workflow="legolas_agent_workflow",
+            workflow=agent_workflow_id("legolas"),
             input={"task": "scout ahead"},
             app_id="legolas-app",
         )
@@ -106,7 +111,7 @@ class TestAgentToTool:
         ctx = MagicMock()
         tool(ctx=ctx, task="Pack the bags")
         ctx.call_child_workflow.assert_called_once_with(
-            workflow="sam_agent_workflow",
+            workflow=agent_workflow_id("sam"),
             input={"task": "Pack the bags"},
         )
 
@@ -115,7 +120,7 @@ class TestAgentToTool:
         ctx = MagicMock()
         tool(ctx=ctx, task="Ready the ponies")
         ctx.call_child_workflow.assert_called_once_with(
-            workflow="sam_agent_workflow",
+            workflow=agent_workflow_id("sam"),
             input={"task": "Ready the ponies"},
             app_id="sam-app",
         )

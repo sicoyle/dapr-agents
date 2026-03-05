@@ -65,16 +65,22 @@ from dapr_agents.workflow.decorators import message_router, workflow_entry
 from dapr_agents.workflow.utils.grpc import apply_grpc_options
 from dapr_agents.workflow.utils.pubsub import broadcast_message, send_message_to_agent
 from dapr_agents.tool.workflow.agent_tool import (
-    AGENT_WORKFLOW_SUFFIX,
     AgentWorkflowTool,
     agent_to_tool,
+    agent_workflow_id,
 )
 from dapr_agents.tool.workflow.tool_context import WorkflowContextInjectedTool
 
 logger = logging.getLogger(__name__)
 
-BROADCAST_WORKFLOW_SUFFIX = "_broadcast_workflow"
-ORCHESTRATION_WORKFLOW_SUFFIX = "_orchestration_workflow"
+def broadcast_workflow_id(agent_name: str) -> str:
+    """Return the Dapr-registered broadcast workflow name for an agent."""
+    return f"dapr.durableagent.{agent_name}.broadcast"
+
+
+def orchestration_workflow_id(agent_name: str) -> str:
+    """Return the Dapr-registered orchestration workflow name for an agent."""
+    return f"dapr.durableagent.{agent_name}.orchestration"
 
 
 class DurableAgent(AgentBase):
@@ -271,12 +277,12 @@ class DurableAgent(AgentBase):
     @property
     def agent_workflow_name(self) -> str:
         """Dapr-registered name of this agent's primary workflow."""
-        return f"{self.name}{AGENT_WORKFLOW_SUFFIX}"
+        return agent_workflow_id(self.name)
 
     @property
     def broadcast_workflow_name(self) -> str:
         """Dapr-registered name of this agent's broadcast workflow."""
-        return f"{self.name}{BROADCAST_WORKFLOW_SUFFIX}"
+        return broadcast_workflow_id(self.name)
 
     # ------------------------------------------------------------------
     # Workflows / Activities
@@ -351,7 +357,7 @@ class DurableAgent(AgentBase):
                     )
 
                 final_message = yield ctx.call_child_workflow(
-                    workflow=f"{self.name}{ORCHESTRATION_WORKFLOW_SUFFIX}",
+                    workflow=orchestration_workflow_id(self.name),
                     input={
                         "task": task,
                         "instance_id": ctx.instance_id,
@@ -1912,7 +1918,7 @@ class DurableAgent(AgentBase):
         """
         Wrap a callable so the Dapr runtime registers it under ``name``
         instead of the method's ``__name__``.  Used for workflows to give
-        each agent a unique registration name (EX: ``frodo_agent_workflow``).
+        each agent a unique registration name (EX: ``dapr.durableagent.frodo.workflow``).
         """
 
         @functools.wraps(func)
@@ -1926,10 +1932,10 @@ class DurableAgent(AgentBase):
         """
         Register workflows/activities for this agent.
 
-        Each workflow is registered under a unique, agent-scoped name derived
-        from the constants ``AGENT_WORKFLOW_SUFFIX``, ``BROADCAST_WORKFLOW_SUFFIX``,
-        and (for orchestrators) ``ORCHESTRATION_WORKFLOW_SUFFIX``.  This prevents
-        name collisions when multiple agents share the same Dapr app.
+        Each workflow is registered under a unique, agent-scoped name using
+        the ``dapr.durableagent.<name>.<type>`` format:
+        ``*.workflow``, ``*.broadcast``, and ``*.orchestration``.  This
+        prevents name collisions when multiple agents share the same Dapr app.
 
         ``AgentRunner`` discovers the registered names via the
         ``agent_workflow_name`` / ``broadcast_workflow_name`` properties and
@@ -1964,7 +1970,7 @@ class DurableAgent(AgentBase):
             runtime.register_workflow(
                 self._named(
                     self.orchestration_workflow,
-                    f"{self.name}{ORCHESTRATION_WORKFLOW_SUFFIX}",
+                    orchestration_workflow_id(self.name),
                 )
             )
 

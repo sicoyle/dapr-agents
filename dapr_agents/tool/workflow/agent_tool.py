@@ -8,7 +8,12 @@ from dapr_agents.tool.workflow.tool_context import WorkflowContextInjectedTool
 
 logger = logging.getLogger(__name__)
 
-AGENT_WORKFLOW_SUFFIX = "_agent_workflow"
+AGENT_WORKFLOW_SUFFIX = "_agent_workflow"  # kept for backward compat
+
+
+def agent_workflow_id(agent_name: str) -> str:
+    """Return the Dapr-registered workflow name for an agent."""
+    return f"dapr.durableagent.{agent_name}.workflow"
 
 
 class AgentTaskArgs(BaseModel):
@@ -71,7 +76,7 @@ def _schedule_agent_workflow(
         input_payload["_message_metadata"] = {"source": _source_agent}
 
     call_kwargs: dict = {
-        "workflow": f"{agent_name}{AGENT_WORKFLOW_SUFFIX}",
+        "workflow": agent_workflow_id(agent_name),
         "input": input_payload,
     }
     if target_app_id:
