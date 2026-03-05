@@ -422,7 +422,12 @@ class DurableAgent(AgentBase):
                                 tool_obj, WorkflowContextInjectedTool
                             ):
                                 raw_args = tc["function"].get("arguments", "")
-                                args = json.loads(raw_args) if raw_args else {}
+                                try:
+                                    args = json.loads(raw_args) if raw_args else {}
+                                except json.JSONDecodeError as exc:
+                                    raise AgentError(
+                                        f"Failed to decode tool arguments for '{fn_name}': {exc}"
+                                    ) from exc
                                 workflow_tasks.append(
                                     tool_obj(ctx=ctx, _source_agent=self.name, **args)
                                 )
@@ -1668,6 +1673,8 @@ class DurableAgent(AgentBase):
                 len(registered),
                 registered,
             )
+            if self.execution.tool_choice is None:
+                self.execution.tool_choice = "auto"
 
         return registered
 

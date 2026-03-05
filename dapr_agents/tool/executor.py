@@ -82,6 +82,15 @@ class AgentToolExecutor(BaseModel):
         """
         return self._tools_map.get(self._normalize(tool_name))
 
+    def list_tools(self) -> List[AgentTool]:
+        """
+        Returns all registered tools in registration order.
+
+        Returns:
+            List[AgentTool]: All registered tools.
+        """
+        return list(self._tools_map.values())
+
     def get_tool_names(self) -> List[str]:
         """
         Lists all registered tool display names.

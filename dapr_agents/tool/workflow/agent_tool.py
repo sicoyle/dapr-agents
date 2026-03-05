@@ -111,8 +111,12 @@ def agent_to_tool(
     all registry peers automatically at workflow start.
 
     Args:
-        agent_name: The name of the target agent (must match the agent's
-            registered name exactly, as it becomes the tool name the LLM uses).
+        agent_name: The base name of the target agent.  This value is used to
+            derive the tool name exposed to the LLM; the underlying
+            :class:`AgentTool` normalizes it (title-casing, removing spaces
+            and underscores), so e.g. ``"my agent"`` becomes ``"MyAgent"``.
+            It should correspond to the agent's registered name under this
+            normalization, rather than needing to match character-for-character.
         description: Human-readable description shown to the LLM in the tool
             schema (e.g. ``"Ring-bearer. Goal: carry the One Ring to Mordor."``).
         target_app_id: Dapr app-id of the app hosting the target agent.

@@ -842,7 +842,7 @@ class AgentBase:
         Returns:
             List of `AgentTool` or tool-spec dicts.
         """
-        return list(self.tool_executor._tools_map.values())
+        return self.tool_executor.list_tools()
 
     def _build_profile(
         self,
