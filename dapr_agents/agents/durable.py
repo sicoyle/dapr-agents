@@ -192,14 +192,17 @@ class DurableAgent(AgentBase):
         )
 
         # Convert any DurableAgent objects to AgentWorkflowTool and register immediately.
-        for item in self._agents_as_tools:
-            self.tool_executor.register_tool(
-                agent_to_tool(item.name, description=item.profile.role or "")
-            )
-        # Re-enable tool_choice if AgentBase cleared it due to an empty tools list
-        # but we've now registered agent-as-tool entries into the executor.
-        if self._agents_as_tools and self.execution.tool_choice is None:
-            self.execution.tool_choice = "auto"
+        # Orchestrators dispatch to sub-agents via their orchestration strategy,
+        # not via tool_executor, so agent-as-tool registration is skipped for them.
+        if not self.execution.orchestration_mode:
+            for item in self._agents_as_tools:
+                self.tool_executor.register_tool(
+                    agent_to_tool(item.name, description=item.profile.role or "")
+                )
+            # Re-enable tool_choice if AgentBase cleared it due to an empty tools list
+            # but we've now registered agent-as-tool entries into the executor.
+            if self._agents_as_tools and self.execution.tool_choice is None:
+                self.execution.tool_choice = "auto"
 
         grpc_options = getattr(self, "workflow_grpc_options", None)
         apply_grpc_options(grpc_options)
@@ -591,12 +594,6 @@ class DurableAgent(AgentBase):
             logger.info(
                 f"Orchestration workflow started for instance {instance_id} with task: {task}"
             )
-
-        # Ensure all is_tool=True team agents are registered in tool_executor.
-        yield ctx.call_activity(
-            self._load_tools,
-            retry_policy=self._retry_policy,
-        )
 
         agents_result = yield ctx.call_activity(
             self._get_available_agents,
@@ -1637,13 +1634,15 @@ class DurableAgent(AgentBase):
         since they coordinate rather than execute tasks.
 
         The activity is idempotent: agents already present in the tool executor
-        are skipped.  It is called at the start of every ``agent_workflow`` and
-        ``orchestration_workflow`` invocation so that newly-registered agents
-        are visible without restarting the parent.
+        are skipped.  It is called at the start of every ``agent_workflow``
+        invocation so that newly-registered agents are visible without restarting.
 
         Returns:
             List of agent names that were newly registered during this call.
         """
+        # orchestrators dispatch via strategy, not tool_executor
+        if self.orchestrator:
+            return []
         if not self.registry:
             return []
 

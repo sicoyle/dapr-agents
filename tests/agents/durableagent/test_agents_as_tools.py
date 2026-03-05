@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from dapr_agents.agents.configs import AgentExecutionConfig, OrchestrationMode
 from dapr_agents.agents.durable import (
     DurableAgent,
     broadcast_workflow_id,
@@ -264,3 +265,59 @@ class TestLoadTools:
 
         assert result == []
         assert frodo.tool_executor.get_tool("frodo") is None
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator isolation — agents must not appear in tool_executor
+# ---------------------------------------------------------------------------
+
+
+class TestOrchestratorToolIsolation:
+    def _make_orchestrator(self, name: str, mock_llm, **kwargs) -> DurableAgent:
+        return DurableAgent(
+            name=name,
+            role=f"{name} role",
+            goal=f"{name} goal",
+            llm=mock_llm,
+            execution=AgentExecutionConfig(orchestration_mode=OrchestrationMode.AGENT),
+            **kwargs,
+        )
+
+    def _with_registry(self, agent) -> None:
+        agent._infra._registry = MagicMock()
+
+    def _make_registry_metadata(self, agents: dict) -> dict:
+        return {
+            name: {
+                "agent": {
+                    "role": info.get("role", ""),
+                    "goal": info.get("goal", ""),
+                    "appid": info.get("appid", "test-app"),
+                }
+            }
+            for name, info in agents.items()
+        }
+
+    def test_load_tools_returns_empty_for_orchestrator(self, mock_llm):
+        gandalf = self._make_orchestrator("gandalf", mock_llm)
+        self._with_registry(gandalf)
+        ctx = MagicMock()
+
+        metadata = self._make_registry_metadata(
+            {"frodo": {"role": "ring-bearer", "goal": "destroy the ring"}}
+        )
+        with patch.object(gandalf._infra, "get_agents_metadata", return_value=metadata):
+            result = gandalf._load_tools(ctx)
+
+        assert result == []
+        assert gandalf.tool_executor.get_tool("frodo") is None
+
+    def test_orchestrator_does_not_register_agents_as_tools_from_init(self, mock_llm):
+        sam = _make_agent("sam", mock_llm)
+        gandalf = self._make_orchestrator("gandalf", mock_llm, tools=[sam])
+
+        assert gandalf.tool_executor.get_tool("sam") is None
+
+    def test_orchestrator_is_true_for_orchestration_mode(self, mock_llm):
+        gandalf = self._make_orchestrator("gandalf", mock_llm)
+        assert gandalf.orchestrator is True
