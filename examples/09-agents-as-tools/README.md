@@ -58,11 +58,11 @@ curl -X POST http://localhost:8001/agent/run \
 
 ## How It Works
 
-1. **`is_tool=True`** — Sam registers itself in the shared Dapr state-store
-   registry with `agent.is_tool = true`.
+1. **Registry membership** — Sam registers itself in the shared Dapr
+   state-store registry by providing a `registry=` config.
 2. **Auto-discovery** — At the start of every `frodo_agent_workflow` run,
-   `_load_tools` scans the registry for agents with `is_tool=True` and
-   registers them in Frodo's `tool_executor`.
+   `_load_tools` scans the registry and registers all peer agents (excluding
+   orchestrators and self) in Frodo's `tool_executor`.
 3. **LLM picks the tool** — Frodo's LLM sees `sam` as a function-call tool
    (the Dapr workflow context `ctx` is hidden from the schema).
 4. **Child workflow** — The framework calls
@@ -85,7 +85,11 @@ sam_tool = agent_to_tool(
 
 frodo = DurableAgent(name="frodo", tools=[sam_tool], ...)
 
-# OR: pass a DurableAgent instance (auto-converted, same app)
-sam = DurableAgent(name="sam", is_tool=True, ...)
+# OR: pass a DurableAgent instance directly (auto-converted, same app)
+sam = DurableAgent(name="sam", registry=registry, ...)
 frodo = DurableAgent(name="frodo", tools=[sam], ...)
+
+# OR: shared registry — all peers auto-discovered at workflow start
+sam = DurableAgent(name="sam", registry=registry, ...)
+frodo = DurableAgent(name="frodo", registry=registry, ...)
 ```

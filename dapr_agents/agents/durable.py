@@ -116,8 +116,6 @@ class DurableAgent(AgentBase):
         runtime: Optional[wf.WorkflowRuntime] = None,
         retry_policy: WorkflowRetryPolicy = WorkflowRetryPolicy(),
         agent_observability: Optional[AgentObservabilityConfig] = None,
-        # Agent-as-tool
-        is_tool: bool = False,
     ) -> None:
         """
         Initialize behavior, infrastructure, and workflow runtime.
@@ -142,19 +140,14 @@ class DurableAgent(AgentBase):
             memory: Enable long-term conversation memory storage; defaults to false.
             llm: Chat client; defaults to `get_default_llm()`.
             tools: Optional tool callables or ``AgentTool`` instances.
-                Agents marked ``is_tool=True`` in the shared registry are
-                auto-discovered at workflow start via ``_load_tools`` — no
-                explicit wiring needed.
+                All agents sharing the same registry are auto-discovered as
+                tools at workflow start via ``_load_tools``.
 
             agent_metadata: Extra metadata to publish to the registry.
             workflow_grpc: Optional gRPC overrides for the workflow runtime channel.
             runtime: Optional pre-existing workflow runtime to attach to.
             retry_policy: Durable retry policy configuration.
             agent_observability: Observability configuration for tracing/logging.
-            is_tool: When ``True``, marks this agent in the registry as callable
-                by other agents as a tool.  Other agents that share the same
-                registry will auto-discover and register it via
-                ``_load_tool_agents``.
         """
         # Mark orchestrators to filtered out when other orchestrators query for available agents
         if execution and execution.orchestration_mode:
@@ -189,7 +182,6 @@ class DurableAgent(AgentBase):
             tools=tools,
             prompt_template=prompt_template,
             agent_observability=agent_observability,
-            is_tool=is_tool,
         )
 
         # Convert any DurableAgent objects to AgentWorkflowTool and register immediately.
@@ -1625,8 +1617,12 @@ class DurableAgent(AgentBase):
 
     def _load_tools(self, ctx: wf.WorkflowActivityContext) -> List[str]:
         """
-        Discover ``is_tool=True`` agents from the registry and register each as
-        an ``AgentWorkflowTool`` in this agent's tool executor.
+        Discover all agents in the shared registry and register each as an
+        ``AgentWorkflowTool`` in this agent's tool executor.
+
+        Any agent registered in the same registry is automatically treated as a
+        callable tool — no opt-in flag required.  Orchestrators are excluded
+        since they coordinate rather than execute tasks.
 
         The activity is idempotent: agents already present in the tool executor
         are skipped.  It is called at the start of every ``agent_workflow`` and
@@ -1639,24 +1635,24 @@ class DurableAgent(AgentBase):
         if not self.registry:
             return []
 
-        agents_metadata = self._infra.get_agents_metadata(exclude_self=True)
+        agents_metadata = self._infra.get_agents_metadata(
+            exclude_self=True, exclude_orchestrator=True
+        )
         registered: List[str] = []
 
-        # Auto-discover all is_tool=True agents in the registry
         for name, meta in agents_metadata.items():
-            if meta.get("agent", {}).get("is_tool", False):
-                if not self.tool_executor.get_tool(name):
-                    tool = agent_to_tool(
-                        name,
-                        description=(
-                            f"{meta['agent'].get('role', '')}. "
-                            f"Goal: {meta['agent'].get('goal', '')}"
-                        ),
-                        target_app_id=meta["agent"].get("appid"),
-                    )
-                    self.tool_executor.register_tool(tool)
-                    registered.append(name)
-                    logger.debug("Auto-registered is_tool agent: %s", name)
+            if not self.tool_executor.get_tool(name):
+                tool = agent_to_tool(
+                    name,
+                    description=(
+                        f"{meta['agent'].get('role', '')}. "
+                        f"Goal: {meta['agent'].get('goal', '')}"
+                    ),
+                    target_app_id=meta["agent"].get("appid"),
+                )
+                self.tool_executor.register_tool(tool)
+                registered.append(name)
+                logger.debug("Auto-registered registry agent as tool: %s", name)
 
         if registered:
             logger.info(

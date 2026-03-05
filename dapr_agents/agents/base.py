@@ -125,8 +125,6 @@ class AgentBase:
         # Execution
         execution: Optional[AgentExecutionConfig] = None,
         agent_observability: Optional[AgentObservabilityConfig] = None,
-        # Agent-as-tool
-        is_tool: bool = False,
     ) -> None:
         """
         Initialize an agent with behavior + infrastructure.
@@ -175,7 +173,6 @@ class AgentBase:
         self._runtime_secrets: Dict[str, str] = {}
         self._runtime_conf: Dict[str, str] = {}
         self._agent_observability = agent_observability
-        self.is_tool: bool = is_tool
         self.appid = (
             None  # We set the appid to None as standalone agents may not have one
         )
@@ -392,7 +389,6 @@ class AgentBase:
             appid=self.appid or "unknown",
             type=type(self).__name__,
             orchestrator=bool(agent_metadata and agent_metadata.get("orchestrator")),
-            is_tool=self.is_tool,
             role=self.profile.role or None,
             goal=self.profile.goal or None,
             instructions=list(self.profile.instructions),

@@ -2,8 +2,8 @@
 Cross-app agents-as-tools: Sam service.
 
 Sam runs as a standalone Dapr app (app-id: SamApp).
-Setting ``is_tool=True`` publishes the ``is_tool`` flag to the shared registry,
-so that any agent sharing that registry can discover and call Sam as a tool automatically.
+By registering in the shared registry, Sam is automatically discoverable
+as a callable tool by any other agent on the same registry.
 """
 
 from __future__ import annotations
@@ -60,7 +60,6 @@ def main() -> None:
         ],
         llm=llm,
         registry=registry,
-        is_tool=True,  # advertise this agent as callable by others
         pubsub=AgentPubSubConfig(
             pubsub_name=os.getenv("PUBSUB_NAME", "agent-pubsub"),
             agent_topic=os.getenv("SAM_TOPIC", "fellowship.sam.requests"),

@@ -101,10 +101,9 @@ def agent_to_tool(
     for cross-app agents where you have a known ``target_app_id``, or for
     advanced scenarios where you want full control.
 
-    For registry-based auto-discovery (in-process and cross-app), simply set
-    ``is_tool=True`` on the target agent and make sure both agents share a
-    registry; the parent agent's ``_load_tool_agents`` activity will pick it
-    up automatically.
+    For registry-based auto-discovery, simply register both agents in the
+    same registry; the parent agent's ``_load_tools`` activity will pick up
+    all registry peers automatically at workflow start.
 
     Args:
         agent_name: The name of the target agent (must match the agent's

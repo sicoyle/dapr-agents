@@ -2,12 +2,10 @@
 Unit tests for the agents-as-tools feature in DurableAgent.
 
 Covers:
-- is_tool flag stored and forwarded to registry metadata
 - DurableAgent instance in tools list auto-converted to AgentWorkflowTool
-- String agent name deferred to _deferred_agent_names
 - register_workflows uses per-agent workflow names via _named wrappers
 - agent_workflow_name / broadcast_workflow_name properties
-- _load_tools discovers is_tool=True agents and deferred names
+- _load_tools discovers all registry agents (excluding orchestrators and self)
 """
 
 from datetime import timedelta
@@ -92,37 +90,13 @@ def _make_agent(name: str, mock_llm, **kwargs) -> DurableAgent:
 
 
 # ---------------------------------------------------------------------------
-# is_tool flag
-# ---------------------------------------------------------------------------
-
-
-class TestIsToolFlag:
-    def test_is_tool_defaults_false(self, mock_llm):
-        agent = _make_agent("frodo", mock_llm)
-        assert agent.is_tool is False
-
-    def test_is_tool_set_true(self, mock_llm):
-        agent = _make_agent("sam", mock_llm, is_tool=True)
-        assert agent.is_tool is True
-
-    def test_is_tool_reflected_in_registry_metadata(self, mock_llm):
-        """is_tool=True must be accessible on the agent instance."""
-        agent = _make_agent("sam", mock_llm, is_tool=True)
-        assert agent.is_tool is True
-
-    def test_is_tool_false_in_registry_metadata(self, mock_llm):
-        agent = _make_agent("frodo", mock_llm, is_tool=False)
-        assert agent.is_tool is False
-
-
-# ---------------------------------------------------------------------------
 # tools= list pre-processing
 # ---------------------------------------------------------------------------
 
 
 class TestToolsListPreprocessing:
     def test_durable_agent_instance_converted_to_agent_workflow_tool(self, mock_llm):
-        sam = _make_agent("sam", mock_llm, is_tool=True)
+        sam = _make_agent("sam", mock_llm)
         frodo = _make_agent("frodo", mock_llm, tools=[sam])
         # get_tool normalises names (case-insensitive, strips spaces/underscores)
         tool = frodo.tool_executor.get_tool("sam")
@@ -227,7 +201,6 @@ class TestLoadTools:
                     "role": info.get("role", ""),
                     "goal": info.get("goal", ""),
                     "appid": info.get("appid", "test-app"),
-                    "is_tool": info.get("is_tool", False),
                 }
             }
             for name, info in agents.items()
@@ -237,14 +210,14 @@ class TestLoadTools:
         """Give the agent a non-None registry so _load_tools doesn't short-circuit."""
         agent._infra._registry = MagicMock()
 
-    def test_discovers_is_tool_agents(self, mock_llm):
+    def test_discovers_registry_agents(self, mock_llm):
         frodo = _make_agent("frodo", mock_llm)
         self._with_registry(frodo)
         ctx = MagicMock()
 
         metadata = self._make_registry_metadata(
             {
-                "sam": {"role": "helper", "goal": "assist", "is_tool": True},
+                "sam": {"role": "helper", "goal": "assist"},
             }
         )
 
@@ -262,7 +235,7 @@ class TestLoadTools:
 
         metadata = self._make_registry_metadata(
             {
-                "sam": {"role": "helper", "goal": "assist", "is_tool": True},
+                "sam": {"role": "helper", "goal": "assist"},
             }
         )
 

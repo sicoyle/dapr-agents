@@ -67,12 +67,6 @@
           "description": "Instructions for the agent",
           "title": "Instructions"
         },
-        "is_tool": {
-          "default": false,
-          "description": "Indicates if this agent can be called as a tool by other agents",
-          "title": "Is Tool",
-          "type": "boolean"
-        },
         "system_prompt": {
           "anyOf": [
             {

@@ -2,11 +2,10 @@
 Cross-app agents-as-tools: Frodo service.
 
 Frodo runs as a standalone Dapr app (app-id: FrodoApp).
-Sam lives in a separate Dapr app (SamApp) with ``is_tool=True``.
+Sam lives in a separate Dapr app (SamApp) on the same shared registry.
 
-Because Sam is registered in the shared registry with ``is_tool=True``,
-Frodo's discovers and registers Sam as a callable
-tool automatically at workflow start — no explicit tool wiring needed.
+Because both agents share a registry, Frodo auto-discovers and registers
+Sam as a callable tool at workflow start — no explicit wiring needed.
 """
 
 from __future__ import annotations
