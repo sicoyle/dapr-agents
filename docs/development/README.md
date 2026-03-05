@@ -277,6 +277,17 @@ git push --no-verify
 
 6. Submit your changes
 
+## To run pre-commit hooks
+```bash
+pre-commit run --all-files
+```
+
+## To run the Metadata Schema Generator
+TODO(@casperGN): to pls add in when we should run this, when it gets ran in CI, how to avoid local versions from getting committed, etc.
+```
+uv run python scripts/generate_metadata_schema.py --version X.X.X
+```
+
 ## Design/Behavioral Decisions
 
 ### DurableAgent Durability
