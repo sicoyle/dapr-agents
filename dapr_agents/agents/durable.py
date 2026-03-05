@@ -73,6 +73,7 @@ from dapr_agents.tool.workflow.tool_context import WorkflowContextInjectedTool
 
 logger = logging.getLogger(__name__)
 
+
 def broadcast_workflow_id(agent_name: str) -> str:
     """Return the Dapr-registered broadcast workflow name for an agent."""
     return f"dapr.durableagent.{agent_name}.broadcast"
