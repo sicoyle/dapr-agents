@@ -20,7 +20,7 @@ Demonstrates four ways to configure OpenTelemetry observability for Dapr Agents 
 ## Quick Start
 
 ```bash
-# Deploy to a namespace (default: catalyst-agents)
+# Deploy to a namespace (default: dapr-agents)
 ./build-and-deploy.sh my-namespace
 
 # Or use the default namespace
@@ -38,7 +38,7 @@ All scripts accept the namespace as the first argument:
 ./seed-runtime-store.sh <namespace>
 ```
 
-Default: `catalyst-agents`
+Default: `dapr-agents`
 
 ### Redis Pod Discovery
 
@@ -89,7 +89,7 @@ The `otel-configstore` agent subscribes to the Dapr Configuration Store for real
 ### Example: Change Endpoint at Runtime
 
 ```bash
-NAMESPACE=catalyst-agents
+NAMESPACE=dapr-agents
 REDIS_POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=redis -o jsonpath='{.items[0].metadata.name}')
 
 # Switch to a new collector

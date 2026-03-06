@@ -28,7 +28,7 @@ def main() -> None:
             enabled=True,
             tracing_enabled=True,
             tracing_exporter=AgentTracingExporter.OTLP_GRPC,
-            endpoint="http://catalyst-agents-opentelemetry-collector.catalyst-agents.svc.cluster.local:4317",
+            endpoint="http://dapr-agents-opentelemetry-collector.dapr-agents.svc.cluster.local:4317",
             service_name="otel-instantiation-agent",
         ),
     )

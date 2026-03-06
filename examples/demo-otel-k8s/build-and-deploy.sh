@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # --- Configuration ---
-NAMESPACE="${1:-catalyst-agents}"
+NAMESPACE="${1:-dapr-agents}"
 IMAGE="${DEMO_OTEL_IMAGE:-localhost:5001/demo-otel-agent:latest}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

@@ -29,7 +29,7 @@ spec:
         - name: OTEL_SDK_DISABLED
           value: "false"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://catalyst-agents-opentelemetry-collector.catalyst-agents.svc.cluster.local:4317"
+          value: "http://dapr-agents-opentelemetry-collector.dapr-agents.svc.cluster.local:4317"
         - name: OTEL_TRACES_EXPORTER
           value: "otlp_grpc"
         - name: OTEL_TRACING_ENABLED

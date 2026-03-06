@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # --- Configuration ---
-NAMESPACE="${1:-catalyst-agents}"
+NAMESPACE="${1:-dapr-agents}"
 REDIS_POD="${REDIS_POD:-}"
 
 # Auto-discover Redis pod if not explicitly set
@@ -43,7 +43,7 @@ echo "=== Seeding agent-runtime state store for otel-statestore agent ==="
 # Value is JSON with OTEL configuration
 kubectl exec "$REDIS_POD" -n "$NAMESPACE" -- redis-cli SET \
   "otel-statestore||observability-config" \
-  '{"enabled":true,"tracing_enabled":true,"tracing_exporter":"otlp_grpc","endpoint":"http://catalyst-agents-opentelemetry-collector.'"$NAMESPACE"'.svc.cluster.local:4317","service_name":"otel-statestore-agent"}'
+  '{"enabled":true,"tracing_enabled":true,"tracing_exporter":"otlp_grpc","endpoint":"http://dapr-agents-opentelemetry-collector.'"$NAMESPACE"'.svc.cluster.local:4317","service_name":"otel-statestore-agent"}'
 
 echo "=== Verifying state store seed ==="
 kubectl exec "$REDIS_POD" -n "$NAMESPACE" -- redis-cli GET \
@@ -60,7 +60,7 @@ kubectl exec "$REDIS_POD" -n "$NAMESPACE" -- redis-cli SET \
 
 kubectl exec "$REDIS_POD" -n "$NAMESPACE" -- redis-cli SET \
   "otel_exporter_otlp_endpoint" \
-  "http://catalyst-agents-opentelemetry-collector.${NAMESPACE}.svc.cluster.local:4317"
+  "http://dapr-agents-opentelemetry-collector.${NAMESPACE}.svc.cluster.local:4317"
 
 kubectl exec "$REDIS_POD" -n "$NAMESPACE" -- redis-cli SET \
   "otel_traces_exporter" "otlp_grpc"
