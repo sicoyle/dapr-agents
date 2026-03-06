@@ -16,7 +16,7 @@ llm = DaprChatClient(component_name="openai")
 
 def main():
     expander = DurableAgent(
-        name="ItineraryAgent",
+        name="itinerary-agent",
         role="Itinerary expander",
         llm=llm,
         instructions=[

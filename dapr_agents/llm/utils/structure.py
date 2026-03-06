@@ -244,6 +244,18 @@ class StructureHandler:
                                 f"Extracted function-call response: {extracted_response}"
                             )
                             return extracted_response
+                    # Fallback: LLM ignored tool_choice and returned plain JSON text
+                    content = getattr(message, "content", None)
+                    if content and isinstance(content, str):
+                        try:
+                            json.loads(content)
+                            logger.warning(
+                                "function_call mode: no tool_calls in response; "
+                                "falling back to content as JSON."
+                            )
+                            return content
+                        except json.JSONDecodeError:
+                            pass
                     raise StructureError("No tool_calls found for function_call mode.")
 
                 elif structured_mode == "json":
