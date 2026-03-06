@@ -276,7 +276,7 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
         llm_component: Optional[str] = None,
         tools: Optional[List[Union[AgentTool, Dict[str, Any]]]] = None,
         response_format: Optional[Type[BaseModel]] = None,
-        structured_mode: Literal["function_call", "json"] = "function_call",
+        structured_mode: Literal["function_call", "json"] = "json",
         scrubPII: bool = False,
         temperature: Optional[float] = None,
         **kwargs: Any,
@@ -298,7 +298,7 @@ class DaprChatClient(DaprInferenceClientBase, ChatClientBase):
             llm_component:   Dapr component name (defaults from env).
             tools:           AgentTool or dict specifications.
             response_format: Pydantic model for structured output.
-            structured_mode: Must be "function_call" or "json".
+            structured_mode: "json" (default) or "function_call".
             scrubPII:        Obfuscate sensitive output if True.
             temperature:     Sampling temperature.
             **kwargs:        Other Dapr API parameters.
