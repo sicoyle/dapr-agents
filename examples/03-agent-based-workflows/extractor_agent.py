@@ -15,7 +15,7 @@ llm = DaprChatClient(component_name="openai")
 
 def main():
     extractor = DurableAgent(
-        name="DestinationExtractor",
+        name="destination-extractor",
         role="Extract destination",
         instructions=[
             "Extract the main city from the user's message.",

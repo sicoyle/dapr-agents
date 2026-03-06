@@ -16,7 +16,7 @@ llm = DaprChatClient(component_name="openai")
 
 def main():
     planner = DurableAgent(
-        name="PlannerAgent",
+        name="planner-agent",
         role="Trip planner",
         instructions=[
             "Create a concise 3-day outline for the given destination.",
