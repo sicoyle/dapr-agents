@@ -203,7 +203,9 @@ class AgentBase:
         # OTel fields — setters mutate self._agent_observability
         RuntimeConfigKey.OTEL_SDK_DISABLED: ConfigFieldDescriptor(
             target_type=bool,
-            setter=lambda agent, v: setattr(agent._agent_observability, "enabled", not v),
+            setter=lambda agent, v: setattr(
+                agent._agent_observability, "enabled", not v
+            ),
             triggers_otel_reload=True,
         ),
         RuntimeConfigKey.OTEL_EXPORTER_OTLP_ENDPOINT: ConfigFieldDescriptor(
@@ -213,34 +215,46 @@ class AgentBase:
         ),
         RuntimeConfigKey.OTEL_EXPORTER_OTLP_HEADERS: ConfigFieldDescriptor(
             target_type=str,
-            setter=lambda agent, v: setattr(agent._agent_observability, "auth_token", v),
+            setter=lambda agent, v: setattr(
+                agent._agent_observability, "auth_token", v
+            ),
             sensitive=True,
             triggers_otel_reload=True,
         ),
         RuntimeConfigKey.OTEL_SERVICE_NAME: ConfigFieldDescriptor(
             target_type=str,
-            setter=lambda agent, v: setattr(agent._agent_observability, "service_name", v),
+            setter=lambda agent, v: setattr(
+                agent._agent_observability, "service_name", v
+            ),
             triggers_otel_reload=True,
         ),
         RuntimeConfigKey.OTEL_TRACING_ENABLED: ConfigFieldDescriptor(
             target_type=bool,
-            setter=lambda agent, v: setattr(agent._agent_observability, "tracing_enabled", v),
+            setter=lambda agent, v: setattr(
+                agent._agent_observability, "tracing_enabled", v
+            ),
             triggers_otel_reload=True,
         ),
         RuntimeConfigKey.OTEL_TRACES_EXPORTER: ConfigFieldDescriptor(
             target_type=str,
-            setter=lambda agent, v: setattr(agent._agent_observability, "tracing_exporter", AgentTracingExporter(v)),
+            setter=lambda agent, v: setattr(
+                agent._agent_observability, "tracing_exporter", AgentTracingExporter(v)
+            ),
             validator=validate_otel_exporter_tracing,
             triggers_otel_reload=True,
         ),
         RuntimeConfigKey.OTEL_LOGGING_ENABLED: ConfigFieldDescriptor(
             target_type=bool,
-            setter=lambda agent, v: setattr(agent._agent_observability, "logging_enabled", v),
+            setter=lambda agent, v: setattr(
+                agent._agent_observability, "logging_enabled", v
+            ),
             triggers_otel_reload=True,
         ),
         RuntimeConfigKey.OTEL_LOGS_EXPORTER: ConfigFieldDescriptor(
             target_type=str,
-            setter=lambda agent, v: setattr(agent._agent_observability, "logging_exporter", AgentLoggingExporter(v)),
+            setter=lambda agent, v: setattr(
+                agent._agent_observability, "logging_exporter", AgentLoggingExporter(v)
+            ),
             validator=validate_otel_exporter_logging,
             triggers_otel_reload=True,
         ),
@@ -1754,9 +1768,7 @@ class AgentBase:
                 logger_provider=logger_provider,
             )
 
-    def _build_otel_providers(
-        self, config: AgentObservabilityConfig
-    ) -> tuple:
+    def _build_otel_providers(self, config: AgentObservabilityConfig) -> tuple:
         """Build OTel tracer and logger providers from config.
 
         Returns:
@@ -1792,9 +1804,7 @@ class AgentBase:
             match _exporter:
                 case AgentLoggingExporter.OTLP_GRPC:
                     log_processor = BatchLogRecordProcessor(
-                        OTLPGrpcLogExporter(
-                            endpoint=_endpoint, headers=otlp_headers
-                        )
+                        OTLPGrpcLogExporter(endpoint=_endpoint, headers=otlp_headers)
                     )
                 case AgentLoggingExporter.OTLP_HTTP:
                     log_processor = BatchLogRecordProcessor(
@@ -1806,9 +1816,7 @@ class AgentBase:
                         )
                     )
                 case _:
-                    log_processor = BatchLogRecordProcessor(
-                        ConsoleLogRecordExporter()
-                    )
+                    log_processor = BatchLogRecordProcessor(ConsoleLogRecordExporter())
 
             logger_provider.add_log_record_processor(log_processor)
 

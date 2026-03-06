@@ -233,7 +233,9 @@ class DaprAgentsInstrumentor(BaseInstrumentor):
         ``WorkflowRuntime.register_activity``.
         """
         try:
-            wrapper = self._track_wrapper(WorkflowActivityRegistrationWrapper(self._tracer))
+            wrapper = self._track_wrapper(
+                WorkflowActivityRegistrationWrapper(self._tracer)
+            )
             wrap_function_wrapper(
                 module="dapr.ext.workflow.workflow_runtime",
                 name="WorkflowRuntime.register_activity",

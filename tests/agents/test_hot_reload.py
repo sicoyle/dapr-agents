@@ -685,7 +685,9 @@ class TestOtelHotReload:
 
     def test_apply_config_update_returns_true_for_otel_key(self, basic_agent):
         """OTel config keys should return True to signal reload needed."""
-        result = basic_agent._apply_config_update("otel_exporter_otlp_endpoint", "http://localhost:4317")
+        result = basic_agent._apply_config_update(
+            "otel_exporter_otlp_endpoint", "http://localhost:4317"
+        )
         assert result is True
 
     def test_apply_config_update_returns_false_for_non_otel_key(self, basic_agent):
@@ -707,13 +709,17 @@ class TestOtelHotReload:
         assert basic_agent._agent_observability.enabled is True
 
     def test_otel_endpoint_setter(self, basic_agent):
-        basic_agent._apply_config_update("otel_exporter_otlp_endpoint", "http://collector:4317")
+        basic_agent._apply_config_update(
+            "otel_exporter_otlp_endpoint", "http://collector:4317"
+        )
         assert basic_agent._agent_observability.endpoint == "http://collector:4317"
 
     def test_otel_headers_sensitive(self, basic_agent, caplog):
         """OTEL_EXPORTER_OTLP_HEADERS should be marked sensitive."""
         with caplog.at_level(logging.INFO):
-            basic_agent._apply_config_update("otel_exporter_otlp_headers", "Bearer secret-token")
+            basic_agent._apply_config_update(
+                "otel_exporter_otlp_headers", "Bearer secret-token"
+            )
         assert "secret-token" not in caplog.text
         assert "***" in caplog.text
 
@@ -732,7 +738,11 @@ class TestOtelHotReload:
     def test_otel_traces_exporter_valid(self, basic_agent):
         basic_agent._apply_config_update("otel_traces_exporter", "otlp_grpc")
         from dapr_agents.agents.configs import AgentTracingExporter
-        assert basic_agent._agent_observability.tracing_exporter == AgentTracingExporter.OTLP_GRPC
+
+        assert (
+            basic_agent._agent_observability.tracing_exporter
+            == AgentTracingExporter.OTLP_GRPC
+        )
 
     def test_otel_traces_exporter_invalid_rejected(self, basic_agent, caplog):
         with caplog.at_level(logging.WARNING):
@@ -742,7 +752,11 @@ class TestOtelHotReload:
     def test_otel_logs_exporter_valid(self, basic_agent):
         basic_agent._apply_config_update("otel_logs_exporter", "console")
         from dapr_agents.agents.configs import AgentLoggingExporter
-        assert basic_agent._agent_observability.logging_exporter == AgentLoggingExporter.CONSOLE
+
+        assert (
+            basic_agent._agent_observability.logging_exporter
+            == AgentLoggingExporter.CONSOLE
+        )
 
     def test_otel_logs_exporter_invalid_rejected(self, basic_agent, caplog):
         with caplog.at_level(logging.WARNING):
@@ -751,9 +765,11 @@ class TestOtelHotReload:
 
     def test_batched_reload_called_once_for_multiple_otel_keys(self, basic_agent):
         """Multiple OTel keys in one config response should trigger reload exactly once."""
-        response = self._make_config_response({
-            "config": '{"otel_exporter_otlp_endpoint": "http://new:4317", "otel_tracing_enabled": "true"}'
-        })
+        response = self._make_config_response(
+            {
+                "config": '{"otel_exporter_otlp_endpoint": "http://new:4317", "otel_tracing_enabled": "true"}'
+            }
+        )
         with patch.object(basic_agent, "_reload_observability") as mock_reload:
             basic_agent._config_handler("sub-1", response)
             mock_reload.assert_called_once()
@@ -767,9 +783,9 @@ class TestOtelHotReload:
 
     def test_mixed_keys_triggers_reload(self, basic_agent):
         """A mix of OTel and non-OTel keys should trigger reload."""
-        response = self._make_config_response({
-            "config": '{"agent_role": "New Role", "otel_tracing_enabled": "true"}'
-        })
+        response = self._make_config_response(
+            {"config": '{"agent_role": "New Role", "otel_tracing_enabled": "true"}'}
+        )
         with patch.object(basic_agent, "_reload_observability") as mock_reload:
             basic_agent._config_handler("sub-1", response)
             mock_reload.assert_called_once()
