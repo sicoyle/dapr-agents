@@ -125,7 +125,8 @@ jobs:
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
-        uv run pytest -m integration -v tests/integration/quickstarts
+        source .venv/bin/activate
+        pytest -m integration -v tests/integration/quickstarts
         # TODO: In future, run all integration tests in parallel (one file per quickstart directory)
         # -n auto uses all available CPUs, or specify -n 4 for fixed number
         # pytest -m integration -v -n auto tests/integration/quickstarts/
