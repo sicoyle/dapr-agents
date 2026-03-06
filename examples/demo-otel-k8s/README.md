@@ -2,6 +2,8 @@
 
 Demonstrates four ways to configure OpenTelemetry observability for Dapr Agents on Kubernetes.
 
+**Note:** The supplied scripts assume a bash terminal and won't work in a regular Windows environment.
+
 ## Agent Variants
 
 | Pod | OTel Config Source | Hot-Reload? |
