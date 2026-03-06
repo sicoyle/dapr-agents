@@ -18,6 +18,7 @@ import json
 import logging
 import signal
 import uuid
+import warnings
 from typing import Any, Awaitable, Dict, Iterable, List, Optional, Sequence, Union
 
 from dapr_agents.agents.base import AgentBase
@@ -91,6 +92,13 @@ class Agent(AgentBase):
             execution: Execution dials for the agent run.
             agent_metadata: Extra metadata to store in the registry.
         """
+        warnings.warn(
+            "The Agent class is deprecated and will be removed in a future version. "
+            "Please use the DurableAgent class instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         super().__init__(
             profile=profile,
             name=name,
