@@ -551,8 +551,9 @@ class DaprInfra:
         )
 
         # Step 2: Add agent name to index (ETag-protected)
+        # The retry loop handles both "create" (etag=None, first_write) and "update"
+        # (etag!=None) cases atomically, so no separate initialization step is needed.
         index_key = self._team_registry_index_key(team)
-        self._ensure_registry_initialized(key=index_key, meta=partition_meta)
 
         attempts = max(1, min(self._max_etag_attempts, 10))
         for attempt in range(1, attempts + 1):
@@ -780,28 +781,6 @@ class DaprInfra:
         meta = dict(self._base_metadata)
         meta["partitionKey"] = key
         return meta
-
-    def _ensure_registry_initialized(self, *, key: str, meta: Dict[str, str]) -> None:
-        """
-        Ensure a registry document exists to create an ETag for concurrency control.
-
-        Args:
-            key: Registry document key.
-            meta: Dapr state metadata to use for the operation.
-        """
-        current, etag = self.registry_state.load_with_etag(  # type: ignore[union-attr]
-            key=key,
-            default={},
-            state_metadata=meta,
-        )
-        if etag is None:
-            self.registry_state.save(  # type: ignore[union-attr]
-                key=key,
-                value={},
-                etag=None,
-                state_metadata=meta,
-                state_options=self._save_options,
-            )
 
     @staticmethod
     def _coerce_datetime(value: Optional[Any]) -> datetime:
