@@ -1,4 +1,5 @@
 """Pod 4: OTEL configured via Dapr Configuration Store — hot-reloadable OTel settings."""
+
 import logging
 import sys
 
@@ -28,7 +29,9 @@ def main() -> None:
         name="otel-configstore",
         role="Mission Status Reporter",
         goal="Report the current mission status using available tools.",
-        instructions=["Use the get_mission_status tool to answer mission status queries."],
+        instructions=[
+            "Use the get_mission_status tool to answer mission status queries."
+        ],
         tools=tools,
         llm=DaprChatClient(component_name="llm-provider"),
         configuration=RuntimeSubscriptionConfig(

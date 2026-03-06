@@ -1,4 +1,5 @@
 """Pod 1: OTEL configured via AgentObservabilityConfig in code."""
+
 import logging
 import sys
 
@@ -18,7 +19,9 @@ def main() -> None:
         name="otel-instantiation",
         role="Mission Status Reporter",
         goal="Report the current mission status using available tools.",
-        instructions=["Use the get_mission_status tool to answer mission status queries."],
+        instructions=[
+            "Use the get_mission_status tool to answer mission status queries."
+        ],
         tools=tools,
         llm=DaprChatClient(component_name="llm-provider"),
         agent_observability=AgentObservabilityConfig(

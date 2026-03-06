@@ -1,4 +1,5 @@
 """Pod 3: OTEL configured via Dapr state store (agent-runtime) — no OTEL code here."""
+
 import logging
 import sys
 
@@ -17,7 +18,9 @@ def main() -> None:
         name="otel-statestore",
         role="Mission Status Reporter",
         goal="Report the current mission status using available tools.",
-        instructions=["Use the get_mission_status tool to answer mission status queries."],
+        instructions=[
+            "Use the get_mission_status tool to answer mission status queries."
+        ],
         tools=tools,
         llm=DaprChatClient(component_name="llm-provider"),
     )
