@@ -790,6 +790,32 @@ class TestOtelHotReload:
             basic_agent._config_handler("sub-1", response)
             mock_reload.assert_called_once()
 
+    def test_reload_does_not_call_global_setters(self, basic_agent):
+        """Hot-reload should NOT call set_tracer_provider / set_logger_provider."""
+        basic_agent._agent_observability.enabled = True
+        basic_agent._agent_observability.tracing_enabled = True
+        basic_agent._agent_observability.logging_enabled = True
+        basic_agent._agent_observability.endpoint = "http://localhost:4317"
+        basic_agent._agent_observability.tracing_exporter = "console"
+        basic_agent._agent_observability.logging_exporter = "console"
+        basic_agent.instrumentor = Mock()
+
+        with (
+            patch("dapr_agents.agents.base.trace.set_tracer_provider") as mock_set_tp,
+            patch("dapr_agents.agents.base._logs.set_logger_provider") as mock_set_lp,
+            patch("dapr_agents.agents.base.TracerProvider"),
+            patch("dapr_agents.agents.base.LoggerProvider"),
+            patch("dapr_agents.agents.base.BatchSpanProcessor"),
+            patch("dapr_agents.agents.base.BatchLogRecordProcessor"),
+            patch("dapr_agents.agents.base.ConsoleSpanExporter"),
+            patch("dapr_agents.agents.base.ConsoleLogRecordExporter"),
+        ):
+            basic_agent._reload_observability()
+
+        mock_set_tp.assert_not_called()
+        mock_set_lp.assert_not_called()
+        basic_agent.instrumentor.update_providers.assert_called_once()
+
 
 class TestInstrumentorUpdateProviders:
     """Tests for DaprAgentsInstrumentor.update_providers."""

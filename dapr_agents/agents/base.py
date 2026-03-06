@@ -1760,6 +1760,12 @@ class AgentBase:
         if config.enabled:
             tracer_provider, logger_provider = self._build_otel_providers(config)
 
+            # Set global providers once (OTel SDK only allows this once per process)
+            if logger_provider is not None:
+                _logs.set_logger_provider(logger_provider)
+            if tracer_provider is not None:
+                trace.set_tracer_provider(tracer_provider)
+
             self.instrumentor = DaprAgentsInstrumentor()
             self.instrumentor.instrument(
                 tracer_provider=tracer_provider,
@@ -1827,7 +1833,6 @@ class AgentBase:
             )
             logging.getLogger().addHandler(handler)
             self._otel_logging_handler = handler
-            _logs.set_logger_provider(logger_provider)
 
         # --- Tracer provider ---
         tracer_provider = None
@@ -1863,7 +1868,6 @@ class AgentBase:
 
             span_processor = BatchSpanProcessor(tracing_exporter)
             tracer_provider.add_span_processor(span_processor)
-            trace.set_tracer_provider(tracer_provider)
 
         return tracer_provider, logger_provider
 
