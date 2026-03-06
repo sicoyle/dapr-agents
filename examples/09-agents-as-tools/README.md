@@ -1,3 +1,16 @@
+<!--
+Copyright 2026 The Dapr Authors
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 # 09 — Agents as Tools
 
 This example demonstrates how one `DurableAgent` can call another as a
@@ -60,13 +73,13 @@ curl -X POST http://localhost:8001/agent/run \
 
 1. **Registry membership** — Sam registers itself in the shared Dapr
    state-store registry by providing a `registry=` config.
-2. **Auto-discovery** — At the start of every `dapr.durableagent.frodo.workflow` run,
+2. **Auto-discovery** — At the start of every `dapr.agents.frodo.workflow` run,
    `_load_tools` scans the registry and registers all peer agents (excluding
    orchestrators and self) in Frodo's `tool_executor`.
 3. **LLM picks the tool** — Frodo's LLM sees `sam` as a function-call tool
    (the Dapr workflow context `ctx` is hidden from the schema).
 4. **Child workflow** — The framework calls
-   `ctx.call_child_workflow(workflow="dapr.durableagent.sam.workflow", input={"task": ...})`
+   `ctx.call_child_workflow(workflow="dapr.agents.sam.workflow", input={"task": ...})`
    and yields until Sam completes.
 5. **Result** — Sam's final message is returned as a `ToolMessage` and added to
    Frodo's conversation history.
