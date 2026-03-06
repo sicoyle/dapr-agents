@@ -37,6 +37,7 @@ from dapr_agents.agents.orchestrators.llm.utils import (
 from dapr_agents.agents.base import AgentBase
 from dapr_agents.agents.configs import (
     OrchestrationMode,
+    ToolExecutionMode,
     AgentExecutionConfig,
     AgentMemoryConfig,
     AgentPubSubConfig,
@@ -455,9 +456,16 @@ class DurableAgent(AgentBase):
                                 )
                                 activity_meta.append({"order": idx, "tool_call": tc})
 
-                        results: List[Any] = yield wf.when_all(
-                            workflow_tasks + activity_tasks
-                        )
+                        all_tasks = workflow_tasks + activity_tasks
+                        if (
+                            self.execution.tool_execution_mode
+                            == ToolExecutionMode.SEQUENTIAL
+                        ):
+                            results: List[Any] = []
+                            for task in all_tasks:
+                                results.append((yield task))
+                        else:
+                            results: List[Any] = yield wf.when_all(all_tasks)
 
                         ordered: List[Optional[Dict[str, Any]]] = [None] * len(
                             tool_calls
