@@ -2,9 +2,9 @@
 
 Thank you for your interest in Dapr Agents!
 
-This project welcomes contributions and suggestions. Most contributions require you to signoff on your commits via 
-the Developer Certificate of Origin (DCO). When you submit a pull request, a DCO-bot will automatically determine 
-whether you need to provide signoff for your commit. Please follow the instructions provided by DCO-bot, as pull 
+This project welcomes contributions and suggestions. Most contributions require you to signoff on your commits via
+the Developer Certificate of Origin (DCO). When you submit a pull request, a DCO-bot will automatically determine
+whether you need to provide signoff for your commit. Please follow the instructions provided by DCO-bot, as pull
 requests cannot be merged until the author(s) have provided signoff to fulfill the DCO requirement.
 You may find more information on the DCO requirements [below](#developer-certificate-of-origin-signing-your-work).
 
@@ -54,7 +54,7 @@ All contributions come through pull requests. To submit a proposed change, we re
 1. Create your change
     - Code changes require tests
     - Make sure to run the linters to check and format the code:
-        - `make hooks-run-all` executes the pre-commit hooks 
+        - `make hooks-run-all` executes the pre-commit hooks
 1. Update relevant documentation for the change
 1. Commit with [DCO sign-off](#developer-certificate-of-origin-signing-your-work) and open a PR
 1. Wait for the CI process to finish and make sure all checks are green
