@@ -28,7 +28,7 @@ authors = [
 ]
 dependencies = [
     "dapr==1.17.0",
-    "dapr-ext-fastapi==1.17",
+    "dapr-ext-fastapi==1.17.0",
     "dapr-ext-workflow==1.17.0",
     "durabletask-dapr==0.17.1",
     "pydantic>=2.11.3,<3.0.0",
