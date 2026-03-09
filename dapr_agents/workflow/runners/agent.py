@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, Literal, Optional, TypeVar, Union, List
 from fastapi import Body, FastAPI, HTTPException
 
 from dapr_agents.agents.durable import DurableAgent
-from dapr_agents.agents.orchestrators.base import OrchestratorBase
 from dapr_agents.types.workflow import PubSubRouteSpec
 from dapr_agents.workflow.runners.base import WorkflowRunner
 from dapr_agents.workflow.utils.core import get_decorated_methods
@@ -55,14 +54,12 @@ class AgentRunner(WorkflowRunner):
         self._default_http_paths: set[str] = set()
 
         # In-memory store of managed agents - used for handling shutdown
-        self._managed_agents: List[
-            Union[DurableAgent, OrchestratorBase]
-        ] = []  # Union type covers both durable agents and orchestrators.
+        self._managed_agents: List[DurableAgent] = []
         self._lock: Lock = Lock()
 
     async def run(
         self,
-        agent: Union[DurableAgent, OrchestratorBase],
+        agent: DurableAgent,
         payload: Optional[Union[str, Dict[str, Any]]] = None,
         *,
         instance_id: Optional[str] = None,
@@ -123,7 +120,7 @@ class AgentRunner(WorkflowRunner):
 
     def run_sync(
         self,
-        agent: Union[DurableAgent, OrchestratorBase],
+        agent: DurableAgent,
         payload: Optional[Union[str, Dict[str, Any]]] = None,
         *,
         instance_id: Optional[str] = None,
@@ -224,7 +221,7 @@ class AgentRunner(WorkflowRunner):
 
     def register_routes(
         self,
-        agent: Union[DurableAgent, OrchestratorBase],
+        agent: DurableAgent,
         *,
         fastapi_app: Optional[FastAPI] = None,
         delivery_mode: Literal["sync", "async"] = "sync",
@@ -271,7 +268,7 @@ class AgentRunner(WorkflowRunner):
             self._wire_http_routes(agent=agent, fastapi_app=fastapi_app)
 
     def _build_pubsub_specs(
-        self, agent: Union[DurableAgent, OrchestratorBase], config: Any
+        self, agent: DurableAgent, config: Any
     ) -> list[PubSubRouteSpec]:
         handlers = get_decorated_methods(agent, "_is_message_handler")
         if not handlers:
@@ -307,7 +304,7 @@ class AgentRunner(WorkflowRunner):
     def _wire_pubsub_routes(
         self,
         *,
-        agent: Union[DurableAgent, OrchestratorBase],
+        agent: DurableAgent,
         delivery_mode: Literal["sync", "async"],
         queue_maxsize: int,
         await_result: bool,
@@ -349,7 +346,7 @@ class AgentRunner(WorkflowRunner):
     def _wire_http_routes(
         self,
         *,
-        agent: Union[DurableAgent, OrchestratorBase],
+        agent: DurableAgent,
         fastapi_app: Optional[FastAPI],
     ) -> None:
         if fastapi_app is None or self._wired_http:
@@ -364,7 +361,7 @@ class AgentRunner(WorkflowRunner):
 
     def subscribe(
         self,
-        agent: Union[DurableAgent, OrchestratorBase],
+        agent: DurableAgent,
         *,
         delivery_mode: Literal["sync", "async"] = "sync",
         queue_maxsize: int = 1024,
@@ -412,7 +409,7 @@ class AgentRunner(WorkflowRunner):
 
     def serve(
         self,
-        agent: Union[DurableAgent, OrchestratorBase],
+        agent: DurableAgent,
         *,
         app: Optional[FastAPI] = None,
         host: str = "0.0.0.0",
@@ -515,7 +512,7 @@ class AgentRunner(WorkflowRunner):
         self,
         *,
         fastapi_app: FastAPI,
-        agent: Union[DurableAgent, OrchestratorBase],
+        agent: DurableAgent,
         entry_path: str,
         status_path: str,
         workflow_component: str,
@@ -635,9 +632,7 @@ class AgentRunner(WorkflowRunner):
         )
         logger.info("Mounted default workflow status endpoint at %s", status_path)
 
-    def shutdown(
-        self, agent: Optional[Union[DurableAgent, OrchestratorBase]] = None
-    ) -> None:
+    def shutdown(self, agent: Optional[DurableAgent] = None) -> None:
         """
         Unwire subscriptions and close owned clients.
 
