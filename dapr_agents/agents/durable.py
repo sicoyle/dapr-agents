@@ -164,7 +164,7 @@ class DurableAgent(AgentBase):
             llm: Chat client; defaults to `get_default_llm()`.
             tools: Optional tool callables or ``AgentTool`` instances.
                 All agents sharing the same registry are auto-discovered as
-                tools at workflow start via ``_load_tools``.
+                tools at workflow start via ``load_tools``.
 
             agent_metadata: Extra metadata to publish to the registry.
             workflow_grpc: Optional gRPC overrides for the workflow runtime channel.
@@ -247,9 +247,11 @@ class DurableAgent(AgentBase):
             ),
             max_retry_interval=timedelta(seconds=retry_policy.max_backoff_seconds),
             backoff_coefficient=retry_policy.backoff_multiplier,
-            retry_timeout=timedelta(seconds=retry_policy.retry_timeout)
-            if retry_policy.retry_timeout
-            else None,
+            retry_timeout=(
+                timedelta(seconds=retry_policy.retry_timeout)
+                if retry_policy.retry_timeout
+                else None
+            ),
         )
 
         self._orchestration_strategy: Optional[OrchestrationStrategy] = None
@@ -356,7 +358,7 @@ class DurableAgent(AgentBase):
         # Discover is_tool=True agents from registry and resolve any string-named tools.
         if self.registry:
             yield ctx.call_activity(
-                self._load_tools,
+                self.load_tools,
                 retry_policy=self._retry_policy,
             )
 
@@ -544,7 +546,7 @@ class DurableAgent(AgentBase):
         # Optionally broadcast the final message to the team.
         if self.broadcast_topic_name:
             yield ctx.call_activity(
-                self.broadcast_message_to_agents,
+                self.broadcast_to_team,
                 input={"message": final_message},
                 retry_policy=self._retry_policy,
             )
@@ -552,7 +554,7 @@ class DurableAgent(AgentBase):
         # Optionally send a direct response back to the trigger origin.
         if source and trigger_instance_id:
             yield ctx.call_activity(
-                self.send_response_back,
+                self.return_response,
                 input={
                     "response": final_message,
                     "target_agent": source,
@@ -616,7 +618,7 @@ class DurableAgent(AgentBase):
             )
 
         agents_result = yield ctx.call_activity(
-            self._get_available_agents,
+            self.get_team_members,
             retry_policy=self._retry_policy,
         )
 
@@ -648,7 +650,7 @@ class DurableAgent(AgentBase):
                 logger.info(f"Received plan from initialization with {len(plan)} steps")
 
             yield ctx.call_activity(
-                self.broadcast_message_to_agents,
+                self.broadcast_to_team,
                 input={"message": plan},
                 retry_policy=self._retry_policy,
             )
@@ -660,7 +662,7 @@ class DurableAgent(AgentBase):
                 "content": plan_content,
             }
             yield ctx.call_activity(
-                self._save_plan_message,
+                self.save_plan,
                 input={
                     "instance_id": instance_id,
                     "plan_message": plan_message,
@@ -680,7 +682,7 @@ class DurableAgent(AgentBase):
         else:
             agents_metadata = agents_result["metadata"]
             orch_state = yield ctx.call_activity(
-                self._initialize_orchestration,
+                self.initialize_orchestration,
                 input={
                     "task": task,
                     "agents": agents_metadata,
@@ -744,7 +746,7 @@ class DurableAgent(AgentBase):
                     )
 
                 is_valid = yield ctx.call_activity(
-                    self._validate_next_step,
+                    self.validate_step,
                     input={
                         "instance_id": instance_id,
                         "plan": self._convert_plan_objects_to_dicts(plan),
@@ -774,7 +776,7 @@ class DurableAgent(AgentBase):
 
             else:
                 action = yield ctx.call_activity(
-                    self._select_next_action,
+                    self.select_next_task,
                     input={"state": orch_state, "turn": turn, "task": task},
                     retry_policy=self._retry_policy,
                 )
@@ -850,7 +852,7 @@ class DurableAgent(AgentBase):
                 )
 
                 progress = yield ctx.call_activity(
-                    self._parse_progress,
+                    self.evaluate_progress,
                     input={
                         "content": progress_response.get("content", ""),
                         "instance_id": instance_id,
@@ -869,7 +871,7 @@ class DurableAgent(AgentBase):
                     "content": plan_content,
                 }
                 yield ctx.call_activity(
-                    self._save_plan_message,
+                    self.save_plan,
                     input={
                         "instance_id": instance_id,
                         "plan_message": plan_message,
@@ -885,7 +887,7 @@ class DurableAgent(AgentBase):
 
             else:
                 process_result = yield ctx.call_activity(
-                    self._process_orchestration_response,
+                    self.handle_response,
                     input={
                         "state": orch_state,
                         "response": result,
@@ -905,7 +907,7 @@ class DurableAgent(AgentBase):
                 )
             else:
                 should_continue = yield ctx.call_activity(
-                    self._should_continue_orchestration,
+                    self.check_completion,
                     input={"state": orch_state, "turn": turn},
                     retry_policy=self._retry_policy,
                 )
@@ -953,7 +955,7 @@ class DurableAgent(AgentBase):
 
         else:
             final_message = yield ctx.call_activity(
-                self._finalize_orchestration,
+                self.finalize_orchestration,
                 input={"state": orch_state, "task": task, "instance_id": instance_id},
                 retry_policy=self._retry_policy,
             )
@@ -967,7 +969,7 @@ class DurableAgent(AgentBase):
     # Strategy Delegation Activities
     # ------------------------------------------------------------------
 
-    def _initialize_orchestration(self, ctx: Any, payload: dict) -> dict:
+    def initialize_orchestration(self, ctx: Any, payload: dict) -> dict:
         """Initialize orchestration state via strategy.
 
         Args:
@@ -984,7 +986,7 @@ class DurableAgent(AgentBase):
             ctx, payload["task"], payload["agents"]
         )
 
-    def _select_next_action(self, ctx: Any, payload: dict) -> dict:
+    def select_next_task(self, ctx: Any, payload: dict) -> dict:
         """Select next agent and instruction via strategy.
 
         Args:
@@ -1001,7 +1003,7 @@ class DurableAgent(AgentBase):
             ctx, payload["state"], payload["turn"]
         )
 
-    def _process_orchestration_response(self, ctx: Any, payload: dict) -> dict:
+    def handle_response(self, ctx: Any, payload: dict) -> dict:
         """Process agent response via strategy.
 
         Args:
@@ -1018,7 +1020,7 @@ class DurableAgent(AgentBase):
             ctx, payload["state"], payload["response"]
         )
 
-    def _should_continue_orchestration(self, ctx: Any, payload: dict) -> bool:
+    def check_completion(self, ctx: Any, payload: dict) -> bool:
         """Check if orchestration should continue via strategy.
 
         Args:
@@ -1035,7 +1037,7 @@ class DurableAgent(AgentBase):
             payload["state"], payload["turn"], self.execution.max_iterations
         )
 
-    def _finalize_orchestration(self, ctx: Any, payload: dict) -> dict:
+    def finalize_orchestration(self, ctx: Any, payload: dict) -> dict:
         """Finalize orchestration and generate summary via strategy.
 
         Args:
@@ -1508,7 +1510,7 @@ class DurableAgent(AgentBase):
 
         self.save_state(instance_id)
 
-    def broadcast_message_to_agents(
+    def broadcast_to_team(
         self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
     ) -> None:
         """
@@ -1550,7 +1552,7 @@ class DurableAgent(AgentBase):
         except Exception:  # noqa: BLE001
             logger.exception("Failed to publish broadcast message.")
 
-    def send_response_back(
+    def return_response(
         self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
     ) -> None:
         """
@@ -1642,7 +1644,7 @@ class DurableAgent(AgentBase):
     # Agent-as-tool: registry discovery activity
     # ------------------------------------------------------------------
 
-    def _load_tools(self, ctx: wf.WorkflowActivityContext) -> List[str]:
+    def load_tools(self, ctx: wf.WorkflowActivityContext) -> List[str]:
         """
         Discover all agents in the shared registry and register each as an
         ``AgentWorkflowTool`` in this agent's tool executor.
@@ -1699,7 +1701,7 @@ class DurableAgent(AgentBase):
     # Orchestrator Activities
     # ------------------------------------------------------------------
 
-    def _get_available_agents(self, ctx: wf.WorkflowActivityContext) -> Dict[str, Any]:
+    def get_team_members(self, ctx: wf.WorkflowActivityContext) -> Dict[str, Any]:
         """
         Return available agents metadata and formatted string.
 
@@ -1727,7 +1729,7 @@ class DurableAgent(AgentBase):
             "formatted": "\n".join(lines),
         }
 
-    def _validate_next_step(
+    def validate_step(
         self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
     ) -> bool:
         """Return True if (step, substep) exists in the plan."""
@@ -1744,7 +1746,7 @@ class DurableAgent(AgentBase):
             )
         return ok
 
-    def _parse_progress(
+    def evaluate_progress(
         self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
         """
@@ -1804,7 +1806,7 @@ class DurableAgent(AgentBase):
             "status": "success",
         }
 
-    def _save_plan_message(
+    def save_plan(
         self, ctx: wf.WorkflowActivityContext, payload: Dict[str, Any]
     ) -> None:
         """
@@ -1983,12 +1985,12 @@ class DurableAgent(AgentBase):
         runtime.register_activity(self.call_llm)
         runtime.register_activity(self.run_tool)
         runtime.register_activity(self.save_tool_results)
-        runtime.register_activity(self.broadcast_message_to_agents)
-        runtime.register_activity(self.send_response_back)
+        runtime.register_activity(self.broadcast_to_team)
+        runtime.register_activity(self.return_response)
         runtime.register_activity(self.summarize)
         runtime.register_activity(self.finalize_workflow)
-        runtime.register_activity(self._get_available_agents)
-        runtime.register_activity(self._load_tools)
+        runtime.register_activity(self.get_team_members)
+        runtime.register_activity(self.load_tools)
 
         # Internal orchestration workflow and activities
         if self._orchestration_strategy:
@@ -2001,13 +2003,13 @@ class DurableAgent(AgentBase):
 
             if isinstance(self._orchestration_strategy, AgentOrchestrationStrategy):
                 # Agent-based orchestration activities (plan-based with LLM)
-                runtime.register_activity(self._validate_next_step)
-                runtime.register_activity(self._parse_progress)
-                runtime.register_activity(self._save_plan_message)
+                runtime.register_activity(self.validate_step)
+                runtime.register_activity(self.evaluate_progress)
+                runtime.register_activity(self.save_plan)
             else:
                 # RoundRobin and Random orchestration activities
-                runtime.register_activity(self._initialize_orchestration)
-                runtime.register_activity(self._select_next_action)
-                runtime.register_activity(self._process_orchestration_response)
-                runtime.register_activity(self._should_continue_orchestration)
-                runtime.register_activity(self._finalize_orchestration)
+                runtime.register_activity(self.initialize_orchestration)
+                runtime.register_activity(self.select_next_task)
+                runtime.register_activity(self.handle_response)
+                runtime.register_activity(self.check_completion)
+                runtime.register_activity(self.finalize_orchestration)
