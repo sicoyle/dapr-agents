@@ -139,17 +139,19 @@ class TestValidatePubSubComponents:
         with pytest.raises(PubSubNotAvailableError):
             _validate_pubsub_components(mock_client, pubsub_names, topics_by_pubsub)
 
-    def test_validation_logs_warning_on_metadata_error(self, caplog):
-        """Test that metadata retrieval errors are logged but don't fail."""
+    def test_validation_raises_on_metadata_error(self, caplog):
+        """Test that metadata retrieval errors are logged and raise an exception."""
         mock_client = MagicMock()
         mock_client.get_metadata.side_effect = Exception("Connection refused")
 
         pubsub_names = {"agent-pubsub"}
         topics_by_pubsub = {"agent-pubsub": {"test-topic"}}
 
-        # Should not raise, but should log a warning
-        _validate_pubsub_components(mock_client, pubsub_names, topics_by_pubsub)
+        # Should raise the exception after logging an error
+        with pytest.raises(Exception, match="Connection refused"):
+            _validate_pubsub_components(mock_client, pubsub_names, topics_by_pubsub)
         assert "Could not validate PubSub component availability" in caplog.text
+        assert "Failing startup to prevent silent subscription failures" in caplog.text
 
     def test_validation_with_mixed_component_types(self):
         """Test validation only checks pubsub components, ignoring other types."""

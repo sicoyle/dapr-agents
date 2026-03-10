@@ -628,10 +628,7 @@ def test_register_message_handlers_discovers_class_methods():
 
 def test_register_message_handlers_groups_by_topic():
     """Test that handlers sharing the same (pubsub, topic) create a single subscription."""
-    mock_client = MagicMock()
-    mock_sub = MagicMock()
-    mock_sub.__iter__.return_value = iter([])
-    mock_client.subscribe.return_value = mock_sub
+    mock_client = create_mock_dapr_client(["messagepubsub"])
 
     class OrderHandler:
         @message_router(pubsub="messagepubsub", topic="orders.events")
