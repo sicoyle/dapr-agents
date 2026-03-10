@@ -149,13 +149,14 @@ def _validate_pubsub_components(
         # Re-raise our custom exception
         raise
     except Exception as e:
-        # Log but don't fail on metadata retrieval errors
+        # Log and fail on metadata retrieval errors
         # (e.g., Dapr sidecar might not be fully ready)
-        logger.warning(
+        logger.error(
             "Could not validate PubSub component availability: %s. "
-            "Proceeding with subscription attempt.",
+            "Failing startup to prevent silent subscription failures.",
             str(e),
         )
+        raise
 
 
 def _collect_message_bindings(
