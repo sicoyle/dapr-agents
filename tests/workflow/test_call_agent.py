@@ -62,7 +62,9 @@ def test_call_agent_passes_input():
 
 def test_call_agent_with_instance_id():
     ctx = _make_ctx()
-    call_agent(ctx, "WeatherAgent", input={}, app_id="weather-agent", instance_id="abc-123")
+    call_agent(
+        ctx, "WeatherAgent", input={}, app_id="weather-agent", instance_id="abc-123"
+    )
     kwargs = ctx.call_child_workflow.call_args.kwargs
     assert kwargs["instance_id"] == "abc-123"
 
@@ -76,7 +78,9 @@ def test_call_agent_without_instance_id():
 
 def test_call_agent_with_framework():
     ctx = _make_ctx()
-    call_agent(ctx, "WeatherAgent", input={}, app_id="weather-agent", framework="openai")
+    call_agent(
+        ctx, "WeatherAgent", input={}, app_id="weather-agent", framework="openai"
+    )
     kwargs = ctx.call_child_workflow.call_args.kwargs
     assert kwargs["workflow"] == "dapr.openai.WeatherAgent.workflow"
 
@@ -153,8 +157,10 @@ def _make_wf_mocks():
 def test_trigger_agent_registers_and_starts_runtime():
     mock_wfr, mock_client, mock_state = _make_wf_mocks()
 
-    with patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr), \
-         patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client):
+    with (
+        patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr),
+        patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client),
+    ):
         trigger_agent("WeatherAgent", input={}, app_id="weather-agent")
 
     mock_wfr.register_workflow.assert_called_once()
@@ -164,8 +170,10 @@ def test_trigger_agent_registers_and_starts_runtime():
 def test_trigger_agent_schedules_workflow():
     mock_wfr, mock_client, mock_state = _make_wf_mocks()
 
-    with patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr), \
-         patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client):
+    with (
+        patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr),
+        patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client),
+    ):
         trigger_agent("WeatherAgent", input={}, app_id="weather-agent")
 
     mock_client.schedule_new_workflow.assert_called_once()
@@ -174,9 +182,13 @@ def test_trigger_agent_schedules_workflow():
 def test_trigger_agent_waits_for_completion():
     mock_wfr, mock_client, mock_state = _make_wf_mocks()
 
-    with patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr), \
-         patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client):
-        trigger_agent("WeatherAgent", input={}, app_id="weather-agent", timeout_in_seconds=60)
+    with (
+        patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr),
+        patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client),
+    ):
+        trigger_agent(
+            "WeatherAgent", input={}, app_id="weather-agent", timeout_in_seconds=60
+        )
 
     mock_client.wait_for_workflow_completion.assert_called_once_with(
         instance_id="instance-123",
@@ -188,8 +200,10 @@ def test_trigger_agent_waits_for_completion():
 def test_trigger_agent_shuts_down_on_success():
     mock_wfr, mock_client, mock_state = _make_wf_mocks()
 
-    with patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr), \
-         patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client):
+    with (
+        patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr),
+        patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client),
+    ):
         trigger_agent("WeatherAgent", input={}, app_id="weather-agent")
 
     mock_wfr.shutdown.assert_called_once()
@@ -199,8 +213,10 @@ def test_trigger_agent_shuts_down_on_exception():
     mock_wfr, mock_client, _ = _make_wf_mocks()
     mock_client.wait_for_workflow_completion.side_effect = RuntimeError("timeout")
 
-    with patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr), \
-         patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client):
+    with (
+        patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr),
+        patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client),
+    ):
         with pytest.raises(RuntimeError):
             trigger_agent("WeatherAgent", input={}, app_id="weather-agent")
 
@@ -212,10 +228,14 @@ def test_trigger_agent_timeout_logs_warning_and_returns_none():
     mock_wfr, mock_client, _ = _make_wf_mocks()
     mock_client.wait_for_workflow_completion.side_effect = TimeoutError("timed out")
 
-    with patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr), \
-         patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client), \
-         patch("dapr_agents.workflow.utils.core.logger") as mock_logger:
-        result = trigger_agent("WeatherAgent", input={}, app_id="weather-agent", timeout_in_seconds=5)
+    with (
+        patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr),
+        patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client),
+        patch("dapr_agents.workflow.utils.core.logger") as mock_logger,
+    ):
+        result = trigger_agent(
+            "WeatherAgent", input={}, app_id="weather-agent", timeout_in_seconds=5
+        )
 
     assert result is None
     mock_logger.warning.assert_called_once()
@@ -226,8 +246,10 @@ def test_trigger_agent_returns_serialized_output():
     mock_wfr, mock_client, mock_state = _make_wf_mocks()
     mock_state.serialized_output = '{"answer": "Sunny"}'
 
-    with patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr), \
-         patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client):
+    with (
+        patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr),
+        patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client),
+    ):
         result = trigger_agent("WeatherAgent", input={}, app_id="weather-agent")
 
     assert result == '{"answer": "Sunny"}'
@@ -245,8 +267,10 @@ def test_trigger_agent_looks_up_app_id_from_registry():
         "WeatherAgent": {"agent": {"appid": "weather-agent", "framework": None}}
     }
 
-    with patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr), \
-         patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client):
+    with (
+        patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr),
+        patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client),
+    ):
         trigger_agent("WeatherAgent", input={}, registry=registry)
 
     mock_client.schedule_new_workflow.assert_called_once()
@@ -263,8 +287,10 @@ def test_trigger_agent_wrapper_workflow_name():
 
     mock_wfr.register_workflow.side_effect = capture_register
 
-    with patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr), \
-         patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client):
+    with (
+        patch("dapr.ext.workflow.WorkflowRuntime", return_value=mock_wfr),
+        patch("dapr.ext.workflow.DaprWorkflowClient", return_value=mock_client),
+    ):
         trigger_agent("WeatherAgent", input={}, app_id="weather-agent")
 
     assert registered_fn is not None
@@ -278,5 +304,6 @@ def test_trigger_agent_wrapper_workflow_name():
 
 def test_importable_from_root():
     from dapr_agents import call_agent as ca, trigger_agent as ta  # noqa: F401
+
     assert callable(ca)
     assert callable(ta)

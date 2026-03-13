@@ -141,7 +141,11 @@ def call_agent(
         )
 
     workflow_name = agent_workflow_id(name, framework=framework)
-    kwargs: Dict[str, Any] = {"workflow": workflow_name, "input": input, "app_id": app_id}
+    kwargs: Dict[str, Any] = {
+        "workflow": workflow_name,
+        "input": input,
+        "app_id": app_id,
+    }
     if instance_id is not None:
         kwargs["instance_id"] = instance_id
     return ctx.call_child_workflow(**kwargs)
