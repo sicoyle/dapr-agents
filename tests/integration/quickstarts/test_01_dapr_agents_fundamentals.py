@@ -36,7 +36,6 @@ class TestHelloWorldQuickstart:
         if is_ollama:
             self.env["OLLAMA_MODEL"] = os.getenv("OLLAMA_MODEL", "qwen3:0.6b")
 
-    @pytest.mark.ollama
     def test_01_llm_client(self, dapr_runtime):  # noqa: ARG002
         """Test LLM client example (01_llm_client.py).
 
@@ -87,7 +86,6 @@ class TestHelloWorldQuickstart:
         )
         assert len(result.stdout) > 0 or len(result.stderr) > 0
 
-    @pytest.mark.ollama
     def test_03_durable_agent_http(self, dapr_runtime):  # noqa: ARG002
         """Test durable agent HTTP example (03_durable_agent_http.py).
 
@@ -151,7 +149,6 @@ class TestHelloWorldQuickstart:
         )
         assert len(result.stdout) > 0 or len(result.stderr) > 0
 
-    @pytest.mark.ollama
     def test_05_workflow_llm(self, dapr_runtime):  # noqa: ARG002
         """Test workflow with LLM activities example (05_workflow_llm.py).
 

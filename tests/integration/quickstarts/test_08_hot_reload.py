@@ -156,7 +156,6 @@ class TestHotReloadQuickstart:
             self.quickstart_dir, project_root, create_venv=True
         )
 
-    @pytest.mark.ollama
     def test_08_durable_agent_hot_reload_startup(self, dapr_runtime):  # noqa: ARG002
         """Test durable agent hot-reload starts with initial configuration.
 
@@ -179,7 +178,6 @@ class TestHotReloadQuickstart:
         assert len(combined) > 0
         assert "Original Role" in combined
 
-    @pytest.mark.ollama
     def test_08_durable_agent_hot_reload_config_change(self, dapr_runtime):  # noqa: ARG002
         """Test that a live configuration change is picked up by the agent.
 

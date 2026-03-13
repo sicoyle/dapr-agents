@@ -18,7 +18,7 @@ This quickstart introduces the core concepts of Dapr Agents and walks you throug
 You will learn how to:
 
 1. **[Use native LLM client](#1-llm-client)**
-2. **[Run an agent triggered by the Dapr Workflow API](#2-durable-agent-workflow)**
+2. **[Run an agent triggered by the Dapr Workflow API](#2-durable-agent-workflow)** — standalone `trigger_agent` or `call_agent` inside an orchestrator
 3. **[Run an agent as a durable workflow with HTTP](#3-durable-agent-serve)**
 4. **[Trigger durable agents using pub/sub messages](#4-durable-agent-subscribe)**
 5. **[Use deterministic workflows that call LLMs](#5-workflow-with-llm-activities)**
@@ -153,7 +153,9 @@ Dapr Agents also include native LLM clients for other modalities (e.g., audio), 
 
 # 2. Durable Agent Workflow
 
-This example introduces `runner.workflow()`, which starts the agent’s workflow runtime without wiring pub/sub or HTTP routes. Use this pattern when your agent is triggered by external Dapr workflows or the Dapr Workflow API — not by pub/sub messages or HTTP requests. The agent keeps its runtime alive and waits for incoming workflow calls.
+This example introduces `runner.workflow()`, which starts the agent’s workflow runtime without wiring pub/sub or HTTP routes. 
+Use this pattern when your agent is triggered by external Dapr workflows or the Dapr Workflow API — not by pub/sub messages or HTTP requests. 
+The agent keeps its runtime alive and waits for incoming workflow calls.
 
 **Terminal 1 — start the agent:**
 
@@ -161,27 +163,54 @@ This example introduces `runner.workflow()`, which starts the agent’s workflow
 uv run dapr run --app-id weather-agent --resources-path "$DAPR_RESOURCES" -- python 02_durable_agent_workflow.py
 ```
 
-**Terminal 2 — trigger the agent** (after the agent is running):
+Then, in a second terminal, choose one of the two trigger options below depending on your use case.
+
+---
+
+## Option A — Standalone trigger (`trigger_agent`)
+
+Use this when you want to fire-and-wait from a plain Python script. `trigger_agent` handles the `WorkflowRuntime` lifecycle, registration, scheduling, and waiting internally.
+
+**Terminal 2:**
 
 ```bash
-uv run dapr run --app-id workflow-trigger --dapr-http-port 3501  -- python 02_durable_agent_workflow_trigger.py
+uv run dapr run --app-id workflow-trigger --dapr-http-port 3501 -- python 02_durable_agent_trigger.py
 ```
 
-The trigger script is itself a workflow. It registers a local `trigger_workflow` that calls the WeatherAgent's workflow as a child workflow via `ctx.call_child_workflow(..., app_id="weather-agent")`, routing execution to the WeatherAgent's workflow runtime in its own Dapr app.
+`trigger_agent` registers a short-lived wrapper workflow, schedules it against the WeatherAgent’s Dapr app (`app_id="weather-agent"`), blocks until it completes, and returns the serialized output — all in one call.
+
+---
+
+## Option B — Trigger from inside a workflow (`call_agent`)
+
+Use this when you are building an orchestrator workflow that calls one or more agents as child workflow steps.
+`call_agent` returns a yieldable Task; the surrounding `@wfr.workflow` provides the durability and lifecycle management.
+
+**Terminal 2:**
+
+```bash
+uv run dapr run --app-id agent-orchestrator --dapr-http-port 3501 -- python 02_durable_agent_trigger_within_workflow.py
+```
+
+Inside the orchestrator, `call_agent(ctx, "WeatherAgent", input={...}, app_id="weather-agent")` resolves the workflow name and delegates to `ctx.call_child_workflow`, routing execution to the WeatherAgent’s workflow runtime in its own Dapr app.
+
+---
 
 ## Expected Behavior
 
-The agent starts its workflow runtime and waits for external triggers. When scheduled via the SDK or a parent workflow, it executes the agent's workflow durably — every step is persisted so execution can survive interruptions.
+The agent starts its workflow runtime and waits for external triggers. When triggered by either option, it executes the agent’s workflow durably — every step is persisted so execution can survive interruptions.
 
 ## How This Works
 
 1. `runner.workflow(agent)` initializes the Dapr Workflow runtime and registers the agent’s workflows and activities.
-2. No pub/sub subscriptions and no HTTP routes are created — the agent is only reachable via the Dapr Workflow API or from other Dapr workflows using `ctx.call_child_workflow`.
-3. `wait_for_shutdown()` keeps the process running until a shutdown signal is received.
+2. No pub/sub subscriptions and no HTTP routes are created — the agent is only reachable via the Dapr Workflow API or from other Dapr workflows.
+3. **Option A** (`trigger_agent`): spins up a temporary local `WorkflowRuntime`, registers a wrapper workflow, schedules it, waits for completion, then shuts the runtime down.
+4. **Option B** (`call_agent`): yields a child-workflow Task from within a parent `@wfr.workflow`; the parent workflow’s runtime provides the durability.
+5. `wait_for_shutdown()` in the agent keeps its process running until a shutdown signal is received.
 
 ## How to Extend This Example
 
-* Chain this agent as a child workflow inside a larger orchestration (see [Workflow with Agent Activities](#6-workflow-with-agent-activities)).
+* Use Option B to chain multiple agents in sequence or in parallel inside a single orchestrator workflow (see [Workflow with Agent Activities](#6-workflow-with-agent-activities)).
 * Add pub/sub triggers using `runner.subscribe()` (see [Durable Agent Subscribe](#4-durable-agent-subscribe)) or HTTP routes using `runner.serve()` (see [Durable Agent Serve](#3-durable-agent-serve)).
 
 ---

@@ -11,34 +11,19 @@
 # limitations under the License.
 #
 
-"""
-Trigger script for 02_durable_agent_workflow.py.
-
-Run 02_durable_agent_workflow.py first (in a separate terminal), then run this
-script to schedule a task for the WeatherAgent via a Dapr workflow that calls
-the WeatherAgent's workflow as a child workflow using call_child_workflow.
-
-Usage:
-    # Terminal 1
-    uv run dapr run --app-id weather-agent --resources-path resources -- python 02_durable_agent_workflow.py
-
-    # Terminal 2
-    uv run dapr run --app-id workflow-trigger --dapr-http-port 3501 -- python 02_durable_agent_workflow_trigger.py
-"""
-
 import dapr.ext.workflow as wf
+from dapr_agents import call_agent
 
 wfr = wf.WorkflowRuntime()
-
 WEATHER_AGENT_APP_ID = "weather-agent"
-WEATHER_AGENT_WORKFLOW = "dapr.agents.WeatherAgent.workflow"
 
 
 @wfr.workflow
-def trigger_workflow(ctx: wf.DaprWorkflowContext):
-    """Calls the WeatherAgent's workflow as a child workflow in a separate app."""
-    result = yield ctx.call_child_workflow(
-        workflow=WEATHER_AGENT_WORKFLOW,
+def orchestration_workflow(ctx: wf.DaprWorkflowContext):
+    """Calls WeatherAgent as a child workflow step."""
+    result = yield call_agent(
+        ctx,
+        "WeatherAgent",
         input={"task": "What is the weather in London?"},
         app_id=WEATHER_AGENT_APP_ID,
     )
@@ -47,10 +32,9 @@ def trigger_workflow(ctx: wf.DaprWorkflowContext):
 
 def main() -> None:
     wfr.start()
-
     client = wf.DaprWorkflowClient()
-    instance_id = client.schedule_new_workflow(workflow=trigger_workflow)
-    print(f"Scheduled trigger workflow instance: {instance_id}")
+    instance_id = client.schedule_new_workflow(workflow=orchestration_workflow)
+    print(f"Scheduled orchestration workflow instance: {instance_id}")
 
     state = client.wait_for_workflow_completion(
         instance_id=instance_id,
