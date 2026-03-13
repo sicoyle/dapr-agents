@@ -98,7 +98,7 @@ def _get_framework_from_registry(
     agent_name: str, infra: Optional[Any] = None
 ) -> Optional[str]:
     """Fetch framework from agent metadata in registry if available."""
-    if infra is None:
+    if infra is None or not getattr(infra, "registry_state", None):
         return None
     try:
         # Try to get agent metadata from registry

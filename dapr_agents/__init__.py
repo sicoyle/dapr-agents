@@ -33,6 +33,7 @@ from dapr_agents.llm.openai import (
     OpenAIEmbeddingClient,
 )
 from dapr_agents.tool import AgentTool, tool
+from dapr_agents.workflow.runners import AgentRunner
 
 __all__ = [
     "DurableAgent",
@@ -48,6 +49,7 @@ __all__ = [
     "OpenAIEmbeddingClient",
     "AgentTool",
     "tool",
+    "AgentRunner",
     "AgentMetadataSchema",
     "AgentMetadata",
     "PubSubMetadata",
