@@ -363,5 +363,3 @@ def coerce_to_model(model_type: Type[Any], value: Any) -> Any:
             return model_type(**value)
 
     return value
-
-

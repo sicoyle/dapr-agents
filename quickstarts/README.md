@@ -92,9 +92,9 @@ By default, the quickstart uses [Ollama](https://ollama.com/) so you can run eve
 
 > **Tip:** For more reliable tool calling, use a larger model such as `qwen2.5:3b` or `llama3.1:8b`.
 
-4. **Expand environment variables into component files** 
-Dapr reads component YAML files as-is; it does not expand `{{VAR}}` placeholders. 
-`resolve_env_templates.py` substitutes your exported variables into a temporary copy of the `resources/` folder and prints its path. 
+4. **Expand environment variables into component files**
+Dapr reads component YAML files as-is; it does not expand `{{VAR}}` placeholders.
+`resolve_env_templates.py` substitutes your exported variables into a temporary copy of the `resources/` folder and prints its path.
 Run this once per shell session after setting your env vars, then use the printed path as `--resources-path` in the quickstart commands below:
 
 ```bash
@@ -153,8 +153,8 @@ Dapr Agents also include native LLM clients for other modalities (e.g., audio), 
 
 # 2. Durable Agent Workflow
 
-This example introduces `runner.workflow()`, which starts the agent’s workflow runtime without wiring pub/sub or HTTP routes. 
-Use this pattern when your agent is triggered by external Dapr workflows or the Dapr Workflow API — not by pub/sub messages or HTTP requests. 
+This example introduces `runner.workflow()`, which starts the agent’s workflow runtime without wiring pub/sub or HTTP routes.
+Use this pattern when your agent is triggered by external Dapr workflows or the Dapr Workflow API — not by pub/sub messages or HTTP requests.
 The agent keeps its runtime alive and waits for incoming workflow calls.
 
 **Terminal 1 — start the agent:**
