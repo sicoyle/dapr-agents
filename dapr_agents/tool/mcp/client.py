@@ -139,11 +139,20 @@ class MCPClient(BaseModel):
             # This is benign — the tool call has already completed successfully.
             try:
                 await stack.aclose()
-            except* BrokenResourceError:
-                logger.debug(
-                    "Ignoring BrokenResourceError during ephemeral session cleanup "
-                    "(expected for stdio transport)"
-                )
+            except Exception as exc:
+                # Handle both a bare BrokenResourceError and an ExceptionGroup
+                # (anyio wraps task-group errors) that contains only BrokenResourceError.
+                sub_exceptions = getattr(exc, "exceptions", None)
+                if isinstance(exc, BrokenResourceError) or (
+                    sub_exceptions is not None
+                    and all(isinstance(e, BrokenResourceError) for e in sub_exceptions)
+                ):
+                    logger.debug(
+                        "Ignoring BrokenResourceError during ephemeral session cleanup "
+                        "(expected for stdio transport)"
+                    )
+                else:
+                    raise
 
     async def connect(self, config: dict) -> None:
         """
