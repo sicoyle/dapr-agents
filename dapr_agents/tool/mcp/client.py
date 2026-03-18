@@ -126,7 +126,26 @@ class MCPClient(BaseModel):
             session = await start_transport_session(transport, params, stack)
             await session.initialize()
         except Exception as e:
-            await stack.aclose()
+            # Ensure cleanup errors do not mask the original failure.
+            try:
+                await stack.aclose()
+            except Exception as exc:
+                # Handle both a bare BrokenResourceError and an ExceptionGroup
+                # (anyio wraps task-group errors) that contains only BrokenResourceError.
+                sub_exceptions = getattr(exc, "exceptions", None)
+                if isinstance(exc, BrokenResourceError) or (
+                    sub_exceptions is not None
+                    and all(isinstance(err, BrokenResourceError) for err in sub_exceptions)
+                ):
+                    logger.debug(
+                        "Ignoring BrokenResourceError during ephemeral session cleanup "
+                        "after failed creation (expected for stdio transport)"
+                    )
+                else:
+                    logger.warning(
+                        "Error during cleanup after failed ephemeral session creation: %s",
+                        exc,
+                    )
             logger.error(f"Failed to create ephemeral session: {e}")
             raise ToolError(f"Could not create session for '{server_name}': {e}") from e
 
