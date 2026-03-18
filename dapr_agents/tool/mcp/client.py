@@ -135,7 +135,9 @@ class MCPClient(BaseModel):
                 sub_exceptions = getattr(exc, "exceptions", None)
                 if isinstance(exc, BrokenResourceError) or (
                     sub_exceptions is not None
-                    and all(isinstance(err, BrokenResourceError) for err in sub_exceptions)
+                    and all(
+                        isinstance(err, BrokenResourceError) for err in sub_exceptions
+                    )
                 ):
                     logger.debug(
                         "Ignoring BrokenResourceError during ephemeral session cleanup "
