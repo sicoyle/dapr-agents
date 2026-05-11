@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, Optional
 
 from dapr_agents.tool.base import AgentTool
 from dapr_agents.types import ToolError
+from pydantic import create_model
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,21 @@ class WorkflowContextInjectedTool(AgentTool):
 
     # Name of the kwarg used to pass the workflow context at execution time.
     context_kwarg: str = "ctx"
+
+    def _initialize_from_func(self, func: Callable) -> None:
+        """Skip automatic schema inference from the executor function.
+
+        Workflow-injected tool executors have hidden kwargs (``ctx``,
+        ``_source_agent``, ``_child_instance_id``) that Pydantic rejects
+        as field names.  The ``args_model`` for these tools is always
+        provided explicitly (from the MCP input schema or empty), so
+        inference from the function signature is never needed.
+        """
+        if self.args_model is None:
+            # No schema provided — use an empty model rather than trying
+            # to infer from the function signature.
+
+            self.args_model = create_model(f"{self.name}Args")
 
     def _validate_and_prepare_args(
         self, func: Callable, *args: Any, **kwargs: Any
@@ -62,7 +78,11 @@ class WorkflowContextInjectedTool(AgentTool):
         source_agent = kwargs.pop("_source_agent", None)
         child_instance_id = kwargs.pop("_child_instance_id", None)
 
-        validated = super()._validate_and_prepare_args(func, *args, **kwargs)
+        # For workflow-injected tools, pass the user's kwargs directly
+        # to the executor without Pydantic validation stripping them.
+        # The MCP server performs its own validation; double-validating
+        # here via model_dump() drops fields that aren't in the model.
+        validated = dict(kwargs)
         validated[self.context_kwarg] = ctx
         if source_agent is not None:
             validated["_source_agent"] = source_agent

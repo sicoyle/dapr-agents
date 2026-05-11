@@ -74,10 +74,10 @@ class AgentToolExecutor(BaseModel):
         if isinstance(tool, AgentTool):
             key = self._normalize(tool.name)
             if key in self._tools_map:
-                logger.error(f"Attempted to register duplicate tool: {tool.name}")
-                raise AgentToolExecutorError(
-                    f"Tool '{tool.name}' is already registered."
+                logger.warning(
+                    f"Duplicate tool name '{tool.name}' — keeping first registration, skipping subsequent."
                 )
+                return
             self._tools_map[key] = tool
             logger.info(f"Tool registered: {tool.name}")
         else:

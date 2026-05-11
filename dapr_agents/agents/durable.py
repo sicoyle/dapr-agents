@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 import functools
 import json
@@ -51,6 +52,7 @@ from dapr_agents.agents.orchestrators.llm.utils import (
 
 from dapr_agents.agents.base import AgentBase
 from dapr_agents.agents.configs import (
+    AgentMCPConfig,
     OrchestrationMode,
     ToolExecutionMode,
     AgentApprovalConfig,
@@ -107,6 +109,8 @@ from dapr_agents.hooks import (
     Skip,
     ToolHookContext,
 )
+from dapr.ext.workflow import DaprMCPClient
+from dapr_agents.tool.mcp.dapr_workflow_client import mcp_tool_def_to_workflow_tool
 
 logger = get_context_aware_logger(__name__)
 
@@ -240,6 +244,7 @@ class DurableAgent(AgentBase):
         agent_observability: Optional[AgentObservabilityConfig] = None,
         configuration: Optional[RuntimeSubscriptionConfig] = None,
         hooks: Optional[Hooks] = None,
+        mcp: Optional[AgentMCPConfig] = None,
     ) -> None:
         """
         Initialize behavior, infrastructure, and workflow runtime.
@@ -278,6 +283,10 @@ class DurableAgent(AgentBase):
             retry_policy: Durable retry policy configuration.
             agent_observability: Observability configuration for tracing/logging.
             configuration: Optional configuration store settings for hot-reloading.
+            mcp: Optional MCP auto-discovery configuration.  When ``None``
+                (default), all MCPServer resources found in the sidecar metadata
+                are connected with default timeouts.  Pass
+                ``AgentMCPConfig(enabled=False)`` to disable auto-discovery.
         """
         # Mark orchestrators to filtered out when other orchestrators query for available agents
         if execution and execution.orchestration_mode:
@@ -347,6 +356,10 @@ class DurableAgent(AgentBase):
         self._wf_client: Optional[wf.DaprWorkflowClient] = (
             wf.DaprWorkflowClient() if (hooks and hooks.before_tool_call) else None
         )
+
+        # MCP auto-discovery state
+        self._mcp_config: AgentMCPConfig = mcp or AgentMCPConfig()
+        self._mcp_tools_connected: bool = False
 
         try:
             retries = int(getenv("DAPR_API_MAX_RETRIES", ""))
@@ -3260,6 +3273,74 @@ class DurableAgent(AgentBase):
                 )
 
         self._started = False
+
+    async def connect_mcpservers(self) -> None:
+        """Auto-connect to all MCPServer resources discovered from the sidecar.
+
+        This is called automatically by :class:`AgentRunner` before
+        ``agent.start()``.  It uses the SDK's :class:`DaprMCPClient` to
+        discover tools, then converts each :class:`MCPToolDef` into a
+        :class:`WorkflowContextInjectedTool` and registers it.
+
+        The method is idempotent — calling it multiple times is safe.
+        """
+        if self._mcp_tools_connected:
+            return
+        if not self._mcp_config.enabled:
+            logger.debug("MCP auto-discovery disabled via AgentMCPConfig.")
+            self._mcp_tools_connected = True
+            return
+
+        server_names: List[str] = getattr(self, "_discovered_mcpserver_names", [])
+        if not server_names:
+            logger.debug("No MCPServer resources discovered from sidecar metadata.")
+            self._mcp_tools_connected = True
+            return
+
+        client = DaprMCPClient(
+            timeout_in_seconds=self._mcp_config.timeout_in_seconds,
+            allowed_tools=self._mcp_config.allowed_tools,
+        )
+
+        for name in server_names:
+            try:
+                await asyncio.to_thread(client.connect, name)
+            except Exception as exc:
+                logger.exception(
+                    "Failed to connect to MCPServer '%s': %s — skipping",
+                    name,
+                    exc,
+                )
+                raise
+
+        tools = client.get_all_tools()
+        for tool_def in tools:
+            self.tool_executor.register_tool(mcp_tool_def_to_workflow_tool(tool_def))
+
+        if tools and self.execution.tool_choice is None:
+            self.execution.tool_choice = "auto"
+
+        self._mcp_tools_connected = True
+
+        connected = client.get_connected_servers()
+        if tools:
+            logger.debug(
+                "MCP auto-discovery: connected to %d MCPServer(s), %d tool(s) loaded.",
+                len(connected),
+                len(tools),
+            )
+        elif connected:
+            logger.warning(
+                "MCP auto-discovery: connected to %d MCPServer(s) but 0 tools loaded "
+                "(servers may have no tools or allowed_tools filtered all out).",
+                len(connected),
+            )
+        else:
+            logger.error(
+                "MCP auto-discovery: failed to connect to all %d MCPServer(s). "
+                "The agent will run without MCP tools. Check sidecar logs for details.",
+                len(server_names),
+            )
 
     def register(self, runtime: wf.WorkflowRuntime) -> None:
         """

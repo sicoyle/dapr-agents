@@ -82,6 +82,25 @@ class AgentRunner(WorkflowRunner):
         self._managed_agents: List[DurableAgent] = []
         self._lock: Lock = Lock()
 
+    @staticmethod
+    async def _ensure_mcp_connected(agent: DurableAgent) -> None:
+        """Connect MCPServer tools if the agent supports auto-discovery."""
+        connect_fn = getattr(agent, "connect_mcpservers", None)
+        if connect_fn and not getattr(agent, "_mcp_tools_connected", True):
+            await connect_fn()
+
+    def _ensure_mcp_connected_sync(self, agent: DurableAgent) -> None:
+        """Sync wrapper for MCP auto-discovery (for non-async entry points)."""
+        if getattr(agent, "_mcp_tools_connected", True):
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            # Already in an event loop — run in a new thread
+            self._run_coro_in_new_loop_thread(self._ensure_mcp_connected(agent))
+        except RuntimeError:
+            # No event loop — safe to use asyncio.run
+            asyncio.run(self._ensure_mcp_connected(agent))
+
     async def run(
         self,
         agent: DurableAgent,
@@ -121,6 +140,7 @@ class AgentRunner(WorkflowRunner):
             wait,
             timeout_in_seconds,
         )
+        await self._ensure_mcp_connected(agent)
         try:
             agent.start()
         except RuntimeError:
@@ -200,6 +220,7 @@ class AgentRunner(WorkflowRunner):
         Returns:
             The runner (to allow fluent chaining).
         """
+        self._ensure_mcp_connected_sync(agent)
         try:
             agent.start()
         except RuntimeError:
@@ -317,7 +338,7 @@ class AgentRunner(WorkflowRunner):
             fetch_payloads: Whether to fetch input/output payloads for awaited workflows.
             log_outcome: Whether to log the final outcome of awaited workflows.
         """
-
+        self._ensure_mcp_connected_sync(agent)
         try:
             agent.start()
         except RuntimeError:
@@ -486,7 +507,7 @@ class AgentRunner(WorkflowRunner):
         Returns:
             The runner (to allow fluent chaining).
         """
-
+        self._ensure_mcp_connected_sync(agent)
         try:
             agent.start()
         except RuntimeError:
@@ -546,6 +567,7 @@ class AgentRunner(WorkflowRunner):
 
         fastapi_app = app or FastAPI(title="Dapr Agent Service", version="1.0.0")
 
+        self._ensure_mcp_connected_sync(agent)
         try:
             agent.start()
         except RuntimeError:
