@@ -94,7 +94,7 @@ class AgentRunner(WorkflowRunner):
         if getattr(agent, "_mcp_tools_connected", True):
             return
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # Already in an event loop — run in a new thread
             self._run_coro_in_new_loop_thread(self._ensure_mcp_connected(agent))
         except RuntimeError:
