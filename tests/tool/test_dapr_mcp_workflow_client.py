@@ -91,7 +91,9 @@ class TestConnect:
         await client.connect("my-server")
 
         call_kwargs = wf.schedule_new_workflow.call_args.kwargs
-        assert call_kwargs["workflow"].__name__ == "dapr.internal.mcp.my-server.ListTools"
+        assert (
+            call_kwargs["workflow"].__name__ == "dapr.internal.mcp.my-server.ListTools"
+        )
         assert call_kwargs["input"] == {"name": "my-server"}
         assert "instance_id" in call_kwargs  # a UUID was generated
 

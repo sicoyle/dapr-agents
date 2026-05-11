@@ -70,6 +70,7 @@ _WEATHER_TOOLS = [
     },
 ]
 
+
 def _make_completed_state(output: dict) -> SimpleNamespace:
     return SimpleNamespace(
         runtime_status=SimpleNamespace(name="COMPLETED"),
@@ -134,6 +135,7 @@ def _make_agent(tools: list, name: str = "TestAgent") -> DurableAgent:
         state=AgentStateConfig(store=StateStoreService(store_name="teststatestore")),
     )
 
+
 # autouse fixture: suppress Dapr state-store I/O for all tests in this file
 @pytest.fixture(autouse=True)
 def patch_dapr_check(monkeypatch):
@@ -168,10 +170,9 @@ def patch_dapr_check(monkeypatch):
             return response
 
     statestore.DaprClient = MockDaprClient
-    monkeypatch.setattr(
-        DurableAgent, "register_agentic_system", lambda self: None
-    )
+    monkeypatch.setattr(DurableAgent, "register_agentic_system", lambda self: None)
     yield
+
 
 class TestWorkflowRegistration:
     """DurableAgent must register consistent workflow + activity sets."""
@@ -251,9 +252,13 @@ class TestWorkflowRegistration:
         agent_mcp = _make_agent(client.get_all_tools())
         agent_mcp.register_workflows(mock_b)
 
-        assert mock_a.register_workflow.call_count == mock_b.register_workflow.call_count
-        assert mock_a.register_activity.call_count == mock_b.register_activity.call_count
-        
+        assert (
+            mock_a.register_workflow.call_count == mock_b.register_workflow.call_count
+        )
+        assert (
+            mock_a.register_activity.call_count == mock_b.register_activity.call_count
+        )
+
 
 class TestAllowedToolsFiltering:
     """allowed_tools restricts which tools are loaded during connect()."""
@@ -306,6 +311,7 @@ class TestAllowedToolsFiltering:
         assert len(client.get_all_tools()) == 1
         assert client.get_all_tools()[0].name == "Add"  # stored name is sanitized
 
+
 class TestMCPToolTypes:
     """Tools from DaprMCPWorkflowClient must be WorkflowContextInjectedTool instances."""
 
@@ -325,7 +331,9 @@ class TestMCPToolTypes:
         for tool in client.get_all_tools():
             schema = tool.to_function_call()
             props = schema["function"]["parameters"]["properties"]
-            assert "ctx" not in props, f"'ctx' must not appear in LLM schema for '{tool.name}'"
+            assert "ctx" not in props, (
+                f"'ctx' must not appear in LLM schema for '{tool.name}'"
+            )
 
     def test_mcp_tool_schema_excludes_hidden_kwargs(self):
         client = _make_mcp_client()
@@ -346,6 +354,7 @@ class TestMCPToolTypes:
         client = _make_mcp_client()
         add = next(t for t in client.get_all_tools() if t.name == "Add")
         assert add.description == "Add two integers."
+
 
 class TestMixedToolSet:
     """Agents must work correctly when tool list contains both tool types."""
@@ -696,4 +705,6 @@ class TestCallToolResultSerialization:
     def test_serialized_result_is_always_str(self):
         for value in ("text", 42, None, {"k": "v"}, [1, 2], True):
             result = self._serialize(value)
-            assert isinstance(result, str), f"Expected str for {value!r}, got {type(result)}"
+            assert isinstance(result, str), (
+                f"Expected str for {value!r}, got {type(result)}"
+            )

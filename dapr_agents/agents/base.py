@@ -530,8 +530,7 @@ class AgentBase:
                 _mcp_val = getattr(resp, "mcp_servers", None) if _has_mcp else None
                 if _has_mcp and _mcp_val:
                     self._discovered_mcpserver_names = [
-                        s.name if hasattr(s, "name") else str(s)
-                        for s in _mcp_val
+                        s.name if hasattr(s, "name") else str(s) for s in _mcp_val
                     ]
                     logger.debug(
                         "Discovered %d MCPServer resource(s) from sidecar: %s",

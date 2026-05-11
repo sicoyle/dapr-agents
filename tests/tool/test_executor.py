@@ -26,11 +26,7 @@ class TestAgentToolExecutorRegisterTool:
         """Test registering an AgentTool instance directly."""
         executor = AgentToolExecutor()
 
-        tool = AgentTool(
-            name="TestTool",
-            description="A test tool",
-            func=None
-        )
+        tool = AgentTool(name="TestTool", description="A test tool", func=None)
 
         executor.register_tool(tool)
 
@@ -61,9 +57,7 @@ class TestAgentToolExecutorRegisterTool:
         executor = AgentToolExecutor()
 
         tool = AgentTool(
-            name="My_Test_Tool",
-            description="Test normalization",
-            func=None
+            name="My_Test_Tool", description="Test normalization", func=None
         )
 
         executor.register_tool(tool)
@@ -78,15 +72,9 @@ class TestAgentToolExecutorRegisterTool:
         """Test that registering duplicate tool names raises AgentToolExecutorError."""
         executor = AgentToolExecutor()
 
-        tool1 = AgentTool(
-            name="MyTool",
-            description="First tool",
-            func=None
-        )
+        tool1 = AgentTool(name="MyTool", description="First tool", func=None)
         tool2 = AgentTool(
-            name="MyTool",
-            description="Second tool with same name",
-            func=None
+            name="MyTool", description="Second tool with same name", func=None
         )
 
         executor.register_tool(tool1)
@@ -207,9 +195,7 @@ class TestAgentToolExecutorRegisterTool:
         executor = AgentToolExecutor()
 
         tool = AgentTool(
-            name="IdentityTest",
-            description="Test identity preservation",
-            func=None
+            name="IdentityTest", description="Test identity preservation", func=None
         )
 
         executor.register_tool(tool)

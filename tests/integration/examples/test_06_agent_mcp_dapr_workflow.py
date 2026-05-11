@@ -84,7 +84,9 @@ class TestMCPQuickstartE2E:
         self.env = {"OPENAI_API_KEY": openai_api_key}
 
     def test_list_tools_succeeds_and_returns_expected_tools(
-        self, dapr_runtime, weather_mcp_server  # noqa: ARG002
+        self,
+        dapr_runtime,
+        weather_mcp_server,  # noqa: ARG002
     ):
         """Quickstart must discover both weather tools from the sidecar."""
         result = run_quickstart_or_examples_script(
@@ -109,7 +111,9 @@ class TestMCPQuickstartE2E:
         )
 
     def test_quickstart_exits_cleanly(
-        self, dapr_runtime, weather_mcp_server  # noqa: ARG002
+        self,
+        dapr_runtime,
+        weather_mcp_server,  # noqa: ARG002
     ):
         """Quickstart must exit with return code 0."""
         result = run_quickstart_or_examples_script(
@@ -128,7 +132,9 @@ class TestMCPQuickstartE2E:
         )
 
     def test_agent_calls_mcp_tool(
-        self, dapr_runtime, weather_mcp_server  # noqa: ARG002
+        self,
+        dapr_runtime,
+        weather_mcp_server,  # noqa: ARG002
     ):
         """The agent must invoke at least one weather tool and return a response."""
         result = run_quickstart_or_examples_script(
@@ -299,7 +305,9 @@ class TestMCPServerConfigVariants:
         )
         # Both server names must appear
         assert "[weather]" in combined, "Expected '[weather]' server listing in output"
-        assert "[weather2]" in combined, "Expected '[weather2]' server listing in output"
+        assert "[weather2]" in combined, (
+            "Expected '[weather2]' server listing in output"
+        )
 
     def test_allowed_tools_filter_limits_discovered_tools(
         self,

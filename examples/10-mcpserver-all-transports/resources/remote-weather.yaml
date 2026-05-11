@@ -1,0 +1,65 @@
+#
+# Copyright 2026 The Dapr Authors
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# MCPServer: SSE transport — remote third-party weather service.
+#
+# Represents an MCP server hosted externally (outside your cluster).
+# Uses SSE (Server-Sent Events) transport with bearer-token auth
+# resolved via a Dapr secret store.
+#
+# For this example the weather server runs locally on port 8081 to
+# simulate a remote endpoint.  In production, replace the URL with the
+# actual remote endpoint and configure the secret store reference.
+apiVersion: dapr.io/v1alpha1
+kind: MCPServer
+metadata:
+  name: remote-weather
+spec:
+  catalog:
+    displayName: "Remote Weather Service"
+    description: >
+      A third-party weather MCP server hosted externally.  Accessed via
+      SSE transport with bearer-token authentication.
+    owner:
+      team: integrations
+    tags:
+      - weather
+      - external
+      - sse
+  endpoint:
+    sse:
+      # Local dev: url: http://localhost:8081/sse
+      url: http://weather-sse-server.prj-4.svc.cluster.local:8081/sse
+      protocolVersion: "2025-03-26"
+      # Uncomment to use secret-store-backed auth in production:
+      # headers:
+      #   - name: Authorization
+      #     secretKeyRef:
+      #       name: weather-api-token
+      #       key: token
+      # auth:
+      #   secretStore: kubernetes
+  middleware:
+    beforeCallTool:
+      - workflow:
+          workflowName: rate_limit_workflow
+          appID: mcp-agent-again
+      - workflow:
+          workflowName: input_validation_workflow
+          appID: mcp-agent-again
+    afterCallTool:
+      - workflow:
+          workflowName: audit_log_workflow
+          appID: mcp-agent-again
+scopes:
+  - mcp-agent-again

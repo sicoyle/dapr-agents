@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weather-sse-server
+  namespace: prj-4
+  labels:
+    app: weather-sse-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weather-sse-server
+  template:
+    metadata:
+      labels:
+        app: weather-sse-server
+    spec:
+      containers:
+      - name: weather-sse-server
+        image: weather-sse-server:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8081
+        livenessProbe:
+          httpGet:
+            path: /sse
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weather-sse-server
+  namespace: prj-4
+  labels:
+    app: weather-sse-server
+spec:
+  selector:
+    app: weather-sse-server
+  ports:
+  - port: 8081
+    targetPort: 8081
+    protocol: TCP
+  type: ClusterIP
