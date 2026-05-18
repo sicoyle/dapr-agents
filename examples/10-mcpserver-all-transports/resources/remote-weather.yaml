@@ -11,15 +11,6 @@
 # limitations under the License.
 #
 
-# MCPServer: SSE transport — remote third-party weather service.
-#
-# Represents an MCP server hosted externally (outside your cluster).
-# Uses SSE (Server-Sent Events) transport with bearer-token auth
-# resolved via a Dapr secret store.
-#
-# For this example the weather server runs locally on port 8081 to
-# simulate a remote endpoint.  In production, replace the URL with the
-# actual remote endpoint and configure the secret store reference.
 apiVersion: dapr.io/v1alpha1
 kind: MCPServer
 metadata:
@@ -38,28 +29,14 @@ spec:
       - sse
   endpoint:
     sse:
-      # Local dev: url: http://localhost:8081/sse
-      url: http://weather-sse-server.prj-4.svc.cluster.local:8081/sse
+      url: http://localhost:8081/sse
       protocolVersion: "2025-03-26"
-      # Uncomment to use secret-store-backed auth in production:
-      # headers:
-      #   - name: Authorization
-      #     secretKeyRef:
-      #       name: weather-api-token
-      #       key: token
-      # auth:
-      #   secretStore: kubernetes
   middleware:
     beforeCallTool:
       - workflow:
           workflowName: rate_limit_workflow
-          appID: mcp-agent-again
       - workflow:
           workflowName: input_validation_workflow
-          appID: mcp-agent-again
     afterCallTool:
       - workflow:
           workflowName: audit_log_workflow
-          appID: mcp-agent-again
-scopes:
-  - mcp-agent-again

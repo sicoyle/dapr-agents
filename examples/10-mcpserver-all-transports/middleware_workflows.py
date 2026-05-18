@@ -11,43 +11,12 @@
 # limitations under the License.
 #
 
-"""
-MCPServer Middleware Workflows
-==============================
-
-Defines the Dapr workflows referenced by the ``middleware`` hooks in the
-MCPServer resource YAMLs.  These are registered with the agent's Dapr
-sidecar and are invoked automatically by the built-in MCP worker:
-
-  - ``rate-limit-workflow`` (beforeCallTool): Enforces a per-tool call
-    rate limit using a Dapr state store counter.
-  - ``input-validation-workflow`` (beforeCallTool): Rejects tool arguments
-    that contain disallowed patterns (e.g. PII, SQL injection attempts).
-  - ``audit-log-workflow`` (afterCallTool): Logs every tool invocation and
-    its result to a Dapr state store for audit trail.
-
-Middleware hook contract
-------------------------
-- **beforeCallTool** receives::
-
-      {"name": "<name>", "toolName": "<tool>", "arguments": {...}}
-
-  Return ``None`` / empty to allow the call.  Raise an exception or return
-  an error to abort the chain.
-
-- **afterCallTool** receives::
-
-      {"name": "<name>", "toolName": "<tool>", "arguments": {...}, "result": {...}}
-
-  The return value is ignored.  Errors are logged but do not affect the
-  result returned to the caller.
-"""
-
 import json
 import logging
 import time
 from typing import Any
-
+from dapr.clients import DaprClient
+from base64 import b64decode
 import dapr.ext.workflow as wf
 
 logger = logging.getLogger("middleware-workflows")
@@ -73,7 +42,6 @@ def rate_limit_workflow(ctx: wf.DaprWorkflowContext, input: dict[str, Any]) -> N
 
 def rate_limit_check(ctx: wf.WorkflowActivityContext, input: Any) -> None:
     """Activity: check rate limit counter."""
-    from dapr.clients import DaprClient
 
     # input may arrive as a JSON string depending on SDK version.
     if isinstance(input, str):
@@ -85,7 +53,6 @@ def rate_limit_check(ctx: wf.WorkflowActivityContext, input: Any) -> None:
 
     with DaprClient() as client:
         state = client.get_state(store_name="agentstatestore", key=window_key)
-        # state = client.get_state(store_name="kvstore", key=window_key)
 
         count = 0
         if state.data and state.data.strip():
@@ -101,7 +68,6 @@ def rate_limit_check(ctx: wf.WorkflowActivityContext, input: Any) -> None:
             )
 
         client.save_state(
-            # store_name="kvstore",
             store_name="agentstatestore",
             key=window_key,
             value=str(count + 1),
@@ -175,9 +141,13 @@ def audit_log_workflow(ctx: wf.DaprWorkflowContext, input: dict[str, Any]) -> No
 
 
 def audit_log_write(ctx: wf.WorkflowActivityContext, input: Any) -> None:
-    """Activity: persist an audit record to the state store."""
-    from dapr.clients import DaprClient
+    """Activity: persist an audit record to the state store.
 
+    The `result` field on the after-hook input is a JSON-encoded MCP
+    CallToolResult (bytes-on-the-wire, base64-encoded by protojson when the
+    outer message is serialized). We decode it here so the audit record
+    contains the structured CallToolResult, not a raw base64 blob.
+    """
     if isinstance(input, str):
         input = json.loads(input)
 
@@ -186,11 +156,21 @@ def audit_log_write(ctx: wf.WorkflowActivityContext, input: Any) -> None:
     timestamp = int(time.time())
     audit_key = f"audit:{mcp_server}:{tool_name}:{timestamp}"
 
+    # `result` is bytes on the proto, base64-encoded as a string in JSON.
+    # Decode then JSON-parse to surface the MCP CallToolResult shape.
+    result_payload: Any = input.get("result")
+    if isinstance(result_payload, str):
+        try:
+            result_payload = json.loads(b64decode(result_payload).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            # Not base64+JSON — leave as-is.
+            pass
+
     record = {
         "name": mcp_server,
         "toolName": tool_name,
         "arguments": input.get("arguments"),
-        "result": input.get("result"),
+        "result": result_payload,
         "timestamp": timestamp,
     }
 

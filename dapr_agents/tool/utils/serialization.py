@@ -23,63 +23,30 @@ logger = logging.getLogger(__name__)
 def _extract_text_from_content_block(item: Any) -> str:
     """Extract text from a single MCP content block.
 
-    Handles all known formats:
-      - protojson oneof:  ``{"text": {"text": "actual result"}}``
-      - flat MCP spec:    ``{"type": "text", "text": "actual result"}``
-      - plain string:     ``"actual result"``
+    Dapr workflow output uses the flat MCP-spec content shape
+    (``{"type": "text", "text": "..."}``).
     """
-    if isinstance(item, str):
-        return item
-    if not isinstance(item, dict):
-        return ""
-    # protojson oneof: {"text": {"text": "..."}}
-    text_field = item.get("text")
-    if isinstance(text_field, dict):
-        return text_field.get("text", "")
-    # flat MCP: {"type": "text", "text": "..."}
-    if isinstance(text_field, str):
-        return text_field
+    if isinstance(item, dict):
+        text = item.get("text")
+        return text if isinstance(text, str) else ""
     return ""
 
 
-def _looks_like_mcp_response(d: dict) -> bool:
-    """Check if a dict looks like a CallMCPToolResponse / CallToolResult.
-
-    Handles both protojson (snake_case) and camelCase field names:
-      - ``isError`` / ``is_error``
-      - ``content``
-    """
-    has_content = "content" in d
-    has_is_error = "isError" in d or "is_error" in d
-    # Must have at least content OR isError to be an MCP response
-    return has_content or has_is_error
-
-
-def _get_is_error(d: dict) -> bool:
-    """Get the isError value, handling both camelCase and snake_case."""
-    return d.get("isError", d.get("is_error", False))
-
-
 def _unwrap_mcp_call_tool_result(result: Any) -> Any:
-    """Unwrap an MCP CallMCPToolResponse / CallToolResult envelope if present.
+    """Unwrap an MCP CallToolResult into a plain text string.
 
-    The Dapr runtime's ``CallTool`` workflow returns a proto response.
-    Protojson may serialize it in different formats::
+    The Dapr ``CallTool`` workflow returns a JSON-encoded MCP
+    `CallToolResult <https://modelcontextprotocol.io/specification/2024-11-05/server/tools#tool-result>`_::
 
-        # camelCase (protojson default):
-        {"isError": false, "content": [{"text": {"text": "result"}}]}
+        {"isError": false, "content": [{"type": "text", "text": "..."}]}
 
-        # snake_case:
-        {"is_error": false, "content": [{"text": {"text": "result"}}]}
+    Input may be a pre-parsed dict, a JSON string, or even double-JSON-encoded
+    (string within a string). Returns *result* unchanged when it doesn't
+    match the CallToolResult shape.
 
-        # flat MCP spec (older format):
-        {"isError": false, "content": [{"type": "text", "text": "result"}]}
-
-    The result may arrive as a JSON string or a pre-parsed dict.
-    It may also be double-JSON-encoded (string within a string).
-
-    Returns the unwrapped text, or *result* unchanged if it does not
-    match any known MCP response shape.
+    The presence of ``isError`` is the distinguishing marker for an MCP
+    envelope — a plain ``{"content": [...]}`` dict is too ambiguous, since
+    legitimate CallTool workflow results can have that exact shape.
     """
     # Try to parse JSON strings (possibly double-encoded).
     parsed = result
@@ -96,35 +63,22 @@ def _unwrap_mcp_call_tool_result(result: Any) -> Any:
         else:
             break
 
-    if not isinstance(parsed, dict):
+    if not isinstance(parsed, dict) or "isError" not in parsed:
         return result
 
-    if not _looks_like_mcp_response(parsed):
-        return result
-
+    is_error = parsed["isError"]
     content = parsed.get("content")
     if not isinstance(content, list):
-        # No content list — might be an empty success response
-        if _get_is_error(parsed):
-            return "MCP tool call failed"
-        return result
-
-    if _get_is_error(parsed):
-        parts = [
-            _extract_text_from_content_block(item)
-            for item in content
-            if _extract_text_from_content_block(item)
-        ]
-        return "Error: " + " ".join(parts) if parts else "MCP tool call failed"
+        return "MCP tool call failed" if is_error else result
 
     parts = [
-        _extract_text_from_content_block(item)
-        for item in content
-        if _extract_text_from_content_block(item)
+        text for item in content if (text := _extract_text_from_content_block(item))
     ]
+
+    if is_error:
+        return "Error: " + " ".join(parts) if parts else "MCP tool call failed"
     if parts:
         return "\n".join(parts)
-
     # Content blocks exist but no text extracted — return raw JSON
     return json.dumps(content)
 

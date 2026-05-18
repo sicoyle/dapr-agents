@@ -156,9 +156,10 @@ Update the URL if deploying to a different namespace.
 
 - **MCPServer resource**: A first-class Dapr resource that declares MCP server
   connection details.  The sidecar handles transport, auth, and retries.
-- **`DaprMCPWorkflowClient`**: Agent-side client that discovers tools via
-  `dapr.mcp.<name>.ListTools` and returns `WorkflowContextInjectedTool`
-  instances for durable execution.
+- **`DaprMCPClient`** (from `dapr.ext.workflow.aio`): Discovers tools via
+  `dapr.internal.mcp.<name>.ListTools`. dapr-agents converts each
+  `MCPToolDef` into a `WorkflowContextInjectedTool` via
+  `mcp_tool_def_to_workflow_tool` for durable execution.
 - **Middleware hooks**: `beforeCallTool` / `afterCallTool` workflow pipelines
   defined on the MCPServer spec.  "Before" hooks abort on error; "after" hooks
   log errors without affecting results.

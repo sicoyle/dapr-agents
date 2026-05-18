@@ -68,8 +68,14 @@ class TestAgentToolExecutorRegisterTool:
         assert executor.get_tool("MyTestTool") is tool
         assert executor.get_tool("my test tool") is tool
 
-    def test_register_duplicate_tool_raises_error(self):
-        """Test that registering duplicate tool names raises AgentToolExecutorError."""
+    def test_register_duplicate_tool_keeps_first_and_warns(self, caplog):
+        """Registering a duplicate tool name keeps the first registration and warns.
+
+        Multi-server MCP setups can legitimately expose tools with the same
+        name; the executor must not blow up the agent in that case.
+        """
+        import logging
+
         executor = AgentToolExecutor()
 
         tool1 = AgentTool(name="MyTool", description="First tool", func=None)
@@ -79,14 +85,23 @@ class TestAgentToolExecutorRegisterTool:
 
         executor.register_tool(tool1)
 
-        # Attempting to register duplicate should raise
-        with pytest.raises(AgentToolExecutorError) as exc_info:
+        with caplog.at_level(logging.WARNING, logger="dapr_agents.tool.executor"):
             executor.register_tool(tool2)
 
-        assert "already registered" in str(exc_info.value)
+        # Only the first registration is kept.
+        assert executor.get_tool("MyTool") is tool1
+        assert any(
+            "Duplicate tool name" in r.message
+            for r in caplog.records
+            if r.levelno == logging.WARNING
+        )
 
-    def test_register_duplicate_with_normalized_name_raises_error(self):
-        """Test that normalized duplicate names are detected."""
+    def test_register_duplicate_with_normalized_name_keeps_first_and_warns(
+        self, caplog
+    ):
+        """Normalized duplicate names are detected and skipped with a warning."""
+        import logging
+
         executor = AgentToolExecutor()
 
         tool1 = AgentTool(name="my_tool", description="First", func=None)
@@ -94,11 +109,15 @@ class TestAgentToolExecutorRegisterTool:
 
         executor.register_tool(tool1)
 
-        # These differ only in spacing/case, so should be detected as duplicate
-        with pytest.raises(AgentToolExecutorError) as exc_info:
+        with caplog.at_level(logging.WARNING, logger="dapr_agents.tool.executor"):
             executor.register_tool(tool2)
 
-        assert "already registered" in str(exc_info.value)
+        assert executor.get_tool("My_Tool") is tool1
+        assert any(
+            "Duplicate tool name" in r.message
+            for r in caplog.records
+            if r.levelno == logging.WARNING
+        )
 
     def test_register_multiple_distinct_tools(self):
         """Test registering multiple different tools."""

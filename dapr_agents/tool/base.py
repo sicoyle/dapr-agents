@@ -33,7 +33,7 @@ from dapr_agents.tool.utils.function_calling import (
     to_function_call_definition,
 )
 from dapr_agents.types import ToolError
-from dapr.ext.workflow import create_pydantic_model_from_schema
+from dapr_agents.tool.utils.mcp_schema import create_pydantic_model_from_schema
 
 if TYPE_CHECKING:
     from mcp.types import Tool as MCPTool

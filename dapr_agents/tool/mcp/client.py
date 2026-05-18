@@ -19,7 +19,7 @@ import logging
 import warnings
 
 from anyio import BrokenResourceError
-from dapr.ext.workflow import create_pydantic_model_from_schema
+from dapr_agents.tool.utils.mcp_schema import create_pydantic_model_from_schema
 from pydantic import BaseModel, ValidationError, Field, PrivateAttr
 from mcp import ClientSession
 from mcp.types import CallToolResult, TextContent
@@ -86,8 +86,10 @@ class MCPClient(BaseModel):
     def model_post_init(self, __context: Any) -> None:
         warnings.warn(
             "MCPClient is deprecated. "
-            "Use DaprMCPClient from dapr.ext.workflow instead, which routes MCP "
-            "calls through Dapr's built-in workflow orchestrations.",
+            "Use DaprMCPClient from dapr.ext.workflow (or its async counterpart "
+            "in dapr.ext.workflow.aio) together with "
+            "dapr_agents.tool.mcp.mcp_tool_def_to_workflow_tool to discover MCP "
+            "tools via Dapr's built-in workflow orchestrations.",
             DeprecationWarning,
             stacklevel=2,
         )

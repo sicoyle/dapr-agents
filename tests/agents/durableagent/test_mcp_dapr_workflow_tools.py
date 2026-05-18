@@ -11,20 +11,21 @@
 # limitations under the License.
 #
 
-"""Tests for DurableAgent + DaprMCPWorkflowClient integration.
+"""Tests for DurableAgent + MCP-workflow tool wiring.
 
-Covers:
+Covers the dapr-agents-specific concerns:
 - DurableAgent workflow/activity registration invariants when MCP tools are present
 - Tool type guarantees (WorkflowContextInjectedTool) for MCP vs regular tools
 - Mixed tool sets (MCP + plain AgentTool)
-- get_server_tools / get_all_tools multi-server behaviour
-- Failure scenarios not already covered in test_dapr_mcp_workflow_client.py
+- Failure paths through run_tool and the converted MCP tool executor
 
-No live Dapr sidecar required; all Dapr SDK calls are mocked.
+Workflow scheduling, allowed_tools filtering, and per-server caching are
+owned by the python-sdk ``DaprMCPClient`` and tested there.
 """
 
 import json
 from types import SimpleNamespace
+from typing import List
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -33,7 +34,11 @@ from pydantic import ValidationError
 from dapr_agents.agents.durable import DurableAgent
 from dapr_agents.agents.schemas import AgentWorkflowEntry
 from dapr_agents.tool.base import AgentTool
-from dapr.ext.workflow import create_pydantic_model_from_schema
+from dapr_agents.tool.mcp.dapr_workflow_client import mcp_tool_def_to_workflow_tool
+from dapr_agents.tool.utils.mcp_schema import (
+    MCPToolDef,
+    create_pydantic_model_from_schema,
+)
 from dapr_agents.tool.workflow.tool_context import WorkflowContextInjectedTool
 from dapr_agents.types import ToolError
 
@@ -70,39 +75,38 @@ _WEATHER_TOOLS = [
     },
 ]
 
+_MCP_WORKFLOW_PREFIX = "dapr.internal.mcp."
+
+
+def _tool_def(server_name: str, raw: dict) -> MCPToolDef:
+    """Build an :class:`MCPToolDef` matching python-sdk's wire shape."""
+    name = raw.get("name", "")
+    return MCPToolDef(
+        name=name,
+        description=raw.get("description", ""),
+        input_schema=raw.get("inputSchema") or {},
+        server_name=server_name,
+        call_tool_workflow=f"{_MCP_WORKFLOW_PREFIX}{server_name}.CallTool.{name}",
+    )
+
+
+def _make_mcp_tools(
+    server_name: str = "math-server", tool_defs: list = None
+) -> List[WorkflowContextInjectedTool]:
+    """Build the WorkflowContextInjectedTool list a dapr-agents caller would
+    get after running :class:`DaprMCPClient` + ``mcp_tool_def_to_workflow_tool``."""
+    if tool_defs is None:
+        tool_defs = _MCP_TOOLS
+    return [
+        mcp_tool_def_to_workflow_tool(_tool_def(server_name, td)) for td in tool_defs
+    ]
+
 
 def _make_completed_state(output: dict) -> SimpleNamespace:
     return SimpleNamespace(
         runtime_status=SimpleNamespace(name="COMPLETED"),
         serialized_output=json.dumps(output),
     )
-
-
-def _make_failed_state(status_name: str) -> SimpleNamespace:
-    return SimpleNamespace(
-        runtime_status=SimpleNamespace(name=status_name),
-        serialized_output=None,
-    )
-
-
-def _make_mcp_client(server_name: str = "math-server", tool_defs: list = None):
-    """Create a DaprMCPWorkflowClient with pre-populated tool cache (no I/O).
-
-    Note: We do NOT patch model_post_init because doing so prevents Pydantic from
-    initialising the _server_tools PrivateAttr.  The conftest already mocks
-    dapr.ext.workflow.DaprWorkflowClient, so model_post_init runs safely and we
-    simply replace _wf_client with a proper MagicMock afterward.
-    """
-    if tool_defs is None:
-        tool_defs = _MCP_TOOLS
-    from dapr_agents.tool.mcp.dapr_workflow_client import DaprMCPWorkflowClient
-
-    client = DaprMCPWorkflowClient()
-    client._wf_client = MagicMock()
-    for td in tool_defs:
-        tool = client._make_tool(server_name, td)
-        client._server_tools.setdefault(server_name, []).append(tool)
-    return client
 
 
 def _make_regular_tool() -> AgentTool:
@@ -196,8 +200,7 @@ class TestWorkflowRegistration:
         }
 
     def test_agent_workflow_registered_with_mcp_tools(self):
-        client = _make_mcp_client()
-        agent = _make_agent(client.get_all_tools())
+        agent = _make_agent(_make_mcp_tools())
         wf_names = self._registered_workflow_names(agent)
         assert agent.agent_workflow_name in wf_names
 
@@ -207,26 +210,22 @@ class TestWorkflowRegistration:
         assert agent.agent_workflow_name in wf_names
 
     def test_agent_workflow_registered_with_mixed_tools(self):
-        client = _make_mcp_client()
-        agent = _make_agent(client.get_all_tools() + [_make_regular_tool()])
+        agent = _make_agent(_make_mcp_tools() + [_make_regular_tool()])
         wf_names = self._registered_workflow_names(agent)
         assert agent.agent_workflow_name in wf_names
 
     def test_run_tool_activity_always_registered(self):
-        client = _make_mcp_client()
-        agent = _make_agent(client.get_all_tools())
+        agent = _make_agent(_make_mcp_tools())
         activity_names = self._registered_activity_names(agent)
         assert "run_tool" in activity_names
 
     def test_call_llm_activity_always_registered(self):
-        client = _make_mcp_client()
-        agent = _make_agent(client.get_all_tools())
+        agent = _make_agent(_make_mcp_tools())
         activity_names = self._registered_activity_names(agent)
         assert "call_llm" in activity_names
 
     def test_all_core_activities_registered(self):
-        client = _make_mcp_client()
-        agent = _make_agent(client.get_all_tools())
+        agent = _make_agent(_make_mcp_tools())
         activity_names = self._registered_activity_names(agent)
         core = {
             "record_initial_entry",
@@ -248,8 +247,7 @@ class TestWorkflowRegistration:
         agent_no_tools = _make_agent([])
         agent_no_tools.register_workflows(mock_a)
 
-        client = _make_mcp_client()
-        agent_mcp = _make_agent(client.get_all_tools())
+        agent_mcp = _make_agent(_make_mcp_tools())
         agent_mcp.register_workflows(mock_b)
 
         assert (
@@ -260,109 +258,57 @@ class TestWorkflowRegistration:
         )
 
 
-class TestAllowedToolsFiltering:
-    """allowed_tools restricts which tools are loaded during connect()."""
+class TestMCPToolConversion:
+    """``mcp_tool_def_to_workflow_tool`` must produce LLM-ready tools."""
 
-    def _connect_with_filter(self, allowed: set):
-        """Run connect() with a mocked ListTools response containing add + multiply."""
-        from dapr_agents.tool.mcp.dapr_workflow_client import DaprMCPWorkflowClient
-        import asyncio
-
-        client = DaprMCPWorkflowClient(allowed_tools=allowed)
-        client._wf_client = MagicMock()
-
-        completed_state = _make_completed_state({"tools": _MCP_TOOLS})
-
-        with patch.object(client, "_run_list_tools", return_value=completed_state):
-            asyncio.run(client.connect("math-server"))
-
-        return client
-
-    def test_allowed_tools_single_name_keeps_one_tool(self):
-        client = self._connect_with_filter({"add"})
-        names = {t.name for t in client.get_all_tools()}
-        assert names == {"Add"}
-
-    def test_allowed_tools_multiple_names_keeps_subset(self):
-        """Allowing both names is identical to no filter for this tool set."""
-        client = self._connect_with_filter({"add", "multiply"})
-        names = {t.name for t in client.get_all_tools()}
-        assert names == {"Add", "Multiply"}
-
-    def test_allowed_tools_empty_set_keeps_no_tools(self):
-        client = self._connect_with_filter(set())
-        assert client.get_all_tools() == []
-
-    def test_allowed_tools_none_keeps_all_tools(self):
-        """None (default) means no filtering."""
-        client = self._connect_with_filter(None)
-        names = {t.name for t in client.get_all_tools()}
-        assert names == {"Add", "Multiply"}
-
-    def test_allowed_tools_unknown_name_keeps_no_tools(self):
-        client = self._connect_with_filter({"does_not_exist"})
-        assert client.get_all_tools() == []
-
-    def test_allowed_tools_filter_uses_raw_mcp_name(self):
-        """Filter is applied to the raw MCP name (snake_case), not the sanitized name."""
-        # "add" is the raw name; "Add" is the sanitized name.
-        # allowed_tools must use the raw name to match.
-        client = self._connect_with_filter({"add"})
-        assert len(client.get_all_tools()) == 1
-        assert client.get_all_tools()[0].name == "Add"  # stored name is sanitized
-
-
-class TestMCPToolTypes:
-    """Tools from DaprMCPWorkflowClient must be WorkflowContextInjectedTool instances."""
-
-    def test_mcp_tools_are_workflow_context_injected(self):
-        client = _make_mcp_client()
-        for tool in client.get_all_tools():
+    def test_tools_are_workflow_context_injected(self):
+        for tool in _make_mcp_tools():
             assert isinstance(tool, WorkflowContextInjectedTool), (
                 f"Expected WorkflowContextInjectedTool, got {type(tool)} for '{tool.name}'"
             )
 
     def test_regular_tool_is_not_workflow_context_injected(self):
-        regular = _make_regular_tool()
-        assert not isinstance(regular, WorkflowContextInjectedTool)
+        assert not isinstance(_make_regular_tool(), WorkflowContextInjectedTool)
 
-    def test_mcp_tool_schema_excludes_ctx(self):
-        client = _make_mcp_client()
-        for tool in client.get_all_tools():
-            schema = tool.to_function_call()
-            props = schema["function"]["parameters"]["properties"]
+    def test_tool_schema_excludes_ctx(self):
+        for tool in _make_mcp_tools():
+            props = tool.to_function_call()["function"]["parameters"]["properties"]
             assert "ctx" not in props, (
                 f"'ctx' must not appear in LLM schema for '{tool.name}'"
             )
 
-    def test_mcp_tool_schema_excludes_hidden_kwargs(self):
-        client = _make_mcp_client()
-        for tool in client.get_all_tools():
-            schema = tool.to_function_call()
-            props = schema["function"]["parameters"]["properties"]
+    def test_tool_schema_excludes_hidden_kwargs(self):
+        for tool in _make_mcp_tools():
+            props = tool.to_function_call()["function"]["parameters"]["properties"]
             assert "_child_instance_id" not in props
             assert "_source_agent" not in props
 
-    def test_mcp_tool_schema_contains_declared_params(self):
-        client = _make_mcp_client()
-        add = next(t for t in client.get_all_tools() if t.name == "Add")
+    def test_tool_schema_contains_declared_params(self):
+        tools = _make_mcp_tools()
+        add = next(t for t in tools if t.name == "Add")
         props = add.to_function_call()["function"]["parameters"]["properties"]
         assert "a" in props
         assert "b" in props
 
-    def test_mcp_tool_description_preserved(self):
-        client = _make_mcp_client()
-        add = next(t for t in client.get_all_tools() if t.name == "Add")
+    def test_tool_description_preserved(self):
+        tools = _make_mcp_tools()
+        add = next(t for t in tools if t.name == "Add")
         assert add.description == "Add two integers."
+
+    def test_multi_server_tools_combine_correctly(self):
+        """Converting tool defs from two servers produces the full tool set."""
+        tools = _make_mcp_tools("math-server", _MCP_TOOLS) + _make_mcp_tools(
+            "weather-server", _WEATHER_TOOLS
+        )
+        names = {t.name for t in tools}
+        assert names == {"Add", "Multiply", "GetWeather"}
 
 
 class TestMixedToolSet:
     """Agents must work correctly when tool list contains both tool types."""
 
     def test_agent_registers_both_tool_types_in_executor(self):
-        client = _make_mcp_client()
-        regular = _make_regular_tool()
-        agent = _make_agent(client.get_all_tools() + [regular])
+        agent = _make_agent(_make_mcp_tools() + [_make_regular_tool()])
 
         tool_names = {t.name for t in agent.tool_executor.tools}
         assert "Add" in tool_names
@@ -374,11 +320,11 @@ class TestMixedToolSet:
         wins and a WARNING is emitted — no exception is raised."""
         import logging
 
-        client1 = _make_mcp_client("server-a", _MCP_TOOLS)  # Add, Multiply
-        client2 = _make_mcp_client("server-b", _MCP_TOOLS)  # Add, Multiply (duplicates)
+        tools_a = _make_mcp_tools("server-a", _MCP_TOOLS)  # Add, Multiply
+        tools_b = _make_mcp_tools("server-b", _MCP_TOOLS)  # Add, Multiply (duplicates)
 
         with caplog.at_level(logging.WARNING, logger="dapr_agents.tool.executor"):
-            agent = _make_agent(client1.get_all_tools() + client2.get_all_tools())
+            agent = _make_agent(tools_a + tools_b)
 
         # Only 2 tools registered (first occurrence each)
         tool_names = {t.name for t in agent.tool_executor.tools}
@@ -389,9 +335,7 @@ class TestMixedToolSet:
         assert any("Add" in w or "Duplicate" in w for w in warnings)
 
     def test_mcp_tools_remain_workflow_context_injected_in_agent(self):
-        client = _make_mcp_client()
-        regular = _make_regular_tool()
-        agent = _make_agent(client.get_all_tools() + [regular])
+        agent = _make_agent(_make_mcp_tools() + [_make_regular_tool()])
 
         for tool in agent.tool_executor.tools:
             if tool.name in {"Add", "Multiply"}:
@@ -436,98 +380,15 @@ class TestMixedToolSet:
         assert result["name"] == "echo"
 
 
-class TestGetServerTools:
-    """get_server_tools returns only that server's tools; get_all_tools returns all."""
-
-    def _two_server_client(self):
-        client = _make_mcp_client("math-server", _MCP_TOOLS)
-        # Add a second server's tools directly into the same client
-        for td in _WEATHER_TOOLS:
-            tool = client._make_tool("weather-server", td)
-            client._server_tools.setdefault("weather-server", []).append(tool)
-        return client
-
-    def test_get_server_tools_returns_only_named_server(self):
-        client = self._two_server_client()
-        math_tools = client.get_server_tools("math-server")
-        names = {t.name for t in math_tools}
-        assert names == {"Add", "Multiply"}
-        assert "GetWeather" not in names
-
-    def test_get_server_tools_weather_server(self):
-        client = self._two_server_client()
-        weather_tools = client.get_server_tools("weather-server")
-        names = {t.name for t in weather_tools}
-        assert names == {"GetWeather"}
-
-    def test_get_all_tools_returns_all_servers(self):
-        client = self._two_server_client()
-        all_names = {t.name for t in client.get_all_tools()}
-        assert all_names == {"Add", "Multiply", "GetWeather"}
-
-    def test_get_connected_servers_lists_both(self):
-        client = self._two_server_client()
-        assert set(client.get_connected_servers()) == {"math-server", "weather-server"}
-
-    def test_get_server_tools_unknown_server_returns_empty(self):
-        client = _make_mcp_client()
-        assert client.get_server_tools("does-not-exist") == []
-
-
-class TestFailureScenarios:
-    """Additional failure paths for ListTools, CallTool, and agent run_tool."""
-
-    # -- ListTools: non-FAILED terminal statuses --
-
-    @pytest.mark.asyncio
-    async def test_terminated_status_raises_runtime_error(self):
-        from dapr_agents.tool.mcp.dapr_workflow_client import DaprMCPWorkflowClient
-
-        wf = MagicMock()
-        wf.wait_for_workflow_completion.return_value = _make_failed_state("TERMINATED")
-        client = DaprMCPWorkflowClient()
-        client._wf_client = wf
-
-        with pytest.raises(RuntimeError, match="TERMINATED"):
-            await client.connect("math-server")
-
-    @pytest.mark.asyncio
-    async def test_pending_status_raises_runtime_error(self):
-        from dapr_agents.tool.mcp.dapr_workflow_client import DaprMCPWorkflowClient
-
-        wf = MagicMock()
-        wf.wait_for_workflow_completion.return_value = _make_failed_state("PENDING")
-        client = DaprMCPWorkflowClient()
-        client._wf_client = wf
-
-        with pytest.raises(RuntimeError, match="PENDING"):
-            await client.connect("math-server")
-
-    @pytest.mark.asyncio
-    async def test_malformed_json_output_raises(self):
-        """Non-JSON serialized_output should surface an error to the caller."""
-        from dapr_agents.tool.mcp.dapr_workflow_client import DaprMCPWorkflowClient
-
-        bad_state = SimpleNamespace(
-            runtime_status=SimpleNamespace(name="COMPLETED"),
-            serialized_output="THIS IS NOT JSON {{{",
-        )
-        wf = MagicMock()
-        wf.wait_for_workflow_completion.return_value = bad_state
-        client = DaprMCPWorkflowClient()
-        client._wf_client = wf
-
-        with pytest.raises(Exception):  # json.JSONDecodeError or RuntimeError
-            await client.connect("math-server")
-
-    # -- CallTool: invalid arguments caught before child workflow --
+class TestMCPToolExecutor:
+    """The converted tool's executor schedules the correct child workflow."""
 
     def test_call_tool_invalid_args_raises_validation_error(self):
-        """Passing args that don't match the tool schema must raise before child workflow."""
-        client = _make_mcp_client()
+        """Args that don't match the tool schema must raise before child workflow."""
+        tools = _make_mcp_tools()
         ctx = MagicMock()
 
-        add = next(t for t in client.get_all_tools() if t.name == "Add")
+        add = next(t for t in tools if t.name == "Add")
 
         with pytest.raises((ValidationError, ToolError)):
             add(ctx=ctx, a="definitely-not-an-int", b="also-not")
@@ -535,19 +396,34 @@ class TestFailureScenarios:
         # The child workflow must NOT have been called since validation failed
         ctx.call_child_workflow.assert_not_called()
 
-    # -- CallTool: exception from child workflow propagates --
-
     def test_call_tool_child_workflow_exception_propagates(self):
-        client = _make_mcp_client()
+        tools = _make_mcp_tools()
         ctx = MagicMock()
         ctx.call_child_workflow.side_effect = RuntimeError("sidecar unavailable")
 
-        add = next(t for t in client.get_all_tools() if t.name == "Add")
+        add = next(t for t in tools if t.name == "Add")
 
         with pytest.raises((RuntimeError, ToolError), match="sidecar unavailable"):
             add(ctx=ctx, a=1, b=2)
 
-    # -- Agent-level: run_tool activity always returns a ToolMessage --
+    def test_call_tool_schedules_per_tool_workflow_name(self):
+        """The executor must use the per-tool CallTool workflow name."""
+        tools = _make_mcp_tools("math-server", _MCP_TOOLS)
+        add = next(t for t in tools if t.name == "Add")
+
+        ctx = MagicMock()
+        add(ctx=ctx, a=1, b=2)
+
+        ctx.call_child_workflow.assert_called_once()
+        call_kwargs = ctx.call_child_workflow.call_args.kwargs
+        assert (
+            call_kwargs["workflow"] == f"{_MCP_WORKFLOW_PREFIX}math-server.CallTool.add"
+        )
+        assert call_kwargs["input"] == {"arguments": {"a": 1, "b": 2}}
+
+
+class TestRunToolFailureScenarios:
+    """run_tool activity error handling for non-MCP tools."""
 
     def test_run_tool_returns_error_tool_message_on_tool_exception(self):
         """run_tool must return a ToolMessage dict even when the tool raises."""

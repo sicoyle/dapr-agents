@@ -317,19 +317,19 @@ class TestMCPServerConfigVariants:
         """With allowed_tools={"get_weather"}, only 1 tool should be loaded.
 
         This test runs a modified version of the quickstart that passes
-        allowed_tools to DaprMCPWorkflowClient.  The tool count in stdout
-        must reflect the filter.
+        allowed_tools to the python-sdk DaprMCPClient.  The tool count in
+        stdout must reflect the filter.
         """
         import textwrap
 
         # Inline script: identical to mcp_dapr_workflow.py but with allowed_tools set.
         script_content = textwrap.dedent("""\
             import asyncio, logging, sys
-            from dapr_agents.tool.mcp import DaprMCPWorkflowClient
+            from dapr.ext.workflow.aio import DaprMCPClient
             logging.basicConfig(level=logging.INFO)
 
             async def main():
-                client = DaprMCPWorkflowClient(
+                client = DaprMCPClient(
                     timeout_in_seconds=30,
                     allowed_tools={"get_weather"},
                 )

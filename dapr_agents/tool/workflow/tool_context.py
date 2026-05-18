@@ -78,10 +78,22 @@ class WorkflowContextInjectedTool(AgentTool):
         source_agent = kwargs.pop("_source_agent", None)
         child_instance_id = kwargs.pop("_child_instance_id", None)
 
-        # For workflow-injected tools, pass the user's kwargs directly
-        # to the executor without Pydantic validation stripping them.
-        # The MCP server performs its own validation; double-validating
-        # here via model_dump() drops fields that aren't in the model.
+        # Validate user-provided kwargs against args_model when the schema
+        # defines fields. We catch invalid arguments early — before the child
+        # workflow is scheduled — but preserve the original kwargs so MCP tools
+        # can accept fields the local schema doesn't know about.
+        if self.args_model is not None:
+            schema_props = self.args_model.model_json_schema().get("properties") or {}
+            if schema_props:
+                from pydantic import ValidationError
+
+                try:
+                    self.args_model(**kwargs)
+                except ValidationError as ve:
+                    raise ToolError(
+                        f"Validation error in tool '{self.name}': {ve}"
+                    ) from ve
+
         validated = dict(kwargs)
         validated[self.context_kwarg] = ctx
         if source_agent is not None:

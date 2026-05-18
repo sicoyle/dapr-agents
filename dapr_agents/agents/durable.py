@@ -13,12 +13,10 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 import functools
 import json
 import logging
-import re
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 from os import getenv
@@ -3297,6 +3295,8 @@ class DurableAgent(AgentBase):
             self._mcp_tools_connected = True
             return
 
+        from dapr.ext.workflow.aio import DaprMCPClient
+
         client = DaprMCPClient(
             timeout_in_seconds=self._mcp_config.timeout_in_seconds,
             allowed_tools=self._mcp_config.allowed_tools,
@@ -3304,7 +3304,7 @@ class DurableAgent(AgentBase):
 
         for name in server_names:
             try:
-                await asyncio.to_thread(client.connect, name)
+                await client.connect(name)
             except Exception as exc:
                 logger.exception(
                     "Failed to connect to MCPServer '%s': %s — skipping",
@@ -3313,9 +3313,9 @@ class DurableAgent(AgentBase):
                 )
                 raise
 
-        tools = client.get_all_tools()
-        for tool_def in tools:
-            self.tool_executor.register_tool(mcp_tool_def_to_workflow_tool(tool_def))
+        tools = [mcp_tool_def_to_workflow_tool(td) for td in client.get_all_tools()]
+        for tool in tools:
+            self.tool_executor.register_tool(tool)
 
         if tools and self.execution.tool_choice is None:
             self.execution.tool_choice = "auto"

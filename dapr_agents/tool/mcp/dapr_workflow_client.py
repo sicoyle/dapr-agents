@@ -11,55 +11,68 @@
 # limitations under the License.
 #
 
-"""
-Utility to convert SDK :class:`~dapr.ext.workflow.mcp.MCPToolDef` instances
-into dapr-agents :class:`~dapr_agents.tool.workflow.tool_context.WorkflowContextInjectedTool`
-objects that can be used by :class:`~dapr_agents.agents.durable.DurableAgent`.
+"""Adapter from python-sdk :class:`MCPToolDef` to dapr-agents
+:class:`WorkflowContextInjectedTool`.
+
+The Dapr Python SDK's :class:`dapr.ext.workflow.DaprMCPClient` (and its async
+counterpart in :mod:`dapr.ext.workflow.aio`) owns workflow scheduling and
+tool-catalogue caching. This module only handles the dapr-agents-specific
+adaptation: turning each :class:`MCPToolDef` into a
+:class:`WorkflowContextInjectedTool` whose executor schedules the per-tool
+``dapr.internal.mcp.<server>.CallTool.<tool>`` workflow as a child workflow.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel
 
-from dapr.ext.workflow import MCPToolDef, create_pydantic_model_from_schema
-
+from dapr_agents.tool.utils.mcp_schema import (
+    MCPToolDef,
+    create_pydantic_model_from_schema,
+)
 from dapr_agents.tool.workflow.tool_context import WorkflowContextInjectedTool
 
 logger = logging.getLogger(__name__)
 
 
-def mcp_tool_def_to_workflow_tool(
-    tool_def: MCPToolDef,
-) -> WorkflowContextInjectedTool:
-    """Convert an :class:`MCPToolDef` from the Dapr SDK into a
-    :class:`WorkflowContextInjectedTool` for use with ``DurableAgent``.
+def _build_args_model(
+    name: str, schema: Optional[Dict[str, Any]]
+) -> Optional[Type[BaseModel]]:
+    """Build a pydantic args model from an MCP input schema, if any."""
+    if not schema:
+        return None
+    try:
+        return create_pydantic_model_from_schema(schema, f"{name}Args")
+    except Exception as exc:
+        logger.warning(
+            "Could not build args model for tool '%s': %s — "
+            "tool will accept unvalidated **kwargs",
+            name,
+            exc,
+        )
+        return None
 
-    The returned tool schedules ``tool_def.call_tool_workflow`` as a child
-    workflow when invoked from within a Dapr orchestrator context.
+
+def mcp_tool_def_to_workflow_tool(
+    tool_def: "MCPToolDef",
+) -> WorkflowContextInjectedTool:
+    """Convert an :class:`MCPToolDef` into a :class:`WorkflowContextInjectedTool`.
+
+    The returned tool's executor schedules the per-tool CallTool workflow
+    (``dapr.internal.mcp.<server>.CallTool.<tool>``) as a child workflow when
+    invoked from within a parent orchestrator.
 
     Args:
-        tool_def: A framework-agnostic MCP tool definition from
-            :meth:`~dapr.ext.workflow.mcp.DaprMCPClient.get_all_tools`.
+        tool_def: A framework-agnostic MCP tool definition from the python-sdk.
 
     Returns:
-        A :class:`WorkflowContextInjectedTool` ready for registration
-        on an :class:`~dapr_agents.tool.executor.AgentToolExecutor`.
+        A :class:`WorkflowContextInjectedTool` ready for registration on an
+        :class:`~dapr_agents.tool.executor.AgentToolExecutor`.
     """
-    args_model: Optional[Type[BaseModel]] = None
-    if tool_def.input_schema:
-        try:
-            args_model = create_pydantic_model_from_schema(
-                tool_def.input_schema, f"{tool_def.name}Args"
-            )
-        except Exception as exc:
-            logger.warning(
-                "Could not build args model for tool '%s': %s — "
-                "tool will accept unvalidated **kwargs",
-                tool_def.name,
-                exc,
-            )
-
+    args_model = _build_args_model(tool_def.name, tool_def.input_schema)
     wf_name = tool_def.call_tool_workflow
 
     def _executor(
@@ -68,11 +81,6 @@ def mcp_tool_def_to_workflow_tool(
         _child_instance_id: Optional[str] = None,
         **kwargs: Any,
     ) -> Any:
-        """Schedule ``dapr.internal.mcp.<server>.CallTool.<tool>`` as a child workflow.
-
-        The tool name is encoded in the workflow name suffix, so the payload
-        only needs to carry the arguments.
-        """
         payload = {"arguments": kwargs}
         if _child_instance_id:
             return ctx.call_child_workflow(
