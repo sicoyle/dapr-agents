@@ -23,6 +23,12 @@ from dapr_agents.agents.configs import (
     RegistryMetadata,
     LLMMetadata,
 )
+from dapr_agents.agents.executors import (
+    AgentEvent,
+    AgentEventType,
+    AgentExecutorBase,
+    EchoAgentExecutor,
+)
 from dapr_agents.agents.schemas import ApprovalRequiredEvent, ApprovalResponseEvent
 from dapr_agents.hooks import (
     AfterHook,
@@ -59,6 +65,10 @@ from dapr_agents.workflow.utils.core import call_agent, trigger_agent
 
 __all__ = [
     "DurableAgent",
+    "AgentEvent",
+    "AgentEventType",
+    "AgentExecutorBase",
+    "EchoAgentExecutor",
     "DockerCodeExecutor",
     "LocalCodeExecutor",
     "AnthropicChatClient",
