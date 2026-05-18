@@ -35,10 +35,8 @@ from dapr_agents.agents.durable import DurableAgent
 from dapr_agents.agents.schemas import AgentWorkflowEntry
 from dapr_agents.tool.base import AgentTool
 from dapr_agents.tool.mcp.dapr_workflow_client import mcp_tool_def_to_workflow_tool
-from dapr_agents.tool.utils.mcp_schema import (
-    MCPToolDef,
-    create_pydantic_model_from_schema,
-)
+from dapr.ext.workflow import MCPToolDef
+from dapr.ext.workflow.mcp_schema import create_pydantic_model_from_schema
 from dapr_agents.tool.workflow.tool_context import WorkflowContextInjectedTool
 from dapr_agents.types import ToolError
 

@@ -29,10 +29,8 @@ from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel
 
-from dapr_agents.tool.utils.mcp_schema import (
-    MCPToolDef,
-    create_pydantic_model_from_schema,
-)
+from dapr.ext.workflow import MCPToolDef
+from dapr.ext.workflow.mcp_schema import create_pydantic_model_from_schema
 from dapr_agents.tool.workflow.tool_context import WorkflowContextInjectedTool
 
 logger = logging.getLogger(__name__)

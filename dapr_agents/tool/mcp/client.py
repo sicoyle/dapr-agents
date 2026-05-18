@@ -19,7 +19,7 @@ import logging
 import warnings
 
 from anyio import BrokenResourceError
-from dapr_agents.tool.utils.mcp_schema import create_pydantic_model_from_schema
+from dapr.ext.workflow.mcp_schema import create_pydantic_model_from_schema
 from pydantic import BaseModel, ValidationError, Field, PrivateAttr
 from mcp import ClientSession
 from mcp.types import CallToolResult, TextContent
