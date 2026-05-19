@@ -2722,6 +2722,7 @@ class DurableAgent(AgentBase):
                     pubsub_name=pubsub_name,
                     topic_name=topic,
                     message=event_data,
+                    client_factory=self.async_client_factory,
                 )
 
             self._run_asyncio_task(_publish())
@@ -2769,6 +2770,7 @@ class DurableAgent(AgentBase):
                 message_bus=self.message_bus_name,
                 source=self.name,
                 agents_metadata=agents_metadata,
+                client_factory=self.async_client_factory,
             )
 
         try:
