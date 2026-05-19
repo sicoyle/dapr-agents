@@ -11,26 +11,6 @@
 # limitations under the License.
 #
 
-"""
-Local Dev Tools MCP Server (stdio transport)
-=============================================
-
-A lightweight MCP server that exposes utility tools over stdio.  The Dapr
-sidecar spawns this process and communicates via stdin/stdout when the
-``local-tools`` MCPServer resource is loaded.
-
-This server is referenced by ``resources/local-tools.yaml``::
-
-    endpoint:
-      stdio:
-        command: python
-        args: ["-m", "local_tools_server"]
-
-Tools exposed:
-  - ``search_files``: Search for files by name pattern.
-  - ``summarize_text``: Produce a brief summary of the given text.
-"""
-
 import os
 import fnmatch
 import logging

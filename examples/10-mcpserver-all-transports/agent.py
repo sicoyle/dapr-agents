@@ -11,56 +11,6 @@
 # limitations under the License.
 #
 
-"""
-MCPServer All-Transports Example
-=================================
-
-Demonstrates a single ``DurableAgent`` that connects to **three** MCPServer
-resources — one per transport type — through Dapr's built-in workflow
-orchestrations:
-
-1. **dapr-mcp** (streamableHTTP / Kubernetes):
-   The `dapr-mcp-server <https://github.com/dapr/dapr-mcp-server>`_ running
-   in your cluster.  Exposes Dapr building-block APIs (state, pubsub,
-   service invocation, secrets, bindings, actors, etc.) as MCP tools.
-
-2. **local-tools** (stdio / local dev):
-   A lightweight MCP server spawned as a subprocess by the sidecar.
-   Exposes ``search_files`` and ``summarize_text`` utilities.
-
-3. **remote-weather** (SSE / remote):
-   Simulates an externally-hosted weather service accessed over SSE.
-   Exposes ``get_weather`` and ``get_forecast``.
-
-All three MCPServer resources define ``middleware`` hooks (rate limiting,
-input validation, audit logging) that the sidecar's MCP worker executes
-automatically around every tool call.
-
-Prerequisites
--------------
-- Redis running on ``localhost:6379``
-- Dapr CLI installed, ``dapr init`` completed
-- ``OPENAI_API_KEY`` environment variable set
-
-Run (standalone / local dev)
-----------------------------
-1. Start the remote weather SSE server::
-
-       python weather_sse_server.py
-
-2. Launch the agent with Dapr::
-
-       dapr run \\
-         --app-id mcp-agent \\
-         --resources-path ./resources \\
-         -- python agent.py
-
-   The sidecar loads all three MCPServer resources and the stdio server
-   (``local-tools``) is spawned automatically.
-
-For Kubernetes deployment of the dapr-mcp-server, see the README.
-"""
-
 import asyncio
 import logging
 
