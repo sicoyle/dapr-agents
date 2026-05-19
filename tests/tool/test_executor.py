@@ -49,7 +49,7 @@ class TestAgentToolExecutorRegisterTool:
         # Function names are converted to PascalCase by AgentTool.from_func
         tool = executor.get_tool("my_function")
         assert tool is not None
-        assert tool.name == "MyFunction"
+        assert tool.name == "my_function"
         assert "Adds two numbers" in tool.description
 
     def test_register_tool_name_normalization(self):

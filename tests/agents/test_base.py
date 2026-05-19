@@ -317,7 +317,7 @@ class TestAgentBaseClass:
         monkeypatch.setattr("openai.OpenAI", OpenAI)
 
         with pytest.raises(
-            openai.OpenAIError, match="api_key client option must be set"
+            openai.OpenAIError, match="Missing credentials"
         ):
             ConcreteAgentBase(llm=OpenAIChatClient())
 

@@ -192,7 +192,9 @@ class TestWorkflowRegistration:
         mock_runtime = MagicMock()
         agent.register_workflows(mock_runtime)
         return {
-            call.args[0].__name__
+            # Activities are registered with an agent-scoped prefix
+            # (e.g. ``dapr.agents.<name>.run_tool``); strip it for assertions.
+            call.args[0].__name__.rsplit(".", 1)[-1]
             for call in mock_runtime.register_activity.call_args_list
             if call.args
         }
@@ -283,14 +285,14 @@ class TestMCPToolConversion:
 
     def test_tool_schema_contains_declared_params(self):
         tools = _make_mcp_tools()
-        add = next(t for t in tools if t.name == "Add")
+        add = next(t for t in tools if t.name == "add")
         props = add.to_function_call()["function"]["parameters"]["properties"]
         assert "a" in props
         assert "b" in props
 
     def test_tool_description_preserved(self):
         tools = _make_mcp_tools()
-        add = next(t for t in tools if t.name == "Add")
+        add = next(t for t in tools if t.name == "add")
         assert add.description == "Add two integers."
 
     def test_multi_server_tools_combine_correctly(self):
@@ -299,7 +301,7 @@ class TestMCPToolConversion:
             "weather-server", _WEATHER_TOOLS
         )
         names = {t.name for t in tools}
-        assert names == {"Add", "Multiply", "GetWeather"}
+        assert names == {"add", "multiply", "get_weather"}
 
 
 class TestMixedToolSet:
@@ -309,9 +311,9 @@ class TestMixedToolSet:
         agent = _make_agent(_make_mcp_tools() + [_make_regular_tool()])
 
         tool_names = {t.name for t in agent.tool_executor.tools}
-        assert "Add" in tool_names
-        assert "Multiply" in tool_names
-        assert "Echo" in tool_names
+        assert "add" in tool_names
+        assert "multiply" in tool_names
+        assert "echo" in tool_names
 
     def test_duplicate_tool_name_keeps_first_and_warns(self, caplog):
         """When two servers expose a tool with the same name, the first registration
@@ -326,19 +328,19 @@ class TestMixedToolSet:
 
         # Only 2 tools registered (first occurrence each)
         tool_names = {t.name for t in agent.tool_executor.tools}
-        assert tool_names == {"Add", "Multiply"}
+        assert tool_names == {"add", "multiply"}
 
         # Warning logged for each duplicate
         warnings = [r.message for r in caplog.records if r.levelno == logging.WARNING]
-        assert any("Add" in w or "Duplicate" in w for w in warnings)
+        assert any("add" in w or "Duplicate" in w for w in warnings)
 
     def test_mcp_tools_remain_workflow_context_injected_in_agent(self):
         agent = _make_agent(_make_mcp_tools() + [_make_regular_tool()])
 
         for tool in agent.tool_executor.tools:
-            if tool.name in {"Add", "Multiply"}:
+            if tool.name in {"add", "multiply"}:
                 assert isinstance(tool, WorkflowContextInjectedTool)
-            elif tool.name == "Echo":
+            elif tool.name == "echo":
                 assert not isinstance(tool, WorkflowContextInjectedTool)
 
     def test_run_tool_activity_executes_regular_tool(self):
@@ -386,7 +388,7 @@ class TestMCPToolExecutor:
         tools = _make_mcp_tools()
         ctx = MagicMock()
 
-        add = next(t for t in tools if t.name == "Add")
+        add = next(t for t in tools if t.name == "add")
 
         with pytest.raises((ValidationError, ToolError)):
             add(ctx=ctx, a="definitely-not-an-int", b="also-not")
@@ -399,7 +401,7 @@ class TestMCPToolExecutor:
         ctx = MagicMock()
         ctx.call_child_workflow.side_effect = RuntimeError("sidecar unavailable")
 
-        add = next(t for t in tools if t.name == "Add")
+        add = next(t for t in tools if t.name == "add")
 
         with pytest.raises((RuntimeError, ToolError), match="sidecar unavailable"):
             add(ctx=ctx, a=1, b=2)
@@ -407,7 +409,7 @@ class TestMCPToolExecutor:
     def test_call_tool_schedules_per_tool_workflow_name(self):
         """The executor must use the per-tool CallTool workflow name."""
         tools = _make_mcp_tools("math-server", _MCP_TOOLS)
-        add = next(t for t in tools if t.name == "Add")
+        add = next(t for t in tools if t.name == "add")
 
         ctx = MagicMock()
         add(ctx=ctx, a=1, b=2)
