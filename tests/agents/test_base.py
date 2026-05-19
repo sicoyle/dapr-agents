@@ -316,9 +316,7 @@ class TestAgentBaseClass:
         # Temporarily restore the real OpenAI client for this test
         monkeypatch.setattr("openai.OpenAI", OpenAI)
 
-        with pytest.raises(
-            openai.OpenAIError, match="Missing credentials"
-        ):
+        with pytest.raises(openai.OpenAIError, match="Missing credentials"):
             ConcreteAgentBase(llm=OpenAIChatClient())
 
     def test_validate_memory_failure(self, mock_llm_client):
