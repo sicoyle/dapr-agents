@@ -107,7 +107,6 @@ from dapr_agents.hooks import (
     Skip,
     ToolHookContext,
 )
-from dapr.ext.workflow import DaprMCPClient
 from dapr_agents.tool.mcp.dapr_workflow_client import mcp_tool_def_to_workflow_tool
 
 logger = get_context_aware_logger(__name__)
