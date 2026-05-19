@@ -121,6 +121,11 @@ vectorstore = {requires-python = ">=3.11,<3.14"}
 [tool.uv]
 exclude-newer = "7 days"
 
+[tool.uv.exclude-newer-package]
+dapr = "2026-05-20"
+dapr-ext-fastapi = "2026-05-20"
+dapr-ext-workflow = "2026-05-20"
+
 [project.urls]
 Documentation = "https://github.com/dapr/docs"
 Source = "https://github.com/dapr/python-sdk"
