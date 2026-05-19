@@ -11,14 +11,6 @@
 # limitations under the License.
 #
 
-# MCPServer: streamableHTTP transport — Kubernetes-hosted dapr-mcp-server.
-#
-# The dapr-mcp-server exposes Dapr building-block APIs (state, pubsub,
-# service invocation, secrets, bindings, actors, etc.) as MCP tools.
-# Deploy it to your cluster and point this resource at the in-cluster
-# Service URL.
-#
-# See: https://github.com/dapr/dapr-mcp-server
 apiVersion: dapr.io/v1alpha1
 kind: MCPServer
 metadata:
