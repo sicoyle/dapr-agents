@@ -60,8 +60,9 @@ def weather_mcp_server(quickstarts_dir):
             "--port",
             str(WEATHER_SERVER_PORT),
         ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        # DEVNULL avoids deadlock when uvicorn fills an unread PIPE buffer.
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     if not _wait_for_port(WEATHER_SERVER_PORT, timeout=10.0):
         proc.terminate()
@@ -235,8 +236,9 @@ def weather_mcp_server_2(quickstarts_dir):
             "--port",
             str(WEATHER_SERVER_PORT_2),
         ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        # DEVNULL avoids deadlock when uvicorn fills an unread PIPE buffer.
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     if not _wait_for_port(WEATHER_SERVER_PORT_2, timeout=10.0):
         proc.terminate()

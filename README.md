@@ -124,7 +124,7 @@ You can fine-tune behavior with `AgentMCPConfig`:
 |---|---|---|
 | `enabled` | `True` | Set to `False` to opt out of auto-discovery entirely. |
 | `allowed_tools` | `None` | Optional set of tool names; only matching tools register. `None` registers all. |
-| `timeout_in_seconds` | `60` | Per-server `ListTools` discovery deadline. |
+| `timeout_in_seconds` | `30` | Per-server `ListTools` discovery deadline. |
 
 **Manual mode** is still available — instantiate `DaprMCPClient` yourself, connect to specific servers, and pass converted tools via `tools=...` on the agent. The auto-discovery path simply removes the boilerplate when you want every loaded MCPServer wired in.
 

@@ -44,9 +44,7 @@ class TestAgentToolExecutorRegisterTool:
 
         executor.register_tool(my_function)
 
-        # Verify conversion and registration
         assert len(executor._tools_map) == 1
-        # Function names are converted to PascalCase by AgentTool.from_func
         tool = executor.get_tool("my_function")
         assert tool is not None
         assert tool.name == "my_function"

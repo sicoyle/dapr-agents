@@ -336,7 +336,8 @@ class AgentMCPConfig:
 
     When a ``DurableAgent`` is created, the framework queries the Dapr sidecar
     metadata API for loaded ``MCPServer`` resources and automatically connects
-    to each one via the built-in ``dapr.mcp.<name>.ListTools`` workflow.
+    to each one via the built-in ``dapr.internal.mcp.<server>.ListTools``
+    workflow.
 
     Attributes:
         timeout_in_seconds: Per-server timeout when waiting for the

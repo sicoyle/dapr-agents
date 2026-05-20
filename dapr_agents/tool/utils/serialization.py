@@ -112,17 +112,19 @@ def serialize_tool_result(result: Any) -> str:
         '[{"airline": "SkyHigh", "price": 450.0}]'
     """
     # Unwrap MCP CallToolResult envelope if present.
-    logger.debug(
-        "serialize_tool_result input: type=%s, repr=%.500s",
-        type(result).__name__,
-        repr(result),
-    )
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "serialize_tool_result input: type=%s, repr=%.500s",
+            type(result).__name__,
+            repr(result),
+        )
     result = _unwrap_mcp_call_tool_result(result)
-    logger.debug(
-        "serialize_tool_result after unwrap: type=%s, repr=%.500s",
-        type(result).__name__,
-        repr(result),
-    )
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "serialize_tool_result after unwrap: type=%s, repr=%.500s",
+            type(result).__name__,
+            repr(result),
+        )
 
     # String results are already serialized
     if isinstance(result, str):

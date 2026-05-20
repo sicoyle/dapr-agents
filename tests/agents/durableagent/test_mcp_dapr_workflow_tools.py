@@ -518,7 +518,7 @@ class TestRunToolFailureScenarios:
 # ---------------------------------------------------------------------------
 # TestCallToolResultSerialization
 # Verifies that serialize_tool_result handles every realistic shape that the
-# dapr.mcp.<name>.CallTool child workflow might return.
+# dapr.internal.mcp.<server>.CallTool.<tool> child workflow might return.
 #
 # Context: WorkflowContextInjectedTool results bypass run_tool entirely.
 # The orchestrator receives the raw child-workflow return value and passes it

@@ -16,6 +16,7 @@ import logging
 import time
 from typing import Any
 from dapr.clients import DaprClient
+import binascii
 from base64 import b64decode
 import dapr.ext.workflow as wf
 
@@ -162,8 +163,7 @@ def audit_log_write(ctx: wf.WorkflowActivityContext, input: Any) -> None:
     if isinstance(result_payload, str):
         try:
             result_payload = json.loads(b64decode(result_payload).decode("utf-8"))
-        except (ValueError, UnicodeDecodeError):
-            # Not base64+JSON — leave as-is.
+        except (ValueError, UnicodeDecodeError, binascii.Error):
             pass
 
     record = {

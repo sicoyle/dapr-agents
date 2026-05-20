@@ -57,8 +57,12 @@ class AgentToolExecutor(BaseModel):
         Args:
             tool (Union[AgentTool, Callable]): The tool to register.
 
+        Duplicate names are not an error: the first registration wins and
+        subsequent attempts log a warning and return.
+
         Raises:
-            AgentToolExecutorError: If the tool name is already registered.
+            AgentToolExecutorError: If converting a callable to an AgentTool fails.
+            TypeError: If ``tool`` is neither a callable nor an :class:`AgentTool`.
         """
         # Convert callable to AgentTool if needed since we support both Callable and AgentTool instances.
         if callable(tool) and not isinstance(tool, AgentTool):

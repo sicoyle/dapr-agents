@@ -80,7 +80,7 @@ dapr run \
 The sidecar will:
 1. Load all three `MCPServer` resources from `resources/`
 2. Spawn the `local-tools` stdio subprocess automatically
-3. Register `dapr.mcp.<name>.ListTools` and `dapr.mcp.<name>.CallTool` workflows for each
+3. Register `dapr.internal.mcp.<server>.ListTools` and `dapr.internal.mcp.<server>.CallTool.<tool>` workflows for each
 4. Execute middleware hooks on every tool call
 
 ## Kubernetes Deployment (dapr-mcp-server)

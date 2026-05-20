@@ -461,8 +461,8 @@ The agent answers a weather question by invoking tools from the MCP server(s). I
 ## How This Works
 
 1. At startup, the agent queries the Dapr sidecar metadata API and discovers all loaded `MCPServer` resources.
-2. For each MCPServer, the agent calls the built-in `dapr.mcp.<name>.ListTools` workflow and caches the tool schemas.
-3. Each tool is a `WorkflowContextInjectedTool` that schedules `dapr.mcp.<name>.CallTool` as a child workflow when invoked.
+2. For each MCPServer, the agent calls the built-in `dapr.internal.mcp.<server>.ListTools` workflow and caches the tool schemas.
+3. Each tool is a `WorkflowContextInjectedTool` that schedules `dapr.internal.mcp.<server>.CallTool.<tool>` as a child workflow when invoked.
 4. The Dapr sidecar handles transport, retries, timeouts, and auth.
 
 ## How to Extend This Example

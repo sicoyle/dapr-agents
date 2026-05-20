@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: weather-sse-server
-  namespace: prj-4
   labels:
     app: weather-sse-server
 spec:
