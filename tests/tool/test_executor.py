@@ -13,6 +13,8 @@
 
 """Unit tests for AgentToolExecutor.register_tool()"""
 
+from unittest.mock import patch
+
 import pytest
 from dapr_agents.tool.executor import AgentToolExecutor
 from dapr_agents.tool.base import AgentTool
@@ -179,22 +181,14 @@ class TestAgentToolExecutorRegisterTool:
         def bad_tool_func():
             pass
 
-        # Patch AgentTool.from_func to simulate conversion failure
-        original_from_func = AgentTool.from_func
-
-        def mock_from_func(func):
+        def mock_from_func(cls, func):
             raise ValueError("Docstring validation failed")
 
-        AgentTool.from_func = staticmethod(mock_from_func)
-
-        try:
+        with patch.object(AgentTool, "from_func", classmethod(mock_from_func)):
             with pytest.raises(AgentToolExecutorError) as exc_info:
                 executor.register_tool(bad_tool_func)
 
             assert "Failed to convert callable" in str(exc_info.value)
-        finally:
-            # Restore original
-            AgentTool.from_func = original_from_func
 
     def test_register_tool_with_initialization_list(self):
         """Test that tools provided during init are registered."""

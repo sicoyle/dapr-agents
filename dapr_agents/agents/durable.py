@@ -3306,11 +3306,13 @@ class DurableAgent(AgentBase):
                 await client.connect(name)
             except Exception as exc:
                 logger.exception(
-                    "Failed to connect to MCPServer '%s': %s — skipping",
+                    "Failed to connect to MCPServer '%s': %s",
                     name,
                     exc,
                 )
-                raise
+                raise AgentError(
+                    f"Failed to connect to MCPServer '{name}': {exc}"
+                ) from exc
 
         tools = [mcp_tool_def_to_workflow_tool(td) for td in client.get_all_tools()]
         for tool in tools:

@@ -98,12 +98,12 @@ kubectl apply -f deploy/
 kubectl get pods -l app=dapr-mcp-server
 ```
 
-The `resources/dapr-mcp-server.yaml` points at the in-cluster Service URL:
+The `resources/dapr-mcp-server.yaml` points at the in-cluster Service URL (port `9092`, matching the deployed Service):
 
 ```yaml
 endpoint:
   streamableHTTP:
-    url: http://dapr-mcp-server.default.svc.cluster.local:8080
+    url: http://dapr-mcp-server.default.svc.cluster.local:9092
 ```
 
 Update the URL if deploying to a different namespace.

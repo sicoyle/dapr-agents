@@ -172,7 +172,7 @@ class TestMCPIntegrationFailures:
         """ListTools workflow must fail (non-zero exit) when the MCP server is down.
 
         This test intentionally does NOT start weather_mcp_server, so the sidecar
-        cannot reach localhost:8181 and the ListTools workflow should fail.
+        cannot reach localhost:8081 and the ListTools workflow should fail.
         """
         # Confirm nothing is listening on the weather port before running
         with pytest.raises(OSError):
@@ -344,9 +344,12 @@ class TestMCPServerConfigVariants:
             asyncio.run(main())
         """)
 
-        script_path = Path(tempfile.mktemp(suffix="_allowed_tools_test.py"))
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix="_allowed_tools_test.py", delete=False
+        ) as tmp:
+            tmp.write(script_content)
+            script_path = Path(tmp.name)
         try:
-            script_path.write_text(script_content)
             result = run_quickstart_or_examples_script(
                 script_path,
                 cwd=self.quickstart_dir,

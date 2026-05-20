@@ -82,19 +82,24 @@ class WorkflowContextInjectedTool(AgentTool):
         # defines fields. We catch invalid arguments early — before the child
         # workflow is scheduled — but preserve the original kwargs so MCP tools
         # can accept fields the local schema doesn't know about.
+        validated: Dict[str, Any] = dict(kwargs)
         if self.args_model is not None:
             schema_props = self.args_model.model_json_schema().get("properties") or {}
             if schema_props:
                 from pydantic import ValidationError
 
                 try:
-                    self.args_model(**kwargs)
+                    coerced = self.args_model(**kwargs).model_dump()
                 except ValidationError as ve:
                     raise ToolError(
                         f"Validation error in tool '{self.name}': {ve}"
                     ) from ve
+                # Use Pydantic-coerced values for known schema fields; pass
+                # through any extra kwargs unchanged (MCP tools may accept
+                # fields the local schema doesn't model).
+                extras = {k: v for k, v in kwargs.items() if k not in coerced}
+                validated = {**coerced, **extras}
 
-        validated = dict(kwargs)
         validated[self.context_kwarg] = ctx
         if source_agent is not None:
             validated["_source_agent"] = source_agent
