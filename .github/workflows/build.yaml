@@ -28,6 +28,11 @@ on:
       - release-*
   workflow_dispatch:
 
+# Refuse any implicit re-resolution. Every `uv sync` / `uv run` uses the
+# committed uv.lock as-is; fails loudly if the lockfile is genuinely stale.
+env:
+  UV_FROZEN: "1"
+
 jobs:
   lint:
     runs-on: ubuntu-latest

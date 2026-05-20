@@ -122,9 +122,11 @@ vectorstore = {requires-python = ">=3.11,<3.14"}
 exclude-newer = "7 days"
 
 [tool.uv.exclude-newer-package]
-dapr = "2026-05-20"
-dapr-ext-fastapi = "2026-05-20"
-dapr-ext-workflow = "2026-05-20"
+# Explicit UTC timestamps — bare dates would otherwise be evaluated in the
+# local timezone, producing different timestamps on developer machines vs. CI.
+dapr = "2026-05-21T00:00:00Z"
+dapr-ext-fastapi = "2026-05-21T00:00:00Z"
+dapr-ext-workflow = "2026-05-21T00:00:00Z"
 
 [project.urls]
 Documentation = "https://github.com/dapr/docs"
