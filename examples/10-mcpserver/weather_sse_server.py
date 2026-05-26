@@ -20,7 +20,7 @@ Simulates a third-party weather service hosted externally.  Exposes
 
 In production this would be a remote endpoint managed by another team.
 For this example it runs locally on port 8081 to demonstrate the SSE
-transport type in the ``remote-weather`` MCPServer resource.
+transport type in the ``weather`` MCPServer resource.
 
 Run::
 

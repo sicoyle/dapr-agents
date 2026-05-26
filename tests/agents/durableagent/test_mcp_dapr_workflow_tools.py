@@ -38,7 +38,7 @@ from dapr_agents.tool.mcp.dapr_workflow_client import mcp_tool_def_to_workflow_t
 from dapr.ext.workflow import MCPToolDef
 from dapr.ext.workflow.mcp_schema import create_pydantic_model_from_schema
 from dapr_agents.tool.workflow.tool_context import WorkflowContextInjectedTool
-from dapr_agents.types import ToolError
+from dapr_agents.types import AgentToolExecutorError, ToolError
 
 _MCP_TOOLS = [
     {
@@ -315,24 +315,16 @@ class TestMixedToolSet:
         assert "multiply" in tool_names
         assert "echo" in tool_names
 
-    def test_duplicate_tool_name_keeps_first_and_warns(self, caplog):
-        """When two servers expose a tool with the same name, the first registration
-        wins and a WARNING is emitted — no exception is raised."""
-        import logging
+    def test_duplicate_tool_name_raises_when_passed_directly(self):
+        """Passing two MCP tools with the same name directly to the agent
+        constructor raises AgentToolExecutorError — duplicates must be loud.
+        The MCP auto-discovery path (``connect_mcpservers``) checks
+        ``get_tool()`` to stay idempotent across restarts."""
+        tools_a = _make_mcp_tools("server-a", _MCP_TOOLS)  # add, multiply
+        tools_b = _make_mcp_tools("server-b", _MCP_TOOLS)  # add, multiply
 
-        tools_a = _make_mcp_tools("server-a", _MCP_TOOLS)  # Add, Multiply
-        tools_b = _make_mcp_tools("server-b", _MCP_TOOLS)  # Add, Multiply (duplicates)
-
-        with caplog.at_level(logging.WARNING, logger="dapr_agents.tool.executor"):
-            agent = _make_agent(tools_a + tools_b)
-
-        # Only 2 tools registered (first occurrence each)
-        tool_names = {t.name for t in agent.tool_executor.tools}
-        assert tool_names == {"add", "multiply"}
-
-        # Warning logged for each duplicate
-        warnings = [r.message for r in caplog.records if r.levelno == logging.WARNING]
-        assert any("add" in w or "Duplicate" in w for w in warnings)
+        with pytest.raises(AgentToolExecutorError, match="already registered"):
+            _make_agent(tools_a + tools_b)
 
     def test_mcp_tools_remain_workflow_context_injected_in_agent(self):
         agent = _make_agent(_make_mcp_tools() + [_make_regular_tool()])

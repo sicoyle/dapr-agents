@@ -1,7 +1,3 @@
-# MCPServer resource for the second weather server instance used in multi-server tests.
-# Points to a second weather_mcp_server.py process running on port 8082.
-# Load alongside weather-mcp.yaml to test DaprMCPWorkflowClient.connect() with
-# multiple MCPServer resources in the same sidecar.
 apiVersion: dapr.io/v1alpha1
 kind: MCPServer
 metadata:

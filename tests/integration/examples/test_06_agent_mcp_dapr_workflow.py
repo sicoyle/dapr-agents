@@ -228,11 +228,11 @@ class TestMCPIntegrationFailures:
 
 @pytest.fixture(scope="module")
 def weather_mcp_server_2(quickstarts_dir):
-    """Start a second weather MCP server on WEATHER_SERVER_PORT_2."""
+    """Start the second weather MCP server (humidity + wind) on WEATHER_SERVER_PORT_2."""
     proc = subprocess.Popen(
         [
             sys.executable,
-            str(quickstarts_dir / "weather_mcp_server.py"),
+            str(quickstarts_dir / "weather_mcp_server_2.py"),
             "--port",
             str(WEATHER_SERVER_PORT_2),
         ],
@@ -244,7 +244,7 @@ def weather_mcp_server_2(quickstarts_dir):
         proc.terminate()
         proc.wait()
         pytest.fail(
-            f"Second weather_mcp_server.py did not start on port {WEATHER_SERVER_PORT_2} within 10 s"
+            f"weather_mcp_server_2.py did not start on port {WEATHER_SERVER_PORT_2} within 10 s"
         )
     yield proc
     proc.terminate()
@@ -281,11 +281,11 @@ class TestMCPServerConfigVariants:
     ):
         """Agent must discover tools from both MCPServer resources (4 tools total).
 
-        weather-mcp.yaml   → port 8081 → GetWeather + GetForecast
-        weather-mcp-2.yaml → port 8082 → GetWeather + GetForecast
+        weather-mcp.yaml   → port 8081 → get_weather + get_forecast
+        weather-mcp-2.yaml → port 8082 → get_humidity + get_wind
 
-        Both MCPServer resources are loaded by the sidecar; the multi-server
-        quickstart calls connect() for each and reports the combined count.
+        Distinct tool names per server so that auto-discovery does not have to
+        dedup; all four tools should register cleanly.
         """
         result = run_quickstart_or_examples_script(
             self.quickstart_dir / "mcp_dapr_workflow_multi.py",

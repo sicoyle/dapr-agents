@@ -57,14 +57,11 @@ class AgentToolExecutor(BaseModel):
         Args:
             tool (Union[AgentTool, Callable]): The tool to register.
 
-        Duplicate names are not an error: the first registration wins and
-        subsequent attempts log a warning and return.
-
         Raises:
-            AgentToolExecutorError: If converting a callable to an AgentTool fails.
-            TypeError: If ``tool`` is neither a callable nor an :class:`AgentTool`.
+            AgentToolExecutorError: If the tool name is already registered,
+                or if converting a callable to an `AgentTool` fails.
+            TypeError: If ``tool`` is neither a callable nor an `AgentTool`.
         """
-        # Convert callable to AgentTool if needed since we support both Callable and AgentTool instances.
         if callable(tool) and not isinstance(tool, AgentTool):
             try:
                 tool = AgentTool.from_func(tool)
@@ -78,10 +75,10 @@ class AgentToolExecutor(BaseModel):
         if isinstance(tool, AgentTool):
             key = self._normalize(tool.name)
             if key in self._tools_map:
-                logger.warning(
-                    f"Duplicate tool name '{tool.name}' — keeping first registration, skipping subsequent."
+                logger.error(f"Attempted to register duplicate tool: {tool.name}")
+                raise AgentToolExecutorError(
+                    f"Tool '{tool.name}' is already registered."
                 )
-                return
             self._tools_map[key] = tool
             logger.info(f"Tool registered: {tool.name}")
         else:

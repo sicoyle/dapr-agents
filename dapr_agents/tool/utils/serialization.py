@@ -69,14 +69,18 @@ def _unwrap_mcp_call_tool_result(result: Any) -> Any:
     is_error = parsed["isError"]
     content = parsed.get("content")
     if not isinstance(content, list):
-        return "MCP tool call failed" if is_error else result
+        return "MCP tool call failed: no content blocks" if is_error else result
 
     parts = [
         text for item in content if (text := _extract_text_from_content_block(item))
     ]
 
     if is_error:
-        return "Error: " + " ".join(parts) if parts else "MCP tool call failed"
+        return (
+            "Error: " + " ".join(parts)
+            if parts
+            else "MCP tool call failed: no extractable text in content blocks"
+        )
     if parts:
         return "\n".join(parts)
     # Content blocks exist but no text extracted — return raw JSON

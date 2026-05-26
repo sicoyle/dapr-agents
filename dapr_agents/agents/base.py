@@ -544,10 +544,10 @@ class AgentBase:
                         _mcp_val,
                     )
 
-        except TimeoutError:
-            logger.warning(
-                "Dapr sidecar not responding; proceeding without auto-configuration."
-            )
+        except Exception as exc:
+            raise AgentError(
+                f"Failed to bootstrap agent from Dapr sidecar metadata: {exc}"
+            ) from exc
 
         # Wire infrastructure via DaprInfra (composition).
         self._infra = DaprInfra(

@@ -17,13 +17,13 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-05-12T21:07:18.786481Z"
+exclude-newer = "2026-05-19T21:18:52.884884Z"
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
-dapr-ext-workflow = "2026-05-21T05:00:00Z"
-dapr = "2026-05-21T05:00:00Z"
-dapr-ext-fastapi = "2026-05-21T05:00:00Z"
+dapr-ext-workflow = "2026-05-21T00:00:00Z"
+dapr = "2026-05-21T00:00:00Z"
+dapr-ext-fastapi = "2026-05-21T00:00:00Z"
 
 [manifest]
 members = [
@@ -44,7 +44,7 @@ members = [
     "06-agent-mcp-client-stdio",
     "06-agent-mcp-client-streamablehttp",
     "07-data-agent-mcp-chainlit",
-    "10-mcpserver-all-transports",
+    "10-mcpserver",
     "11-expert-agent-tavily",
     "dapr-agents",
     "quickstarts",
@@ -332,9 +332,9 @@ requires-dist = [
 ]
 
 [[package]]
-name = "10-mcpserver-all-transports"
+name = "10-mcpserver"
 version = "0.1.0"
-source = { virtual = "examples/10-mcpserver-all-transports" }
+source = { virtual = "examples/10-mcpserver" }
 dependencies = [
     { name = "dapr-agents" },
     { name = "fastmcp" },

@@ -23,14 +23,18 @@ async def main() -> None:
     agent = DurableAgent(
         name="MultiWeatherAgent",
         role="Weather assistant",
-        goal="Answer weather questions using tools from multiple MCP servers.",
-        instructions=["Use the available tools to look up weather information."],
+        goal="Answer weather questions using the available MCP tools.",
     )
 
     async with AgentRunner() as runner:
         await runner.run(
             agent,
-            payload={"task": "What is the weather in Seattle and New York?"},
+            payload={
+                "task": (
+                    "For Seattle, give me the current weather, the humidity, "
+                    "and the wind conditions."
+                )
+            },
             wait=True,
         )
 

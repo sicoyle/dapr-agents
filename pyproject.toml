@@ -127,6 +127,7 @@ exclude-newer = "7 days"
 dapr = "2026-05-21T00:00:00Z"
 dapr-ext-fastapi = "2026-05-21T00:00:00Z"
 dapr-ext-workflow = "2026-05-21T00:00:00Z"
+durabletask-dapr = "2026-05-21T00:00:00Z"
 
 [project.urls]
 Documentation = "https://github.com/dapr/docs"
@@ -182,6 +183,6 @@ members = [
     "examples/07-data-agent-mcp-chainlit",
     "examples/08-agents-as-activities-observability",
     "examples/09-agents-as-tools",
-    "examples/10-mcpserver-all-transports",
+    "examples/10-mcpserver",
     "examples/11-expert-agent-tavily",
 ]

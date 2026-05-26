@@ -441,11 +441,11 @@ dapr run --app-id mcp-agent --resources-path ./resources -- python mcp_dapr_work
 
 ## Multiple MCP Servers
 
-`mcp_dapr_workflow_multi.py` runs the same agent against two MCP servers. Start two weather server instances on different ports, each in its own terminal:
+`mcp_dapr_workflow_multi.py` runs one agent against two MCPServers, each exposing distinct tools. Start each server in its own terminal:
 
 ```bash
-python weather_mcp_server.py --port 8081   # serves MCPServer "weather"
-python weather_mcp_server.py --port 8082   # serves MCPServer "weather2"
+python weather_mcp_server.py --port 8081     # MCPServer "weather":  get_weather, get_forecast
+python weather_mcp_server_2.py --port 8082   # MCPServer "weather2": get_humidity, get_wind
 ```
 
 Resources are at `resources/weather-mcp.yaml` (`weather` → `:8081`) and `resources/weather-mcp-2.yaml` (`weather2` → `:8082`).
@@ -456,7 +456,7 @@ dapr run --app-id mcp-agent-multi --resources-path ./resources -- python mcp_dap
 
 ## Expected Behavior
 
-The agent answers a weather question by invoking tools from the MCP server(s). In the multi-server case, calls to `get_weather` and `get_forecast` are routed to the correct MCPServer based on tool ownership.
+The agent answers a weather question by invoking the right tool for each sub-question. In the multi-server case the LLM picks `get_weather`/`get_forecast` from the `weather` server and `get_humidity`/`get_wind` from the `weather2` server — tool names are unique across servers, so there's no ambiguity to disambiguate.
 
 ## How This Works
 

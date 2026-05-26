@@ -14,34 +14,29 @@
 apiVersion: dapr.io/v1alpha1
 kind: MCPServer
 metadata:
-  name: dapr-mcp
+  name: weather
 spec:
   catalog:
-    displayName: "Dapr MCP Server"
+    displayName: Weather Service
     description: >
-      Exposes Dapr building-block APIs (state, pub/sub, service invocation,
-      secrets, bindings, actors, conversation, crypto) as MCP tools.
-      Hosted in the Kubernetes cluster alongside the Dapr sidecar.
+      Weather MCP server exposed over SSE on the local network. In
+      production this would typically point to an externally-hosted
+      MCP weather provider.
     owner:
-      team: platform
+      team: integrations
     tags:
-      - dapr
-      - infrastructure
-      - kubernetes
+      - weather
+      - sse
   endpoint:
-    streamableHTTP:
-      # url: http://dapr-mcp-server.default.svc.cluster.local:9092
-      url: http://127.0.0.1:9092
+    sse:
+      url: http://localhost:8081/sse
       protocolVersion: "2025-03-26"
-      timeout: 30s
   middleware:
     beforeCallTool:
       - workflow:
-          workflowName: audit_log_workflow
-          appID: mcp-agent
+          workflowName: rate_limit_workflow
+      - workflow:
+          workflowName: input_validation_workflow
     afterCallTool:
       - workflow:
           workflowName: audit_log_workflow
-          appID: mcp-agent
-scopes:
-  - mcp-agent

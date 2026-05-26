@@ -95,11 +95,15 @@ class AgentRunner(WorkflowRunner):
             return
         try:
             asyncio.get_running_loop()
-            # Already in an event loop — run in a new thread
-            self._run_coro_in_new_loop_thread(self._ensure_mcp_connected(agent))
+            is_in_event_loop = True
         except RuntimeError:
-            # No event loop — safe to use asyncio.run
-            asyncio.run(self._ensure_mcp_connected(agent))
+            is_in_event_loop = False
+
+        coroutine = self._ensure_mcp_connected(agent)
+        if is_in_event_loop:
+            self._run_coro_in_new_loop_thread(coroutine)
+        else:
+            asyncio.run(coroutine)
 
     async def run(
         self,

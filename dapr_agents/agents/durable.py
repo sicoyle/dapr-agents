@@ -3316,7 +3316,12 @@ class DurableAgent(AgentBase):
 
         tools = [mcp_tool_def_to_workflow_tool(td) for td in client.get_all_tools()]
         for tool in tools:
-            self.tool_executor.register_tool(tool)
+            # MCP auto-discovery may run more than once (e.g., a restart that
+            # re-bootstraps the agent). Skip re-registering tools whose names
+            # are already present so the call stays idempotent without masking
+            # genuine collisions elsewhere in the codebase.
+            if self.tool_executor.get_tool(tool.name) is None:
+                self.tool_executor.register_tool(tool)
 
         if tools and self.execution.tool_choice is None:
             self.execution.tool_choice = "auto"
@@ -3330,17 +3335,11 @@ class DurableAgent(AgentBase):
                 len(connected),
                 len(tools),
             )
-        elif connected:
+        else:
             logger.warning(
                 "MCP auto-discovery: connected to %d MCPServer(s) but 0 tools loaded "
                 "(servers may have no tools or allowed_tools filtered all out).",
                 len(connected),
-            )
-        else:
-            logger.error(
-                "MCP auto-discovery: failed to connect to all %d MCPServer(s). "
-                "The agent will run without MCP tools. Check sidecar logs for details.",
-                len(server_names),
             )
 
     def register(self, runtime: wf.WorkflowRuntime) -> None:
