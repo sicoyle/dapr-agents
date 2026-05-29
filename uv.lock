@@ -17,13 +17,14 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-05-19T21:18:52.884884Z"
+exclude-newer = "2026-05-22T14:51:05.846385Z"
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
 dapr-ext-workflow = "2026-05-21T00:00:00Z"
-dapr = "2026-05-21T00:00:00Z"
+durabletask-dapr = "2026-05-21T00:00:00Z"
 dapr-ext-fastapi = "2026-05-21T00:00:00Z"
+dapr = "2026-05-21T00:00:00Z"
 
 [manifest]
 members = [
@@ -1599,9 +1600,9 @@ requires-dist = [
     { name = "chromadb", marker = "extra == 'vectorstore'", specifier = ">=0.4.22,<2.0.0" },
     { name = "cloudevents", specifier = ">=1.11.0,<3.0.0" },
     { name = "colorama", specifier = ">=0.4.6,<1.0.0" },
-    { name = "dapr", specifier = "==1.18.0rc0" },
-    { name = "dapr-ext-fastapi", specifier = "==1.18.0rc0" },
-    { name = "dapr-ext-workflow", specifier = "==1.18.0rc0" },
+    { name = "dapr", specifier = ">=1.18.0rc0,<1.19.0" },
+    { name = "dapr-ext-fastapi", specifier = ">=1.18.0rc0,<1.19.0" },
+    { name = "dapr-ext-workflow", specifier = ">=1.18.0rc0,<1.19.0" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "durabletask-dapr", specifier = "==0.17.4" },
     { name = "fastapi", specifier = ">=0.110.0,<1.0.0" },
