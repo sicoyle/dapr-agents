@@ -28,5 +28,6 @@ jobs:
     uses: dapr/.github/.github/workflows/automerge.yaml@main
     with:
       maintainer-teams: maintainers-dapr-agents
+      merge-via-queue: true
     secrets:
       dapr_bot_token: ${{ secrets.DAPR_BOT_TOKEN }}
